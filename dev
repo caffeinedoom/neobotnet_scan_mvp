@@ -1,0 +1,165 @@
+#!/bin/bash
+
+# ================================================================
+# NeoBot-Net v2 - Simple Development Manager
+# ================================================================
+
+set -e
+
+# Colors
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m'
+
+show_help() {
+    echo -e "${BLUE}NeoBot-Net v2 - Simple Development${NC}"
+    echo -e "${BLUE}==================================${NC}"
+    echo ""
+    echo "Usage: ./dev [command]"
+    echo ""
+    echo "Commands:"
+    echo "  start      Start development environment (backend + frontend + redis)"
+    echo "  stop       Stop all containers"
+    echo "  restart    Restart everything"
+    echo "  logs       Show logs from all services"
+    echo "  status     Show container status"
+    echo "  reset      Fresh start (stop + start)"
+    echo "  test       Start with testing containers included"
+    echo ""
+    echo "Quick access:"
+    echo "  frontend   Open frontend (http://localhost:3000)"
+    echo "  backend    Open backend API docs (http://localhost:8000/docs)"
+    echo "  redis      Open Redis Commander (http://localhost:8081)"
+    echo ""
+}
+
+# Check if Docker is running
+check_docker() {
+    if ! docker info > /dev/null 2>&1; then
+        echo -e "${RED}❌ Docker is not running. Please start Docker first.${NC}"
+        exit 1
+    fi
+}
+
+start() {
+    echo -e "${BLUE}🚀 Starting NeoBot-Net v2 development environment...${NC}"
+    check_docker
+    
+    docker compose up -d redis-commander backend frontend
+    
+    echo -e "${GREEN}✅ Development environment started!${NC}"
+    echo ""
+    echo -e "${BLUE}🌐 Your services:${NC}"
+    echo "  Frontend:        http://localhost:3000"
+    echo "  Backend API:     http://localhost:8000"
+    echo "  API Docs:        http://localhost:8000/docs"
+    echo "  Redis Commander: http://localhost:8081"
+    echo ""
+    echo -e "${YELLOW}💡 Use './dev logs' to monitor output${NC}"
+}
+
+start_with_testing() {
+    echo -e "${BLUE}🧪 Starting with testing containers...${NC}"
+    check_docker
+    
+    docker compose --profile testing up -d
+    
+    echo -e "${GREEN}✅ Development environment with testing containers started!${NC}"
+    echo ""
+    echo -e "${BLUE}🌐 Services + Testing:${NC}"
+    echo "  Frontend:        http://localhost:3000"
+    echo "  Backend API:     http://localhost:8000"
+    echo "  Redis Commander: http://localhost:8081"
+    echo "  Subfinder:       Ready for testing"
+    echo "  SSL Analyzer:    Ready for testing"
+}
+
+stop() {
+    echo -e "${YELLOW}🛑 Stopping development environment...${NC}"
+    docker compose down
+    echo -e "${GREEN}✅ Stopped${NC}"
+}
+
+restart() {
+    echo -e "${YELLOW}🔄 Restarting...${NC}"
+    stop
+    start
+}
+
+logs() {
+    echo -e "${BLUE}📋 Development logs (Ctrl+C to exit):${NC}"
+    docker compose logs -f
+}
+
+status() {
+    echo -e "${BLUE}📊 Container Status:${NC}"
+    docker compose ps
+}
+
+reset() {
+    echo -e "${YELLOW}🔄 Fresh start...${NC}"
+    stop
+    start
+}
+
+open_frontend() {
+    echo -e "${BLUE}🌐 Opening frontend...${NC}"
+    open http://localhost:3000 2>/dev/null || xdg-open http://localhost:3000 2>/dev/null || echo "Open: http://localhost:3000"
+}
+
+open_backend() {
+    echo -e "${BLUE}📖 Opening backend API docs...${NC}"
+    open http://localhost:8000/docs 2>/dev/null || xdg-open http://localhost:8000/docs 2>/dev/null || echo "Open: http://localhost:8000/docs"
+}
+
+open_redis() {
+    echo -e "${BLUE}🔴 Opening Redis Commander...${NC}"
+    open http://localhost:8081 2>/dev/null || xdg-open http://localhost:8081 2>/dev/null || echo "Open: http://localhost:8081"
+}
+
+# Command dispatcher
+case "$1" in
+    start)
+        start
+        ;;
+    stop)
+        stop
+        ;;
+    restart)
+        restart
+        ;;
+    logs)
+        logs
+        ;;
+    status)
+        status
+        ;;
+    reset)
+        reset
+        ;;
+    test)
+        start_with_testing
+        ;;
+    frontend)
+        open_frontend
+        ;;
+    backend)
+        open_backend
+        ;;
+    redis)
+        open_redis
+        ;;
+    help|--help|-h)
+        show_help
+        ;;
+    "")
+        show_help
+        ;;
+    *)
+        echo -e "${RED}❌ Unknown command: $1${NC}"
+        show_help
+        exit 1
+        ;;
+esac

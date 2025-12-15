@@ -1,0 +1,42 @@
+{
+  "summary": {
+    "total_discoveries": 55,
+    "unique_urls": 54,
+    "duplication_rate": "1.8%",
+    "crawl_duration": "5m0s"
+  },
+  "duplicates": {
+    "https://blog.nubank.com.br/": {
+      "times_found": 2,
+      "first_seen": "2025-11-21T21:45:12.266380855Z",
+      "last_seen": "2025-11-21T21:45:32.702721006Z",
+      "status_codes": [
+        200,
+        200
+      ],
+      "reason": "Discovered multiple times (likely self-referential or common navigation)"
+    }
+  },
+  "status_distribution": {
+    "200": 16,
+    "301": 2,
+    "308": 1,
+    "404": 27,
+    "null": 8
+  },
+  "content_type_distribution": {
+    "application/javascript": 1,
+    "application/json": 1,
+    "text/html": 40,
+    "text/plain": 1
+  },
+  "filtering_recommendations": {
+    "self_referential_candidates": 1,
+    "failed_requests": 8,
+    "suggested_filters": [
+      "Deduplicate within scan (1 URLs found multiple times, 1.8% reduction)",
+      "Consider filtering failed requests (8 URLs with null status)",
+      "Store metadata only (no response bodies) to keep database lean"
+    ]
+  }
+}

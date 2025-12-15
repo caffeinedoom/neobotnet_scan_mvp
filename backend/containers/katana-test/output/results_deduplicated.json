@@ -1,0 +1,856 @@
+{
+  "results": [
+    {
+      "url": "https://backend.blog.nubank.com.br/wp-content/uploads/2022/10/F",
+      "url_hash": "1c254b97a1e4506d6459ffb81de3cfc3e9272386fd785178b92c118d2159345d",
+      "method": "GET",
+      "source_url": "https://backend.blog.nubank.com.br/wp-content/uploads/2022/10/nubank_black-friday-2023_header.png?w=1600\u0026q=80",
+      "status_code": null,
+      "content_type": "",
+      "content_length": null,
+      "first_seen_at": "2025-11-21T21:45:04.461590975Z",
+      "last_seen_at": "2025-11-21T21:45:04.461590975Z",
+      "times_discovered": 1,
+      "status_codes": [],
+      "source_urls": []
+    },
+    {
+      "url": "https://backend.blog.nubank.com.br/wp-content/uploads/2022/10/7",
+      "url_hash": "7c64a9a01cc2cb1dca566fa390b0541f880e6d16785504e3b5b83708dc1b624e",
+      "method": "GET",
+      "source_url": "https://backend.blog.nubank.com.br/wp-content/uploads/2022/10/nubank_black-friday-2023_header.png?w=1600\u0026q=80",
+      "status_code": null,
+      "content_type": "",
+      "content_length": null,
+      "first_seen_at": "2025-11-21T21:45:04.784212025Z",
+      "last_seen_at": "2025-11-21T21:45:04.784212025Z",
+      "times_discovered": 1,
+      "status_codes": [],
+      "source_urls": []
+    },
+    {
+      "url": "https://blog.nubank.com.br/",
+      "url_hash": "b4e06a41491fedfaf3114ad3c55beb288c0759ceeb408d71115522b8869b5064",
+      "method": "GET",
+      "source_url": "[seed]",
+      "status_code": 200,
+      "content_type": "text/html; charset=utf-8",
+      "content_length": null,
+      "first_seen_at": "2025-11-21T21:45:12.266380855Z",
+      "last_seen_at": "2025-11-21T21:45:32.702721006Z",
+      "times_discovered": 2,
+      "status_codes": [
+        200,
+        200
+      ],
+      "source_urls": []
+    },
+    {
+      "url": "https://blog.nubank.com.br/_next/static/chunks/Version/",
+      "url_hash": "b7a37c86a32e6f09d879ff5c757df2a308f45e90c499ff3b01d6293848cf1d13",
+      "method": "GET",
+      "source_url": "https://blog.nubank.com.br/_next/static/chunks/8328-3e1d082bb3946768.js",
+      "status_code": 404,
+      "content_type": "text/html; charset=utf-8",
+      "content_length": null,
+      "first_seen_at": "2025-11-21T21:45:18.502042051Z",
+      "last_seen_at": "2025-11-21T21:45:18.502042051Z",
+      "times_discovered": 1,
+      "status_codes": [
+        404
+      ],
+      "source_urls": []
+    },
+    {
+      "url": "https://blog.nubank.com.br/busca/?search",
+      "url_hash": "cee0113993ae4f09b378bd9041e05033d2768a4401c40132aaa69647f3d219bc",
+      "method": "GET",
+      "source_url": "https://blog.nubank.com.br/_next/static/chunks/pages/index-5b194267ffc1f2c1.js",
+      "status_code": 404,
+      "content_type": "text/html; charset=utf-8",
+      "content_length": null,
+      "first_seen_at": "2025-11-21T21:45:24.12422543Z",
+      "last_seen_at": "2025-11-21T21:45:24.12422543Z",
+      "times_discovered": 1,
+      "status_codes": [
+        404
+      ],
+      "source_urls": []
+    },
+    {
+      "url": "https://webapp-proxy-webhooks.nubank.com.br/api/webhooks/raccoon",
+      "url_hash": "2ef374ce54919d84f2147bbd94c384ee40e61de732402200fce16d155452844e",
+      "method": "GET",
+      "source_url": "https://blog.nubank.com.br/_next/static/chunks/pages/index-5b194267ffc1f2c1.js",
+      "status_code": 404,
+      "content_type": "text/plain",
+      "content_length": 9,
+      "first_seen_at": "2025-11-21T21:45:25.850358414Z",
+      "last_seen_at": "2025-11-21T21:45:25.850358414Z",
+      "times_discovered": 1,
+      "status_codes": [
+        404
+      ],
+      "source_urls": []
+    },
+    {
+      "url": "https://blog.nubank.com.br/emprestimo-consignado-nubank/",
+      "url_hash": "792f585f8cec92845f0cb54d08654806c25d3d39f305e48561ef87be81aca72f",
+      "method": "GET",
+      "source_url": "https://blog.nubank.com.br/",
+      "status_code": 301,
+      "content_type": "",
+      "content_length": null,
+      "first_seen_at": "2025-11-21T21:45:39.050990493Z",
+      "last_seen_at": "2025-11-21T21:45:39.050990493Z",
+      "times_discovered": 1,
+      "status_codes": [
+        301
+      ],
+      "source_urls": []
+    },
+    {
+      "url": "https://blog.nubank.com.br/emprestimo-pessoal/",
+      "url_hash": "b00f94dae9e1051dc5975c11fd13250cca56287230446ddaa535d97069d18007",
+      "method": "GET",
+      "source_url": "https://blog.nubank.com.br/",
+      "status_code": 200,
+      "content_type": "text/html; charset=utf-8",
+      "content_length": null,
+      "first_seen_at": "2025-11-21T21:45:45.988454008Z",
+      "last_seen_at": "2025-11-21T21:45:45.988454008Z",
+      "times_discovered": 1,
+      "status_codes": [
+        200
+      ],
+      "source_urls": []
+    },
+    {
+      "url": "https://blog.nubank.com.br/tipos-de-emprestimo-quais-existem-e-como-escolher-o-melhor/",
+      "url_hash": "0feab88f64ef7c97a879b4470be0884157f649cc0bad1f652c153d4d23870334",
+      "method": "GET",
+      "source_url": "https://blog.nubank.com.br/",
+      "status_code": 200,
+      "content_type": "text/html; charset=utf-8",
+      "content_length": null,
+      "first_seen_at": "2025-11-21T21:45:52.616075373Z",
+      "last_seen_at": "2025-11-21T21:45:52.616075373Z",
+      "times_discovered": 1,
+      "status_codes": [
+        200
+      ],
+      "source_urls": []
+    },
+    {
+      "url": "https://blog.nubank.com.br/pontos-turisticos-espanha/",
+      "url_hash": "54edf6bf02bc121317291956a6d71d2065ad2628cbd06f64149d5dabd2cd8d9f",
+      "method": "GET",
+      "source_url": "https://blog.nubank.com.br/",
+      "status_code": 200,
+      "content_type": "text/html; charset=utf-8",
+      "content_length": null,
+      "first_seen_at": "2025-11-21T21:45:59.916517595Z",
+      "last_seen_at": "2025-11-21T21:45:59.916517595Z",
+      "times_discovered": 1,
+      "status_codes": [
+        200
+      ],
+      "source_urls": []
+    },
+    {
+      "url": "https://blog.nubank.com.br/nu-empresas-black-friday/",
+      "url_hash": "11871d306451013b7a984643ba3c4c85a032e2057f54630e2bc37bfe7cfface4",
+      "method": "GET",
+      "source_url": "https://blog.nubank.com.br/",
+      "status_code": 200,
+      "content_type": "text/html; charset=utf-8",
+      "content_length": null,
+      "first_seen_at": "2025-11-21T21:46:06.239789475Z",
+      "last_seen_at": "2025-11-21T21:46:06.239789475Z",
+      "times_discovered": 1,
+      "status_codes": [
+        200
+      ],
+      "source_urls": []
+    },
+    {
+      "url": "https://blog.nubank.com.br/como-cobrar-um-cliente/",
+      "url_hash": "33718214d02da2b6a4a6f8af2a3e307df2ad0040599e7a89d68aeadcf0988b4d",
+      "method": "GET",
+      "source_url": "https://blog.nubank.com.br/",
+      "status_code": 200,
+      "content_type": "text/html; charset=utf-8",
+      "content_length": null,
+      "first_seen_at": "2025-11-21T21:46:13.859122234Z",
+      "last_seen_at": "2025-11-21T21:46:13.859122234Z",
+      "times_discovered": 1,
+      "status_codes": [
+        200
+      ],
+      "source_urls": []
+    },
+    {
+      "url": "https://blog.nubank.com.br/como-aumentar-limite-cartao-nubank/",
+      "url_hash": "dfd44ba6391b25768e9dcf692c2eed5fe5a824df08a18426e6731f386800e0d8",
+      "method": "GET",
+      "source_url": "https://blog.nubank.com.br/",
+      "status_code": 200,
+      "content_type": "text/html; charset=utf-8",
+      "content_length": null,
+      "first_seen_at": "2025-11-21T21:46:20.214454634Z",
+      "last_seen_at": "2025-11-21T21:46:20.214454634Z",
+      "times_discovered": 1,
+      "status_codes": [
+        200
+      ],
+      "source_urls": []
+    },
+    {
+      "url": "https://blog.nubank.com.br/princesas-da-disney-licoes-de-vida/",
+      "url_hash": "ae75c3bacbf77a4929acf95bcd8ad071ada50b5d7afe7e9a80da3f39d98ba1b4",
+      "method": "GET",
+      "source_url": "https://blog.nubank.com.br/",
+      "status_code": 200,
+      "content_type": "text/html; charset=utf-8",
+      "content_length": null,
+      "first_seen_at": "2025-11-21T21:46:27.037296116Z",
+      "last_seen_at": "2025-11-21T21:46:27.037296116Z",
+      "times_discovered": 1,
+      "status_codes": [
+        200
+      ],
+      "source_urls": []
+    },
+    {
+      "url": "https://blog.nubank.com.br/nubank-ultravioleta-animacao-financas/",
+      "url_hash": "d0ece3f0d6ca2a2433f4c9078dc283767c70b75f5872a51fcff2b8cd366a1b58",
+      "method": "GET",
+      "source_url": "https://blog.nubank.com.br/",
+      "status_code": 200,
+      "content_type": "text/html; charset=utf-8",
+      "content_length": null,
+      "first_seen_at": "2025-11-21T21:46:33.677503714Z",
+      "last_seen_at": "2025-11-21T21:46:33.677503714Z",
+      "times_discovered": 1,
+      "status_codes": [
+        200
+      ],
+      "source_urls": []
+    },
+    {
+      "url": "https://blog.nubank.com.br/personagens-friends-dinheiro/",
+      "url_hash": "01a239a5227b03589cb693f0aefeefbadc7954c35a3632d76755f009b4e4ad02",
+      "method": "GET",
+      "source_url": "https://blog.nubank.com.br/",
+      "status_code": 200,
+      "content_type": "text/html; charset=utf-8",
+      "content_length": null,
+      "first_seen_at": "2025-11-21T21:46:39.706840111Z",
+      "last_seen_at": "2025-11-21T21:46:39.706840111Z",
+      "times_discovered": 1,
+      "status_codes": [
+        200
+      ],
+      "source_urls": []
+    },
+    {
+      "url": "https://blog.nubank.com.br/gramado/",
+      "url_hash": "8685a26e5cae1396463ba5889af868e293d9f9b7d9b47ed711842dae58a46712",
+      "method": "GET",
+      "source_url": "https://blog.nubank.com.br/",
+      "status_code": 200,
+      "content_type": "text/html; charset=utf-8",
+      "content_length": 407841,
+      "first_seen_at": "2025-11-21T21:46:44.872588708Z",
+      "last_seen_at": "2025-11-21T21:46:44.872588708Z",
+      "times_discovered": 1,
+      "status_codes": [
+        200
+      ],
+      "source_urls": []
+    },
+    {
+      "url": "https://blog.nubank.com.br/inhotim-museu-brumadinho/",
+      "url_hash": "7963728c92e642bfbe106d6de6260dc1b86698cd24899d415fabfcfb4c63201a",
+      "method": "GET",
+      "source_url": "https://blog.nubank.com.br/",
+      "status_code": 200,
+      "content_type": "text/html; charset=utf-8",
+      "content_length": null,
+      "first_seen_at": "2025-11-21T21:46:52.737875879Z",
+      "last_seen_at": "2025-11-21T21:46:52.737875879Z",
+      "times_discovered": 1,
+      "status_codes": [
+        200
+      ],
+      "source_urls": []
+    },
+    {
+      "url": "https://blog.nubank.com.br/black-friday-passagens-aereas/",
+      "url_hash": "2142a05e3628759943088d7c0a58aa0d3b4ccba9f41f98f11f894aed2ae952f6",
+      "method": "GET",
+      "source_url": "https://blog.nubank.com.br/",
+      "status_code": 200,
+      "content_type": "text/html; charset=utf-8",
+      "content_length": null,
+      "first_seen_at": "2025-11-21T21:46:58.578132487Z",
+      "last_seen_at": "2025-11-21T21:46:58.578132487Z",
+      "times_discovered": 1,
+      "status_codes": [
+        200
+      ],
+      "source_urls": []
+    },
+    {
+      "url": "https://backend.blog.nubank.com.br/wp-content/uploads/2025/10/m",
+      "url_hash": "9357e6e8d6f7404f8bf5779e68a1c6a5dd0ba015631849c6a02db2e1d9459236",
+      "method": "GET",
+      "source_url": "https://backend.blog.nubank.com.br/wp-content/uploads/2025/10/inhotim-fernando-dantas-unsplash-header.jpg?w=828\u0026q=80",
+      "status_code": null,
+      "content_type": "",
+      "content_length": null,
+      "first_seen_at": "2025-11-21T21:46:58.984159125Z",
+      "last_seen_at": "2025-11-21T21:46:58.984159125Z",
+      "times_discovered": 1,
+      "status_codes": [],
+      "source_urls": []
+    },
+    {
+      "url": "https://backend.blog.nubank.com.br/wp-content/uploads/2019/02/HY",
+      "url_hash": "a4f69fa22f8b10302e5f9e00ff565e27d821426b7c781576ec914004fe5cb7aa",
+      "method": "GET",
+      "source_url": "https://backend.blog.nubank.com.br/wp-content/uploads/2019/02/cuidados-pedir-emprestimo-pessoal_header.png?w=1080\u0026q=80",
+      "status_code": null,
+      "content_type": "",
+      "content_length": null,
+      "first_seen_at": "2025-11-21T21:46:59.234150931Z",
+      "last_seen_at": "2025-11-21T21:46:59.234150931Z",
+      "times_discovered": 1,
+      "status_codes": [],
+      "source_urls": []
+    },
+    {
+      "url": "https://backend.blog.nubank.com.br/wp-content/uploads/2019/02/O",
+      "url_hash": "e89a1edde25b923ef9117e684f5ffa8ad2b78df8b50d8aa7e13d42c61deb93dc",
+      "method": "GET",
+      "source_url": "https://backend.blog.nubank.com.br/wp-content/uploads/2019/02/cuidados-pedir-emprestimo-pessoal_header.png?w=1080\u0026q=80",
+      "status_code": null,
+      "content_type": "",
+      "content_length": null,
+      "first_seen_at": "2025-11-21T21:46:59.49607266Z",
+      "last_seen_at": "2025-11-21T21:46:59.49607266Z",
+      "times_discovered": 1,
+      "status_codes": [],
+      "source_urls": []
+    },
+    {
+      "url": "https://backend.blog.nubank.com.br/wp-content/uploads/2019/02/h",
+      "url_hash": "9b0f9975a87c374ef55ae62bc4cd1303eb924f6ea9bfa0ae0e55ff463a298934",
+      "method": "GET",
+      "source_url": "https://backend.blog.nubank.com.br/wp-content/uploads/2019/02/cuidados-pedir-emprestimo-pessoal_header.png?w=1080\u0026q=80",
+      "status_code": null,
+      "content_type": "",
+      "content_length": null,
+      "first_seen_at": "2025-11-21T21:46:59.700840727Z",
+      "last_seen_at": "2025-11-21T21:46:59.700840727Z",
+      "times_discovered": 1,
+      "status_codes": [],
+      "source_urls": []
+    },
+    {
+      "url": "https://backend.blog.nubank.com.br/wp-content/uploads/2019/02/G",
+      "url_hash": "eca3bbaa8dec5520e8bc0f462dd783506ac03907b4938799b3a0c1c98c402efd",
+      "method": "GET",
+      "source_url": "https://backend.blog.nubank.com.br/wp-content/uploads/2019/02/cuidados-pedir-emprestimo-pessoal_header.png?w=1080\u0026q=80",
+      "status_code": null,
+      "content_type": "",
+      "content_length": null,
+      "first_seen_at": "2025-11-21T21:46:59.948329172Z",
+      "last_seen_at": "2025-11-21T21:46:59.948329172Z",
+      "times_discovered": 1,
+      "status_codes": [],
+      "source_urls": []
+    },
+    {
+      "url": "https://blog.nubank.com.br/viagem-e-ponto/",
+      "url_hash": "62e96fcb8440eacd8eca8d3f9e369cf1598d5b55d6816cb0290f8394f2d2af78",
+      "method": "GET",
+      "source_url": "https://blog.nubank.com.br/",
+      "status_code": 301,
+      "content_type": "",
+      "content_length": null,
+      "first_seen_at": "2025-11-21T21:47:06.083679417Z",
+      "last_seen_at": "2025-11-21T21:47:06.083679417Z",
+      "times_discovered": 1,
+      "status_codes": [
+        301
+      ],
+      "source_urls": []
+    },
+    {
+      "url": "https://blog.nubank.com.br/wp/v2/get-teaching-side-home",
+      "url_hash": "83287a51af0e724e00426785795831946add43fac57dab807e553c461b2dd587",
+      "method": "GET",
+      "source_url": "https://blog.nubank.com.br/_next/static/chunks/5898.96fcc775dfb5ec1a.js",
+      "status_code": 404,
+      "content_type": "text/html; charset=utf-8",
+      "content_length": null,
+      "first_seen_at": "2025-11-21T21:47:11.543833885Z",
+      "last_seen_at": "2025-11-21T21:47:11.543833885Z",
+      "times_discovered": 1,
+      "status_codes": [
+        404
+      ],
+      "source_urls": []
+    },
+    {
+      "url": "https://blog.nubank.com.br/ultimas-noticias/",
+      "url_hash": "99192f9a2ba30be16d4919c3f2b617e638f158b4db75503b95274db324190e2b",
+      "method": "GET",
+      "source_url": "https://blog.nubank.com.br/_next/static/chunks/7149.ed8a7193cc16190c.js",
+      "status_code": 200,
+      "content_type": "text/html; charset=utf-8",
+      "content_length": null,
+      "first_seen_at": "2025-11-21T21:47:18.385550815Z",
+      "last_seen_at": "2025-11-21T21:47:18.385550815Z",
+      "times_discovered": 1,
+      "status_codes": [
+        200
+      ],
+      "source_urls": []
+    },
+    {
+      "url": "https://blog.nubank.com.br/wp/v2/last-posts?per_page=4\u0026page=1",
+      "url_hash": "85e638d892e6eacf60bf42a1365584a4f3d91b35cf7989933dbf7fa25f06bb9f",
+      "method": "GET",
+      "source_url": "https://blog.nubank.com.br/_next/static/chunks/7149.ed8a7193cc16190c.js",
+      "status_code": 308,
+      "content_type": "",
+      "content_length": null,
+      "first_seen_at": "2025-11-21T21:47:23.383517646Z",
+      "last_seen_at": "2025-11-21T21:47:23.383517646Z",
+      "times_discovered": 1,
+      "status_codes": [
+        308
+      ],
+      "source_urls": []
+    },
+    {
+      "url": "https://blog.nubank.com.br/wp/v2/get-videos-home",
+      "url_hash": "383f80a7da2b2b52a9e986add96515656dbd89fc9c3fedf5d4a830f9e4cce918",
+      "method": "GET",
+      "source_url": "https://blog.nubank.com.br/_next/static/chunks/2273.a7661561c4a48944.js",
+      "status_code": 404,
+      "content_type": "text/html; charset=utf-8",
+      "content_length": null,
+      "first_seen_at": "2025-11-21T21:47:29.954137521Z",
+      "last_seen_at": "2025-11-21T21:47:29.954137521Z",
+      "times_discovered": 1,
+      "status_codes": [
+        404
+      ],
+      "source_urls": []
+    },
+    {
+      "url": "https://blog.nubank.com.br/wp/v2/get-week-news-home",
+      "url_hash": "9c28601196f804831094cdde0acee65f2420300ae35f59312b8df036a521b9d1",
+      "method": "GET",
+      "source_url": "https://blog.nubank.com.br/_next/static/chunks/96.738f9c86fb34a2d9.js",
+      "status_code": 404,
+      "content_type": "text/html; charset=utf-8",
+      "content_length": null,
+      "first_seen_at": "2025-11-21T21:47:35.073172213Z",
+      "last_seen_at": "2025-11-21T21:47:35.073172213Z",
+      "times_discovered": 1,
+      "status_codes": [
+        404
+      ],
+      "source_urls": []
+    },
+    {
+      "url": "https://backend.blog.nubank.com.br/wp-json",
+      "url_hash": "9aeaafc6c90a442926a46357b71a03886628fc429ca24436cb4388ba407a95e7",
+      "method": "GET",
+      "source_url": "https://blog.nubank.com.br/_next/static/chunks/9751.4faa115651e51afa.js",
+      "status_code": 200,
+      "content_type": "application/json; charset=UTF-8",
+      "content_length": 198,
+      "first_seen_at": "2025-11-21T21:47:41.801412318Z",
+      "last_seen_at": "2025-11-21T21:47:41.801412318Z",
+      "times_discovered": 1,
+      "status_codes": [
+        200
+      ],
+      "source_urls": []
+    },
+    {
+      "url": "https://blog.nubank.com.br/wp/v2/get-featured-post-home",
+      "url_hash": "f21c1cbe5dd3dc8d0c320967b6b69e046b926f0a3bfa260ab8cbdf5ef37690dd",
+      "method": "GET",
+      "source_url": "https://blog.nubank.com.br/_next/static/chunks/2660.2202a8595b11634e.js",
+      "status_code": 404,
+      "content_type": "text/html; charset=utf-8",
+      "content_length": null,
+      "first_seen_at": "2025-11-21T21:47:41.924679604Z",
+      "last_seen_at": "2025-11-21T21:47:41.924679604Z",
+      "times_discovered": 1,
+      "status_codes": [
+        404
+      ],
+      "source_urls": []
+    },
+    {
+      "url": "https://blog.nubank.com.br/_next/static/chunks/pages/index-5b194267ffc1f2c1.js",
+      "url_hash": "8bfcceb53de31d5ac3e4b110e2e8edc5da78ed087a44bc781d4440f53824a885",
+      "method": "GET",
+      "source_url": "[seed]",
+      "status_code": 200,
+      "content_type": "application/javascript; charset=UTF-8",
+      "content_length": 27002,
+      "first_seen_at": "2025-11-21T21:47:48.247040605Z",
+      "last_seen_at": "2025-11-21T21:47:48.247040605Z",
+      "times_discovered": 1,
+      "status_codes": [
+        200
+      ],
+      "source_urls": []
+    },
+    {
+      "url": "https://blog.nubank.com.br/_next/static/bkvJE9nNPe1n6UaixrWxm/static/chunks/pages/sitemap.xml-2f106b7b44568ae0.js",
+      "url_hash": "adc791c2b3f683cbbfeaa8b871d27d801b55768135cb71ed41ca9c28c046ed83",
+      "method": "GET",
+      "source_url": "https://blog.nubank.com.br/_next/static/bkvJE9nNPe1n6UaixrWxm/_buildManifest.js",
+      "status_code": 404,
+      "content_type": "text/html; charset=utf-8",
+      "content_length": null,
+      "first_seen_at": "2025-11-21T21:47:59.636465855Z",
+      "last_seen_at": "2025-11-21T21:47:59.636465855Z",
+      "times_discovered": 1,
+      "status_codes": [
+        404
+      ],
+      "source_urls": []
+    },
+    {
+      "url": "https://blog.nubank.com.br/_next/static/bkvJE9nNPe1n6UaixrWxm/static/chunks/pages/rss.xml-9c279f8c97d0bf9a.js",
+      "url_hash": "c0477a1720d9d1a0d01d48c402a9ab983426b78edbb46fb8e3f94706c3e7d06a",
+      "method": "GET",
+      "source_url": "https://blog.nubank.com.br/_next/static/bkvJE9nNPe1n6UaixrWxm/_buildManifest.js",
+      "status_code": 404,
+      "content_type": "text/html; charset=utf-8",
+      "content_length": null,
+      "first_seen_at": "2025-11-21T21:48:11.162163668Z",
+      "last_seen_at": "2025-11-21T21:48:11.162163668Z",
+      "times_discovered": 1,
+      "status_codes": [
+        404
+      ],
+      "source_urls": []
+    },
+    {
+      "url": "https://blog.nubank.com.br/wp/v2/get-cat-home",
+      "url_hash": "6e8a20f73f0ac133fe226aa202104829474b15eb2fcb5200ac23bba20a3aa207",
+      "method": "GET",
+      "source_url": "https://blog.nubank.com.br/_next/static/chunks/9751.4faa115651e51afa.js",
+      "status_code": null,
+      "content_type": "",
+      "content_length": null,
+      "first_seen_at": "2025-11-21T21:48:12.274049214Z",
+      "last_seen_at": "2025-11-21T21:48:12.274049214Z",
+      "times_discovered": 1,
+      "status_codes": [],
+      "source_urls": []
+    },
+    {
+      "url": "https://blog.nubank.com.br/_next/static/bkvJE9nNPe1n6UaixrWxm/static/chunks/3941-5440545b236e8185.js",
+      "url_hash": "48e156c1ecf60368e824279d5f98d744706ee36ae077a4869390c10fda4b7f10",
+      "method": "GET",
+      "source_url": "https://blog.nubank.com.br/_next/static/bkvJE9nNPe1n6UaixrWxm/_buildManifest.js",
+      "status_code": 404,
+      "content_type": "text/html; charset=utf-8",
+      "content_length": null,
+      "first_seen_at": "2025-11-21T21:48:23.003415908Z",
+      "last_seen_at": "2025-11-21T21:48:23.003415908Z",
+      "times_discovered": 1,
+      "status_codes": [
+        404
+      ],
+      "source_urls": []
+    },
+    {
+      "url": "https://blog.nubank.com.br/_next/static/bkvJE9nNPe1n6UaixrWxm/static/chunks/668-f322e84ecbf2b4f7.js",
+      "url_hash": "27d05982a843b0e89a91cfc022bccb4435872dcf14762293cad6b9c777edad1d",
+      "method": "GET",
+      "source_url": "https://blog.nubank.com.br/_next/static/bkvJE9nNPe1n6UaixrWxm/_buildManifest.js",
+      "status_code": 404,
+      "content_type": "text/html; charset=utf-8",
+      "content_length": null,
+      "first_seen_at": "2025-11-21T21:48:23.952779276Z",
+      "last_seen_at": "2025-11-21T21:48:23.952779276Z",
+      "times_discovered": 1,
+      "status_codes": [
+        404
+      ],
+      "source_urls": []
+    },
+    {
+      "url": "https://blog.nubank.com.br/_next/static/bkvJE9nNPe1n6UaixrWxm/static/chunks/678-ea692ddbaf9561b9.js",
+      "url_hash": "3356f1dd36f268d1228ffeb3c0c1d04aadab511a3d8fcb5c9b70500f482d5384",
+      "method": "GET",
+      "source_url": "https://blog.nubank.com.br/_next/static/bkvJE9nNPe1n6UaixrWxm/_buildManifest.js",
+      "status_code": 404,
+      "content_type": "text/html; charset=utf-8",
+      "content_length": null,
+      "first_seen_at": "2025-11-21T21:48:34.879829092Z",
+      "last_seen_at": "2025-11-21T21:48:34.879829092Z",
+      "times_discovered": 1,
+      "status_codes": [
+        404
+      ],
+      "source_urls": []
+    },
+    {
+      "url": "https://blog.nubank.com.br/_next/static/bkvJE9nNPe1n6UaixrWxm/static/chunks/5404-599dc02301e3ca29.js",
+      "url_hash": "bf598704120deac5820fa5999e482ec488af998b1d2bbc028b605e888d880195",
+      "method": "GET",
+      "source_url": "https://blog.nubank.com.br/_next/static/bkvJE9nNPe1n6UaixrWxm/_buildManifest.js",
+      "status_code": 404,
+      "content_type": "text/html; charset=utf-8",
+      "content_length": null,
+      "first_seen_at": "2025-11-21T21:48:35.769496479Z",
+      "last_seen_at": "2025-11-21T21:48:35.769496479Z",
+      "times_discovered": 1,
+      "status_codes": [
+        404
+      ],
+      "source_urls": []
+    },
+    {
+      "url": "https://blog.nubank.com.br/_next/static/bkvJE9nNPe1n6UaixrWxm/static/chunks/8328-3e1d082bb3946768.js",
+      "url_hash": "a2aa9a1d45e615ea7e6d5daaa841c6aca0bf80cddbbab84682b7a19924f79358",
+      "method": "GET",
+      "source_url": "https://blog.nubank.com.br/_next/static/bkvJE9nNPe1n6UaixrWxm/_buildManifest.js",
+      "status_code": 404,
+      "content_type": "text/html; charset=utf-8",
+      "content_length": null,
+      "first_seen_at": "2025-11-21T21:48:46.665848102Z",
+      "last_seen_at": "2025-11-21T21:48:46.665848102Z",
+      "times_discovered": 1,
+      "status_codes": [
+        404
+      ],
+      "source_urls": []
+    },
+    {
+      "url": "https://blog.nubank.com.br/_next/static/bkvJE9nNPe1n6UaixrWxm/static/chunks/9238-e088259994cdf52a.js",
+      "url_hash": "66f437dda35f039a55c52310021d5e9dfe516cfdb2b32af837a88c527a61919a",
+      "method": "GET",
+      "source_url": "https://blog.nubank.com.br/_next/static/bkvJE9nNPe1n6UaixrWxm/_buildManifest.js",
+      "status_code": 404,
+      "content_type": "text/html; charset=utf-8",
+      "content_length": null,
+      "first_seen_at": "2025-11-21T21:48:47.310134416Z",
+      "last_seen_at": "2025-11-21T21:48:47.310134416Z",
+      "times_discovered": 1,
+      "status_codes": [
+        404
+      ],
+      "source_urls": []
+    },
+    {
+      "url": "https://blog.nubank.com.br/_next/static/bkvJE9nNPe1n6UaixrWxm/static/chunks/7066-d26d2b59afdfcdc8.js",
+      "url_hash": "b71637020b1b334d5d35a8e09d18bbfd69fa7cecfb1dc497036cfdc459bd4f3a",
+      "method": "GET",
+      "source_url": "https://blog.nubank.com.br/_next/static/bkvJE9nNPe1n6UaixrWxm/_buildManifest.js",
+      "status_code": 404,
+      "content_type": "text/html; charset=utf-8",
+      "content_length": null,
+      "first_seen_at": "2025-11-21T21:48:58.383143121Z",
+      "last_seen_at": "2025-11-21T21:48:58.383143121Z",
+      "times_discovered": 1,
+      "status_codes": [
+        404
+      ],
+      "source_urls": []
+    },
+    {
+      "url": "https://blog.nubank.com.br/_next/static/bkvJE9nNPe1n6UaixrWxm/static/chunks/3247-7a136348c3a9726a.js",
+      "url_hash": "ae71c7dec62be0a34ba9f529cc1e00ade5c14b32f934d396cb95f41de709a8ca",
+      "method": "GET",
+      "source_url": "https://blog.nubank.com.br/_next/static/bkvJE9nNPe1n6UaixrWxm/_buildManifest.js",
+      "status_code": 404,
+      "content_type": "text/html; charset=utf-8",
+      "content_length": null,
+      "first_seen_at": "2025-11-21T21:48:59.057188525Z",
+      "last_seen_at": "2025-11-21T21:48:59.057188525Z",
+      "times_discovered": 1,
+      "status_codes": [
+        404
+      ],
+      "source_urls": []
+    },
+    {
+      "url": "https://blog.nubank.com.br/_next/static/bkvJE9nNPe1n6UaixrWxm/static/chunks/1664-5384bf8fb9963953.js",
+      "url_hash": "166768b41fcdb9eaa011a11e2c7f81f726f40e3c3b02ba8fadca0b985fd65924",
+      "method": "GET",
+      "source_url": "https://blog.nubank.com.br/_next/static/bkvJE9nNPe1n6UaixrWxm/_buildManifest.js",
+      "status_code": 404,
+      "content_type": "text/html; charset=utf-8",
+      "content_length": null,
+      "first_seen_at": "2025-11-21T21:49:10.104714524Z",
+      "last_seen_at": "2025-11-21T21:49:10.104714524Z",
+      "times_discovered": 1,
+      "status_codes": [
+        404
+      ],
+      "source_urls": []
+    },
+    {
+      "url": "https://blog.nubank.com.br/_next/static/bkvJE9nNPe1n6UaixrWxm/static/chunks/5675-b5563560f2068f1b.js",
+      "url_hash": "5d82c9a232dc7f242ef6a89a7338ff8a80b207fb15e75cd665da74219c950bd9",
+      "method": "GET",
+      "source_url": "https://blog.nubank.com.br/_next/static/bkvJE9nNPe1n6UaixrWxm/_buildManifest.js",
+      "status_code": 404,
+      "content_type": "text/html; charset=utf-8",
+      "content_length": null,
+      "first_seen_at": "2025-11-21T21:49:10.828274647Z",
+      "last_seen_at": "2025-11-21T21:49:10.828274647Z",
+      "times_discovered": 1,
+      "status_codes": [
+        404
+      ],
+      "source_urls": []
+    },
+    {
+      "url": "https://blog.nubank.com.br/_next/static/bkvJE9nNPe1n6UaixrWxm/static/chunks/8613-6a04814f526de256.js",
+      "url_hash": "fa5eb461026d96047954f0a825a8b8eb6073c6d501acb857c1394ce9fb968831",
+      "method": "GET",
+      "source_url": "https://blog.nubank.com.br/_next/static/bkvJE9nNPe1n6UaixrWxm/_buildManifest.js",
+      "status_code": 404,
+      "content_type": "text/html; charset=utf-8",
+      "content_length": null,
+      "first_seen_at": "2025-11-21T21:49:22.017066856Z",
+      "last_seen_at": "2025-11-21T21:49:22.017066856Z",
+      "times_discovered": 1,
+      "status_codes": [
+        404
+      ],
+      "source_urls": []
+    },
+    {
+      "url": "https://blog.nubank.com.br/_next/static/bkvJE9nNPe1n6UaixrWxm/static/chunks/pages/ultimas-noticias-ff385aff3d8827f5.js",
+      "url_hash": "410aa12b2d3c0431c79f0b6d1b9e913634e9d098db61cee9d848e7ef3c099f11",
+      "method": "GET",
+      "source_url": "https://blog.nubank.com.br/_next/static/bkvJE9nNPe1n6UaixrWxm/_buildManifest.js",
+      "status_code": 404,
+      "content_type": "text/html; charset=utf-8",
+      "content_length": null,
+      "first_seen_at": "2025-11-21T21:49:22.665880905Z",
+      "last_seen_at": "2025-11-21T21:49:22.665880905Z",
+      "times_discovered": 1,
+      "status_codes": [
+        404
+      ],
+      "source_urls": []
+    },
+    {
+      "url": "https://blog.nubank.com.br/_next/static/bkvJE9nNPe1n6UaixrWxm/static/chunks/pages/salvos-f153e3d07f187d3a.js",
+      "url_hash": "00b4e6df8da43fc916126b85ad69fc5af01727147bd2d7d6394f30e33bc527f9",
+      "method": "GET",
+      "source_url": "https://blog.nubank.com.br/_next/static/bkvJE9nNPe1n6UaixrWxm/_buildManifest.js",
+      "status_code": 404,
+      "content_type": "text/html; charset=utf-8",
+      "content_length": null,
+      "first_seen_at": "2025-11-21T21:49:33.701810222Z",
+      "last_seen_at": "2025-11-21T21:49:33.701810222Z",
+      "times_discovered": 1,
+      "status_codes": [
+        404
+      ],
+      "source_urls": []
+    },
+    {
+      "url": "https://blog.nubank.com.br/_next/static/bkvJE9nNPe1n6UaixrWxm/static/chunks/3163-bf9b1e8e0a8d394a.js",
+      "url_hash": "56dcdfb443bb2197e4dea7b43dbc322cb972f869b992cfee18bd549b8ecb78aa",
+      "method": "GET",
+      "source_url": "https://blog.nubank.com.br/_next/static/bkvJE9nNPe1n6UaixrWxm/_buildManifest.js",
+      "status_code": 404,
+      "content_type": "text/html; charset=utf-8",
+      "content_length": null,
+      "first_seen_at": "2025-11-21T21:49:34.447841209Z",
+      "last_seen_at": "2025-11-21T21:49:34.447841209Z",
+      "times_discovered": 1,
+      "status_codes": [
+        404
+      ],
+      "source_urls": []
+    },
+    {
+      "url": "https://blog.nubank.com.br/_next/static/bkvJE9nNPe1n6UaixrWxm/static/chunks/4738-1cb3887b8345817d.js",
+      "url_hash": "3b8b18ff648f528da6154dd60ce0a53026bdbbfd9fc963c3b73c7980281927d2",
+      "method": "GET",
+      "source_url": "https://blog.nubank.com.br/_next/static/bkvJE9nNPe1n6UaixrWxm/_buildManifest.js",
+      "status_code": 404,
+      "content_type": "text/html; charset=utf-8",
+      "content_length": null,
+      "first_seen_at": "2025-11-21T21:49:45.522547684Z",
+      "last_seen_at": "2025-11-21T21:49:45.522547684Z",
+      "times_discovered": 1,
+      "status_codes": [
+        404
+      ],
+      "source_urls": []
+    },
+    {
+      "url": "https://blog.nubank.com.br/_next/static/bkvJE9nNPe1n6UaixrWxm/static/chunks/pages/busca-e139d33c652b3e08.js",
+      "url_hash": "bdba85fc88b5fb78bca0cb2a8bb8b5642ca439ac200773d2436cd95d8e99aeb0",
+      "method": "GET",
+      "source_url": "https://blog.nubank.com.br/_next/static/bkvJE9nNPe1n6UaixrWxm/_buildManifest.js",
+      "status_code": 404,
+      "content_type": "text/html; charset=utf-8",
+      "content_length": null,
+      "first_seen_at": "2025-11-21T21:49:46.254158369Z",
+      "last_seen_at": "2025-11-21T21:49:46.254158369Z",
+      "times_discovered": 1,
+      "status_codes": [
+        404
+      ],
+      "source_urls": []
+    },
+    {
+      "url": "https://blog.nubank.com.br/_next/static/bkvJE9nNPe1n6UaixrWxm/static/chunks/pages/autores-7d8ab9abc5e1c02e.js",
+      "url_hash": "4cf3bc47e0a864aa5ad5e92484bb7ebdd8a73b0a0c4cf9297a69ff2b5c4c8fc2",
+      "method": "GET",
+      "source_url": "https://blog.nubank.com.br/_next/static/bkvJE9nNPe1n6UaixrWxm/_buildManifest.js",
+      "status_code": 404,
+      "content_type": "text/html; charset=utf-8",
+      "content_length": null,
+      "first_seen_at": "2025-11-21T21:49:57.398253805Z",
+      "last_seen_at": "2025-11-21T21:49:57.398253805Z",
+      "times_discovered": 1,
+      "status_codes": [
+        404
+      ],
+      "source_urls": []
+    },
+    {
+      "url": "https://blog.nubank.com.br/_next/static/bkvJE9nNPe1n6UaixrWxm/static/chunks/pages/_error-85094e3a347bebb8.js",
+      "url_hash": "6b756fe126686eac39252e0c9fc0a58bcbf0a931dd98700d066c124f114871d8",
+      "method": "GET",
+      "source_url": "https://blog.nubank.com.br/_next/static/bkvJE9nNPe1n6UaixrWxm/_buildManifest.js",
+      "status_code": 404,
+      "content_type": "text/html; charset=utf-8",
+      "content_length": null,
+      "first_seen_at": "2025-11-21T21:49:58.079642871Z",
+      "last_seen_at": "2025-11-21T21:49:58.079642871Z",
+      "times_discovered": 1,
+      "status_codes": [
+        404
+      ],
+      "source_urls": []
+    }
+  ],
+  "summary": {
+    "total_unique_urls": 54
+  }
+}

@@ -1,0 +1,19 @@
+# Subfinder Provider Configuration
+# This file is REQUIRED even for sources that don't need API keys
+# Without this file, the SDK won't initialize sources and returns 0 results
+
+# Free sources (no API keys required)
+crtsh: []
+alienvault: []
+
+# API-authenticated sources (ACTIVE)
+shodan:
+  - 3ccKv5CFjp6P5nDWWSOJkm88fOJ91Cpt
+
+# API-required sources (disabled until keys are added)
+# virustotal:
+#   - YOUR_VIRUSTOTAL_API_KEY
+# github:
+#   - YOUR_GITHUB_TOKEN
+# chaos:
+#   - YOUR_CHAOS_KEY

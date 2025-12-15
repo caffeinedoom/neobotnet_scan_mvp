@@ -1,0 +1,96 @@
+# ================================================================
+# NeoBot-Net v2 - Simple Local Development
+# ================================================================
+
+# Note: version attribute is no longer needed in modern Docker Compose
+
+services:
+  # ================================================================
+  # Redis Commander - Web UI for debugging (the cool experience!)
+  # ================================================================
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    container_name: neobotnet-redis-commander
+    environment:
+      - REDIS_HOSTS=local:localhost:6379
+    ports:
+      - "8081:8081"
+    network_mode: host
+
+  # ================================================================
+  # Backend API - FastAPI with hot reload
+  # ================================================================
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: neobotnet-backend
+    ports:
+      - "8000:8000"
+    environment:
+      - PROJECT_NAME=neobotnet-v2
+      - ENVIRONMENT=local-dev
+      - DEBUG=true
+      - API_V1_STR=/api/v1
+      - REDIS_HOST=localhost
+      - REDIS_PORT=6379
+      - LOCAL_TESTING=true
+      - MOCK_ECS_TASKS=true
+    env_file:
+      - ./backend/.env.local
+    volumes:
+      - ./backend/app:/app/app:delegated  # Hot reload
+    network_mode: host
+    restart: unless-stopped
+
+  # ================================================================
+  # Frontend - Next.js development server
+  # ================================================================
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+    container_name: neobotnet-frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:8000
+      - NEXT_PUBLIC_LINODE_ENVIRONMENT=http://172.236.127.72:8000  # Uncomment to use VPS IP
+      - NODE_ENV=development
+    volumes:
+      - ./frontend/src:/app/src:delegated
+      - ./frontend/public:/app/public:delegated
+      - /app/node_modules
+    depends_on:
+      - backend
+    network_mode: host
+    restart: unless-stopped
+
+  # ================================================================
+  # Subfinder - On-demand reconnaissance testing
+  # ================================================================
+  subfinder:
+    build:
+      context: ./backend/containers/subfinder
+      dockerfile: Dockerfile
+    container_name: neobotnet-subfinder
+    environment:
+      - REDIS_HOST=localhost
+      - REDIS_PORT=6379
+    network_mode: host
+    profiles:
+      - testing  # Only start when testing
+
+  # ============================================================================
+  # CLEANUP NOTE (2025-10-06): Removed cloud-ssl-analyzer service
+  # ============================================================================
+  # The cloud-ssl-analyzer container was removed as it's not implemented and 
+  # won't be for a while. Only subfinder is currently active.
+  # ============================================================================
+
+networks:
+  neobotnet:
+    driver: bridge
+
+volumes:
+  redis_data:

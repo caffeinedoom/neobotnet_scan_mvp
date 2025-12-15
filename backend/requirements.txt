@@ -1,0 +1,20 @@
+fastapi
+uvicorn[standard]
+supabase
+python-multipart
+python-jose
+passlib
+bcrypt
+pydantic
+pydantic-settings
+email-validator
+httpx
+python-dotenv
+requests
+pytest
+pytest-asyncio
+redis[asyncio,hiredis]>=6.4.0  # Async support for FastAPI + C parser for performance
+boto3
+slowapi
+docker
+websockets 

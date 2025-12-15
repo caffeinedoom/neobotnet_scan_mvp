@@ -1,0 +1,20 @@
+# Terraform files with secrets
+terraform.tfvars
+
+# Terraform state files (already in backend, but just in case)
+*.tfstate
+*.tfstate.*
+
+# Terraform plan files
+*.tfplan
+tfplan*
+
+# Override files
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
+# CLI configuration files
+.terraformrc
+terraform.rc

@@ -1,0 +1,756 @@
+'use client';
+
+import { useState, useEffect, useCallback, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { useAuth } from '@/contexts/AuthContext';
+import { Search, Globe, Copy, Calendar, ArrowLeft, Download, FileText, ChevronLeft, ChevronRight } from 'lucide-react';
+import { toast } from 'sonner';
+
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+
+import { exportSubdomains, ExportFormat, SubdomainExportData } from '@/lib/data-exports';
+// DNS data hooks commented out - not needed for clean subdomain display
+// import { useDNSData, useAssetIdsFromSubdomains } from '@/lib/hooks/useDNSData';
+
+// ================================================================
+// NEW: Pagination Types & Interfaces
+// ================================================================
+
+interface PaginationInfo {
+  total: number;
+  page: number;
+  per_page: number;
+  total_pages: number;
+  has_next: boolean;
+  has_prev: boolean;
+}
+
+interface SubdomainFilters {
+  asset_id?: string;
+  parent_domain?: string;
+  source_module?: string;
+  search?: string;
+}
+
+interface SubdomainWithAssetInfo {
+  id: string;
+  subdomain: string;
+  discovered_at: string;
+  source_module: string;
+  parent_domain: string;
+  scan_job_id: string;
+  asset_id: string;
+  asset_name: string;
+  scan_job_domain: string;
+  scan_job_type: string;
+  scan_job_status: string;
+  scan_job_created_at: string;
+}
+
+interface PaginatedSubdomainResponse {
+  subdomains: SubdomainWithAssetInfo[];
+  pagination: PaginationInfo;
+  filters: SubdomainFilters;
+  stats: Record<string, unknown>;
+}
+
+// ================================================================
+// NEW: Efficient Pagination API Call
+// ================================================================
+
+async function fetchPaginatedSubdomains(params: {
+  page?: number;
+  per_page?: number;
+  asset_id?: string;
+  parent_domain?: string;
+  source_module?: string;
+  search?: string;
+}): Promise<PaginatedSubdomainResponse> {
+  const searchParams = new URLSearchParams();
+  
+  if (params.page) searchParams.append('page', params.page.toString());
+  if (params.per_page) searchParams.append('per_page', params.per_page.toString());
+  if (params.asset_id) searchParams.append('asset_id', params.asset_id);
+  if (params.parent_domain) searchParams.append('parent_domain', params.parent_domain);
+  if (params.source_module) searchParams.append('source_module', params.source_module);
+  if (params.search) searchParams.append('search', params.search);
+
+  // Try new paginated endpoint first, fallback to old endpoint for backward compatibility
+  try {
+    // Import API config to get the proper base URL
+    const { API_BASE_URL } = await import('@/lib/api/config');
+    
+    const response = await fetch(`${API_BASE_URL}/api/v1/assets/subdomains/paginated?${searchParams}`, {
+      credentials: 'include',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    return await response.json();
+     } catch {
+     console.warn('New paginated endpoint not available, using fallback approach');
+    
+    // Fallback: Use existing endpoint with manual pagination
+    // This ensures the page works even if backend hasn't been deployed yet
+    const { assetAPI } = await import('@/lib/api/assets');
+    const limit = params.per_page || 50;
+    const offset = ((params.page || 1) - 1) * limit;
+    
+    const allSubdomains = await assetAPI.getAllUserSubdomains({ 
+      limit: limit + 100, // Get a bit more to estimate total
+      offset: offset 
+    });
+    
+    // Manual filtering for fallback
+    let filtered = allSubdomains;
+    if (params.search) {
+      filtered = filtered.filter(sub => 
+        sub.subdomain.toLowerCase().includes(params.search!.toLowerCase())
+      );
+    }
+    if (params.parent_domain) {
+      filtered = filtered.filter(sub => sub.parent_domain === params.parent_domain);
+    }
+    if (params.source_module) {
+      filtered = filtered.filter(sub => sub.source_module === params.source_module);
+    }
+    
+    // Simulate pagination response
+    const page = params.page || 1;
+    const per_page = params.per_page || 50;
+    const total = Math.min(filtered.length, 1000); // Estimate
+    const total_pages = Math.ceil(total / per_page);
+    
+    return {
+      subdomains: filtered.slice(0, per_page).map(sub => ({
+        ...sub,
+        asset_id: sub.asset_id || '',
+        asset_name: sub.asset_name || '',
+        scan_job_domain: sub.scan_job_domain || sub.parent_domain,
+        scan_job_type: sub.scan_job_type || 'subdomain',
+        scan_job_status: sub.scan_job_status || 'completed',
+        scan_job_created_at: sub.scan_job_created_at || sub.discovered_at,
+      })),
+      pagination: {
+        total,
+        page,
+        per_page,
+        total_pages,
+        has_next: page < total_pages,
+        has_prev: page > 1,
+      },
+      filters: {
+        asset_id: params.asset_id,
+        parent_domain: params.parent_domain,
+        source_module: params.source_module,
+        search: params.search,
+      },
+      stats: {
+        total_assets: 1,
+        filtered_count: filtered.length,
+      }
+    };
+  }
+}
+
+// Component that uses searchParams - needs to be wrapped in Suspense
+function SubdomainsContent() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const { isAuthenticated, isLoading } = useAuth();
+  
+  // ================================================================
+  // NEW: URL-Driven State Management (Single Source of Truth)
+  // ================================================================
+  
+  // All state derived from URL - no useState for filters/pagination
+  const currentPage = parseInt(searchParams.get('page') || '1');
+  const perPage = parseInt(searchParams.get('per_page') || '50');
+  const searchTerm = searchParams.get('search') || '';
+  const selectedDomain = searchParams.get('parent_domain') || 'all';
+  const selectedModule = searchParams.get('source_module') || 'all';  
+  const selectedAsset = searchParams.get('asset') || 'all';
+
+  // Only loading state and data need useState
+  const [subdomainData, setSubdomainData] = useState<PaginatedSubdomainResponse | null>(null);
+  const [isLoadingData, setIsLoadingData] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  
+  // Available filter options (populated from data)
+  const [availableDomains, setAvailableDomains] = useState<string[]>([]);
+  const [availableModules, setAvailableModules] = useState<string[]>([]);
+  const [availableAssets, setAvailableAssets] = useState<{id: string, name: string}[]>([]);
+
+  // ================================================================
+  // DNS Data Integration - DISABLED FOR CLEAN UI
+  // ================================================================
+  
+  // Note: DNS data integration commented out for cleaner subdomain display
+  // Can be re-enabled in the future if needed
+  
+  // Extract unique asset IDs from loaded subdomains
+  // const assetIds = useAssetIdsFromSubdomains(subdomainData?.subdomains || []);
+  
+  // Fetch DNS data for all assets on the current page
+  // const { 
+  //   dnsData, 
+  //   loading: dnsLoading, 
+  //   error: dnsError, 
+  //   refetch: retryDNS 
+  // } = useDNSData(assetIds);
+
+  // ================================================================
+  // NEW: URL Update Helper (Seamless Navigation)
+  // ================================================================
+
+  const updateURL = useCallback((updates: Record<string, string | number | null>) => {
+    const newParams = new URLSearchParams(searchParams.toString());
+    
+    Object.entries(updates).forEach(([key, value]) => {
+      if (value === null || value === '' || value === 'all') {
+        newParams.delete(key);
+      } else {
+        newParams.set(key, value.toString());
+      }
+    });
+
+    // Use replace for seamless navigation (no browser history clutter)
+    router.replace(`/subdomains?${newParams.toString()}`, { scroll: false });
+  }, [router, searchParams]);
+
+  // ================================================================
+  // NEW: Debounced Search Implementation  
+  // ================================================================
+
+  const [debouncedSearch, setDebouncedSearch] = useState(searchTerm);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchTerm);
+    }, 300); // 300ms debounce
+
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
+
+  // ================================================================
+  // NEW: Efficient Data Loading (Fixed - Comprehensive Filter Scope)
+  // ================================================================
+
+  const loadSubdomains = useCallback(async () => {
+    if (!isAuthenticated) return;
+    
+    try {
+      setIsLoadingData(true);
+      setError(null);
+      
+      const response = await fetchPaginatedSubdomains({
+        page: currentPage,
+        per_page: perPage,
+        asset_id: selectedAsset !== 'all' ? selectedAsset : undefined,
+        parent_domain: selectedDomain !== 'all' ? selectedDomain : undefined,
+        source_module: selectedModule !== 'all' ? selectedModule : undefined,
+        search: debouncedSearch || undefined,
+      });
+      
+      setSubdomainData(response);
+      
+      // Note: Filter options now loaded separately for comprehensive scope
+      // No longer building from page-scoped data
+      
+    } catch (err) {
+      console.error('Failed to load subdomains:', err);
+      setError('Failed to load subdomains. Please try again.');
+      toast.error('Failed to load subdomains');
+    } finally {
+      setIsLoadingData(false);
+    }
+  }, [isAuthenticated, currentPage, perPage, selectedAsset, selectedDomain, selectedModule, debouncedSearch]);
+
+  // ================================================================
+  // NEW: Comprehensive Filter Options Loading (Phase 1b Fix)
+  // ================================================================
+
+  const loadFilterOptions = useCallback(async () => {
+    if (!isAuthenticated) return;
+    
+    try {
+      const { API_BASE_URL } = await import('@/lib/api/config');
+      
+      const response = await fetch(`${API_BASE_URL}/api/v1/assets/filter-options`, {
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const filterData = await response.json();
+      
+      // Set comprehensive filter options from ALL user data
+      setAvailableDomains(filterData.domains || []);
+      setAvailableModules(filterData.modules || []); 
+      setAvailableAssets(filterData.assets || []);
+      
+    } catch (err) {
+      console.error('Failed to load filter options:', err);
+      // Don't show error toast for filter options - not critical
+    }
+  }, [isAuthenticated]);
+
+  // Auth redirect
+  useEffect(() => {
+    if (!isAuthenticated && !isLoading) {
+      if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/auth/')) {
+        router.push('/auth/login');
+      }
+    }
+  }, [isAuthenticated, isLoading, router]);
+
+  // Single useEffect for data loading (no conflicts)
+  useEffect(() => {
+    if (isAuthenticated) {
+      loadSubdomains();
+    }
+  }, [isAuthenticated, loadSubdomains]);
+
+  // Load comprehensive filter options once when authenticated
+  useEffect(() => {
+    if (isAuthenticated) {
+      loadFilterOptions();
+    }
+  }, [isAuthenticated, loadFilterOptions]);
+
+  // ================================================================
+  // NEW: Event Handlers (Update URL, Let useEffect Handle Loading)
+  // ================================================================
+
+  const handleSearchChange = (value: string) => {
+    updateURL({ search: value, page: 1 }); // Reset to page 1 for new search
+  };
+
+  const handleFilterChange = (filterType: string, value: string) => {
+    updateURL({ [filterType]: value, page: 1 }); // Reset to page 1 for new filter
+  };
+
+  const handlePageChange = (newPage: number) => {
+    updateURL({ page: newPage });
+  };
+
+  const handlePerPageChange = (newPerPage: number) => {
+    updateURL({ per_page: newPerPage, page: 1 }); // Reset to page 1 for new page size
+  };
+
+  // ================================================================
+  // NEW: Navigation & Utility Functions
+  // ================================================================
+
+  // Get current asset info for navigation context
+  const currentAssetId = selectedAsset !== 'all' ? selectedAsset : null;
+  const currentAssetName = availableAssets.find(asset => asset.id === currentAssetId)?.name;
+
+  const copyToClipboard = async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      toast.success('Copied to clipboard!');
+    } catch {
+      toast.error('Failed to copy to clipboard');
+    }
+  };
+
+  const copyAllVisibleSubdomains = async () => {
+    if (!subdomainData?.subdomains.length) return;
+    
+    const subdomainList = subdomainData.subdomains.map(sub => sub.subdomain).join('\n');
+    await copyToClipboard(subdomainList);
+  };
+
+  const handleExport = async (format: ExportFormat) => {
+    if (!subdomainData?.subdomains.length) {
+      toast.error('No subdomains to export');
+      return;
+    }
+
+    const exportData: SubdomainExportData[] = subdomainData.subdomains.map(sub => ({
+      subdomain: sub.subdomain,
+      domain: sub.parent_domain,
+      discovered_at: new Date(sub.discovered_at).toLocaleDateString(),
+      scan_job_id: sub.scan_job_id
+    }));
+
+    await exportSubdomains(exportData, format);
+  };
+
+  // ================================================================
+  // NEW: Pagination Component
+  // ================================================================
+
+  const PaginationControls = () => {
+    if (!subdomainData?.pagination || subdomainData.pagination.total_pages <= 1) return null;
+
+    const { pagination } = subdomainData;
+    
+    return (
+      <div className="flex items-center justify-between mt-6">
+        <div className="text-sm text-muted-foreground">
+          Showing {((pagination.page - 1) * pagination.per_page) + 1} to{' '}
+          {Math.min(pagination.page * pagination.per_page, pagination.total)} of{' '}
+          {pagination.total} subdomains
+        </div>
+        
+        <div className="flex items-center space-x-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => handlePageChange(pagination.page - 1)}
+            disabled={!pagination.has_prev || isLoadingData}
+          >
+            <ChevronLeft className="h-4 w-4 mr-2" />
+            Previous
+          </Button>
+          
+          <div className="flex items-center space-x-1">
+            {Array.from({ length: Math.min(5, pagination.total_pages) }, (_, i) => {
+              const page = Math.max(1, pagination.page - 2) + i;
+              if (page > pagination.total_pages) return null;
+              
+              return (
+                <Button
+                  key={page}
+                  variant={page === pagination.page ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => handlePageChange(page)}
+                  disabled={isLoadingData}
+                >
+                  {page}
+                </Button>
+              );
+            })}
+          </div>
+          
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => handlePageChange(pagination.page + 1)}
+            disabled={!pagination.has_next || isLoadingData}
+          >
+            Next
+            <ChevronRight className="h-4 w-4 ml-2" />
+          </Button>
+        </div>
+      </div>
+    );
+  };
+
+  // ================================================================
+  // Render Loading States
+  // ================================================================
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return null;
+  }
+
+  // ================================================================
+  // NEW: Improved Main Render
+  // ================================================================
+
+  return (
+    <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-8">
+      <div className="space-y-6">
+        {/* Header with Smart Navigation */}
+        <div className="flex items-center justify-between">
+          <div>
+            {/* Dynamic Back Button */}
+            {currentAssetId && currentAssetName ? (
+              // When filtering by specific asset, show back to asset detail
+              <div className="flex items-center space-x-2 mb-4">
+                <Button 
+                  variant="ghost" 
+                  onClick={() => router.push(`/assets/${currentAssetId}`)}
+                  className="text-muted-foreground hover:text-foreground"
+                >
+                  <ArrowLeft className="h-4 w-4 mr-2" />
+                  Back to {currentAssetName}
+                </Button>
+                <span className="text-muted-foreground">•</span>
+                <Button 
+                  variant="ghost" 
+                  onClick={() => router.push('/dashboard')}
+                  className="text-muted-foreground hover:text-foreground text-sm"
+                >
+                  Dashboard
+                </Button>
+              </div>
+            ) : (
+              // Default: back to dashboard
+              <Button 
+                variant="ghost" 
+                onClick={() => router.push('/dashboard')}
+                className="mb-4"
+              >
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Back to Dashboard
+              </Button>
+            )}
+
+            <div className="flex items-center space-x-3">
+              <Globe className="h-6 w-6 text-primary" />
+              <h1 className="text-3xl font-bold tracking-tight">
+                {currentAssetName ? `${currentAssetName} Subdomains` : 'Discovered Subdomains'}
+                {subdomainData?.pagination.total && (
+                  <span className="text-muted-foreground ml-2 text-2xl">
+                    {subdomainData.pagination.total.toLocaleString()}
+                  </span>
+                )}
+              </h1>
+              {currentAssetId && (
+                <Badge variant="secondary" className="px-2 py-1">
+                  Asset Filter Active
+                </Badge>
+              )}
+            </div>
+            
+            {/* Clean description - only show when filtering by specific asset */}
+            {currentAssetName && (
+              <p className="text-muted-foreground mt-2">
+                Subdomains discovered for {currentAssetName}
+              </p>
+            )}
+          </div>
+        </div>
+
+        {/* Enhanced Filters */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Filters & Search</CardTitle>
+            <CardDescription>
+              Efficiently search and filter through your subdomain discoveries
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-4">
+              {/* Search */}
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search subdomains..."
+                  value={searchTerm}
+                  onChange={(e) => handleSearchChange(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+
+              {/* Asset Filter */}
+              <Select value={selectedAsset} onValueChange={(value) => handleFilterChange('asset', value)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="All Assets" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Assets</SelectItem>
+                  {availableAssets.map(asset => (
+                    <SelectItem key={asset.id} value={asset.id}>{asset.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              {/* Domain Filter */}
+              <Select value={selectedDomain} onValueChange={(value) => handleFilterChange('parent_domain', value)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="All Domains" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Domains</SelectItem>
+                  {availableDomains.map(domain => (
+                    <SelectItem key={domain} value={domain}>{domain}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              {/* Module Filter */}
+              <Select value={selectedModule} onValueChange={(value) => handleFilterChange('source_module', value)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="All Modules" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Modules</SelectItem>
+                  {availableModules.map(module => (
+                    <SelectItem key={module} value={module}>{module}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              {/* Per Page */}
+              <Select value={perPage.toString()} onValueChange={(value) => handlePerPageChange(parseInt(value))}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="25">25 per page</SelectItem>
+                  <SelectItem value="50">50 per page</SelectItem>
+                  <SelectItem value="100">100 per page</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex space-x-2">
+              <Button 
+                onClick={copyAllVisibleSubdomains} 
+                variant="outline"
+                disabled={!subdomainData?.subdomains.length}
+              >
+                <Copy className="h-4 w-4 mr-2" />
+                Copy Visible ({subdomainData?.subdomains.length || 0})
+              </Button>
+              <Button 
+                onClick={() => handleExport(ExportFormat.CSV)} 
+                variant="outline"
+                disabled={!subdomainData?.subdomains.length}
+              >
+                <Download className="h-4 w-4 mr-2" />
+                Export CSV
+              </Button>
+              <Button 
+                onClick={() => handleExport(ExportFormat.JSON)} 
+                variant="outline"
+                disabled={!subdomainData?.subdomains.length}
+              >
+                <FileText className="h-4 w-4 mr-2" />
+                Export JSON
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Subdomains List */}
+        <Card>
+          <CardHeader>
+            <CardTitle>
+              Results
+              {subdomainData?.pagination && (
+                <span className="text-sm font-normal text-muted-foreground ml-2">
+                  (Page {subdomainData.pagination.page} of {subdomainData.pagination.total_pages})
+                </span>
+              )}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {error ? (
+              <div className="text-center py-8">
+                <div className="text-red-500 mb-4">❌ {error}</div>
+                <Button onClick={() => loadSubdomains()}>Try Again</Button>
+              </div>
+            ) : isLoadingData ? (
+              <div className="text-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+                <p className="text-muted-foreground mt-4">Loading subdomains...</p>
+              </div>
+            ) : !subdomainData?.subdomains.length ? (
+              <div className="text-center py-8">
+                <Globe className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                <p className="text-muted-foreground">No subdomains found</p>
+                <p className="text-sm text-muted-foreground">
+                  {searchTerm || selectedDomain !== 'all' || selectedModule !== 'all'
+                    ? 'Try adjusting your filters' 
+                    : 'Run your first scan to discover subdomains'
+                  }
+                </p>
+              </div>
+            ) : (
+              <>
+                <div className="space-y-3">
+                  {subdomainData.subdomains.map((subdomain, index) => (
+                    <div
+                      key={`${subdomain.scan_job_id}-${index}`}
+                      className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors cursor-pointer"
+                      onClick={() => copyToClipboard(subdomain.subdomain)}
+                    >
+                      <div className="flex-1 space-y-2">
+                        {/* Row 1: Subdomain name and badges */}
+                        <div className="flex items-center space-x-3">
+                          <div className="font-mono text-sm font-medium">
+                            {subdomain.subdomain}
+                          </div>
+                          <Badge variant="outline">{subdomain.parent_domain}</Badge>
+                          <Badge variant="secondary">{subdomain.source_module}</Badge>
+                          {subdomain.asset_name && (
+                            <Badge variant="outline">{subdomain.asset_name}</Badge>
+                          )}
+                        </div>
+                        
+                        {/* Row 2: Discovered date */}
+                        <div className="flex items-center space-x-1 text-xs text-muted-foreground">
+                          <Calendar className="h-3 w-3" />
+                          <span>
+                            Discovered {new Date(subdomain.discovered_at).toLocaleDateString()}
+                          </span>
+                        </div>
+                      </div>
+                      
+                      {/* Copy button */}
+                      <div className="flex items-center space-x-2">
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            copyToClipboard(subdomain.subdomain);
+                          }}
+                        >
+                          <Copy className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                
+                <PaginationControls />
+              </>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+}
+
+// Loading component for Suspense fallback
+function SubdomainsLoading() {
+  return (
+    <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-8">
+      <div className="space-y-6">
+        <div className="h-8 bg-muted animate-pulse rounded w-1/4" />
+        <div className="h-4 bg-muted animate-pulse rounded w-1/2" />
+        <div className="h-64 bg-muted animate-pulse rounded" />
+      </div>
+    </div>
+  );
+}
+
+// Main page component with Suspense boundary
+export default function SubdomainsPage() {
+  return (
+    <Suspense fallback={<SubdomainsLoading />}>
+      <SubdomainsContent />
+    </Suspense>
+  );
+}

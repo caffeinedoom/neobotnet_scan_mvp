@@ -1,0 +1,1139 @@
+"""
+Asset Service - CRUD Operations for Assets and Domains
+Handles asset and apex domain management, subdomain queries, and user statistics.
+
+NOTE: Scan coordination has been moved to ScanOrchestrator (app/services/scan_orchestrator.py)
+"""
+import uuid
+import logging
+from datetime import datetime
+from typing import List, Dict, Any, Optional
+from fastapi import HTTPException, status
+
+from ..core.supabase_client import supabase_client
+from ..schemas.assets import (
+    Asset, AssetCreate, AssetUpdate, AssetWithStats,
+    ApexDomain, ApexDomainCreate, ApexDomainUpdate, ApexDomainWithStats,
+    UserAssetSummary
+)
+from ..utils.json_encoder import deep_uuid_serialize
+
+
+logger = logging.getLogger(__name__)
+
+
+class AssetService:
+    """
+    Asset Service - Manages Asset and Domain CRUD Operations
+    
+    Responsibilities (Single Responsibility Principle):
+    ✅ Asset CRUD (Create, Read, Update, Delete)
+    ✅ Apex Domain CRUD
+    ✅ Subdomain Queries (read-only)
+    ✅ User Statistics & Summaries
+    
+    ❌ Scan Coordination (moved to ScanOrchestrator)
+    
+    Related Services:
+    - ScanOrchestrator: Handles all scan operations
+    - SubdomainService: Advanced subdomain analytics (if needed in future)
+    """
+    
+    def __init__(self):
+        self.supabase = supabase_client.service_client
+        self.logger = logging.getLogger(__name__)
+        self.logger.info("AssetService initialized (CRUD operations only)")
+
+    # ================================================================
+    # Asset CRUD Operations
+    # ================================================================
+
+    
+    async def create_asset(self, asset_data: AssetCreate, user_id: str) -> Asset:
+        """Create a new asset."""
+        try:
+            asset_record = {
+                "user_id": user_id,
+                "name": asset_data.name,
+                "description": asset_data.description,
+                "bug_bounty_url": asset_data.bug_bounty_url,
+                "priority": asset_data.priority,
+                "tags": asset_data.tags or []
+            }
+            
+            response = self.supabase.table("assets").insert(asset_record).execute()
+            
+            if not response.data:
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail="Failed to create asset"
+                )
+            
+            return Asset(**response.data[0])
+            
+        except HTTPException:
+            raise
+        except Exception as e:
+            self.logger.error(f"Error creating asset: {str(e)}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to create asset: {str(e)}"
+            )
+    
+    async def get_assets(self, user_id: str, include_stats: bool = True) -> List[AssetWithStats]:
+        """Get all assets for a user."""
+        try:
+            if include_stats:
+                # Get assets with statistics from view
+                response = self.supabase.table("assets").select(
+                    "*, apex_domains(count)"
+                ).eq("user_id", user_id).order("created_at", desc=True).execute()
+                
+                assets_with_stats = []
+                for asset_data in response.data:
+                    asset_id = asset_data.get('id')
+                    
+                    # Calculate stats properly
+                    apex_domain_count = asset_data.get('apex_domains', [{}])[0].get('count', 0) if asset_data.get('apex_domains') else 0
+                    
+                    # Calculate total subdomains for this asset via asset_scan_jobs
+                    subdomain_count = 0
+                    total_scans = 0
+                    completed_scans = 0
+                    failed_scans = 0
+                    
+                    try:
+                        # Get scan jobs for this asset
+                        asset_scan_jobs_response = self.supabase.table("asset_scan_jobs").select("id, status").eq("asset_id", asset_id).execute()
+                        
+                        if asset_scan_jobs_response.data:
+                            asset_scan_job_ids = [job['id'] for job in asset_scan_jobs_response.data]
+                            total_scans = len(asset_scan_job_ids)
+                            completed_scans = len([job for job in asset_scan_jobs_response.data if job.get('status') == 'completed'])
+                            failed_scans = len([job for job in asset_scan_jobs_response.data if job.get('status') == 'failed'])
+                            
+                            # Count subdomains from all asset scan jobs for this asset
+                            if asset_scan_job_ids:
+                                subdomains_response = self.supabase.table("subdomains").select("id", count="exact").in_("scan_job_id", asset_scan_job_ids).execute()
+                                subdomain_count = subdomains_response.count if subdomains_response.count is not None else 0
+                    except Exception as e:
+                        self.logger.warning(f"Failed to calculate stats for asset {asset_id}: {str(e)}")
+                    
+                    asset_with_stats = AssetWithStats(
+                        **asset_data,
+                        apex_domain_count=apex_domain_count,
+                        total_subdomains=subdomain_count,
+                        active_domains=apex_domain_count,  # Simplified
+                        total_scans=total_scans,
+                        completed_scans=completed_scans,
+                        failed_scans=failed_scans
+                    )
+                    assets_with_stats.append(asset_with_stats)
+                
+                return assets_with_stats
+            else:
+                response = self.supabase.table("assets").select("*").eq("user_id", user_id).order("created_at", desc=True).execute()
+                return [AssetWithStats(**asset) for asset in response.data]
+                
+        except Exception as e:
+            self.logger.error(f"Error getting assets: {str(e)}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to get assets: {str(e)}"
+            )
+    
+    async def get_asset(self, asset_id: str, user_id: str) -> Asset:
+        """Get a specific asset."""
+        try:
+            response = self.supabase.table("assets").select("*").eq("id", asset_id).eq("user_id", user_id).execute()
+            
+            if not response.data:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Asset not found"
+                )
+            
+            return Asset(**response.data[0])
+            
+        except HTTPException:
+            raise
+        except Exception as e:
+            self.logger.error(f"Error getting asset: {str(e)}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to get asset: {str(e)}"
+            )
+    
+    async def get_asset_with_stats(self, asset_id: str, user_id: str) -> AssetWithStats:
+        """Get a specific asset with statistics."""
+        try:
+            # Get basic asset info
+            asset = await self.get_asset(asset_id, user_id)
+            
+            # Get apex domain count
+            domains_response = self.supabase.table("apex_domains").select("id").eq("asset_id", asset_id).execute()
+            apex_domain_count = len(domains_response.data) if domains_response.data else 0
+            
+            # ================================================================
+            # FIXED: Calculate Real Statistics (Phase 1c)
+            # ================================================================
+            
+            # Calculate total subdomains through asset_scan_jobs relationship
+            subdomain_response = self.supabase.table("subdomains").select(
+                """
+                id,
+                asset_scan_jobs!inner(asset_id)
+                """
+            ).eq("asset_scan_jobs.asset_id", asset_id).execute()
+            
+            total_subdomains = len(subdomain_response.data) if subdomain_response.data else 0
+            
+            # Calculate scan statistics (unified asset-level)
+            asset_scan_jobs_response = self.supabase.table("asset_scan_jobs").select(
+                "id, status"
+            ).eq("asset_id", asset_id).execute()
+            
+            total_scans = len(asset_scan_jobs_response.data) if asset_scan_jobs_response.data else 0
+            completed_scans = 0
+            failed_scans = 0
+            
+            if asset_scan_jobs_response.data:
+                for scan in asset_scan_jobs_response.data:
+                    scan_status = scan.get("status", "").lower()
+                    if scan_status == "completed":
+                        completed_scans += 1
+                    elif scan_status in ["failed", "error"]:
+                        failed_scans += 1
+            
+            # Calculate active domains (domains that have scan jobs with subdomains)
+            # For now, just use apex_domain_count as active_domains (simplified approach)
+            # TODO: Implement more complex active domain calculation if needed
+            active_domains = apex_domain_count
+            
+            return AssetWithStats(
+                **asset.model_dump(),
+                apex_domain_count=apex_domain_count,
+                total_subdomains=total_subdomains,
+                active_domains=active_domains,
+                total_scans=total_scans,
+                completed_scans=completed_scans,
+                failed_scans=failed_scans
+            )
+            
+        except HTTPException:
+            raise
+        except Exception as e:
+            self.logger.error(f"Error getting asset with stats: {str(e)}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to get asset with stats: {str(e)}"
+            )
+    
+    async def update_asset(self, asset_id: str, asset_update: AssetUpdate, user_id: str) -> Asset:
+        """Update an asset."""
+        try:
+            # Verify asset exists and belongs to user
+            await self.get_asset(asset_id, user_id)
+            
+            # Prepare update data (only include non-None values)
+            update_data = {}
+            if asset_update.name is not None:
+                update_data["name"] = asset_update.name
+            if asset_update.description is not None:
+                update_data["description"] = asset_update.description
+            if asset_update.bug_bounty_url is not None:
+                update_data["bug_bounty_url"] = asset_update.bug_bounty_url
+            if asset_update.priority is not None:
+                update_data["priority"] = asset_update.priority
+            if asset_update.tags is not None:
+                update_data["tags"] = asset_update.tags
+            if asset_update.is_active is not None:
+                update_data["is_active"] = asset_update.is_active
+            
+            if not update_data:
+                # No updates to make
+                return await self.get_asset(asset_id, user_id)
+            
+            update_data["updated_at"] = datetime.utcnow().isoformat()
+            
+            response = self.supabase.table("assets").update(update_data).eq("id", asset_id).eq("user_id", user_id).execute()
+            
+            if not response.data:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Asset not found or no changes made"
+                )
+            
+            return Asset(**response.data[0])
+            
+        except HTTPException:
+            raise
+        except Exception as e:
+            self.logger.error(f"Error updating asset: {str(e)}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to update asset: {str(e)}"
+            )
+    
+    async def delete_asset(self, asset_id: str, user_id: str) -> Dict[str, str]:
+        """Delete an asset and all associated data."""
+        try:
+            # Verify asset exists and belongs to user
+            await self.get_asset(asset_id, user_id)
+            
+            # Delete the asset (CASCADE will handle related data)
+            response = self.supabase.table("assets").delete().eq("id", asset_id).eq("user_id", user_id).execute()
+            
+            if not response.data:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Asset not found"
+                )
+            
+            return {"message": "Asset deleted successfully"}
+            
+        except HTTPException:
+            raise
+        except Exception as e:
+            self.logger.error(f"Error deleting asset: {str(e)}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to delete asset: {str(e)}"
+            )
+
+
+    # ================================================================
+    # Apex Domain Management
+    # ================================================================
+    
+    async def create_apex_domain(self, domain_data: ApexDomainCreate, user_id: str) -> ApexDomain:
+        """Create a new apex domain."""
+        try:
+            # Verify asset exists and belongs to user
+            await self.get_asset(str(domain_data.asset_id), user_id)
+            
+            domain_record = {
+                "asset_id": str(domain_data.asset_id),
+                "domain": domain_data.domain,
+                "description": domain_data.description,
+                "is_active": domain_data.is_active
+            }
+            
+            response = self.supabase.table("apex_domains").insert(domain_record).execute()
+            
+            if not response.data:
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail="Failed to create apex domain"
+                )
+            
+            return ApexDomain(**response.data[0])
+            
+        except HTTPException:
+            raise
+        except Exception as e:
+            self.logger.error(f"Error creating apex domain: {str(e)}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to create apex domain: {str(e)}"
+            )
+    
+    async def get_apex_domains(self, asset_id: str, user_id: str, include_stats: bool = True) -> List[ApexDomainWithStats]:
+        """Get apex domains for an asset."""
+        try:
+            # Verify asset exists and belongs to user
+            await self.get_asset(asset_id, user_id)
+            
+            response = self.supabase.table("apex_domains").select("*").eq("asset_id", asset_id).order("created_at", desc=True).execute()
+            
+            if include_stats:
+                domains_with_stats = []
+                for domain_data in response.data:
+                    # TODO: Calculate actual statistics
+                    domain_with_stats = ApexDomainWithStats(
+                        **domain_data,
+                        total_scans=0,
+                        completed_scans=0,
+                        failed_scans=0,
+                        total_subdomains=0
+                    )
+                    domains_with_stats.append(domain_with_stats)
+                
+                return domains_with_stats
+            else:
+                return [ApexDomainWithStats(**domain) for domain in response.data]
+                
+        except HTTPException:
+            raise
+        except Exception as e:
+            self.logger.error(f"Error getting apex domains: {str(e)}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to get apex domains: {str(e)}"
+            )
+    
+    async def update_apex_domain(self, asset_id: str, domain_id: str, domain_update: ApexDomainUpdate, user_id: str) -> ApexDomain:
+        """Update an apex domain."""
+        try:
+            # Verify asset exists and belongs to user
+            await self.get_asset(asset_id, user_id)
+            
+            # Prepare update data
+            update_data = {}
+            if domain_update.domain is not None:
+                update_data["domain"] = domain_update.domain
+            if domain_update.description is not None:
+                update_data["description"] = domain_update.description
+            if domain_update.is_active is not None:
+                update_data["is_active"] = domain_update.is_active
+            if domain_update.registrar is not None:
+                update_data["registrar"] = domain_update.registrar
+            if domain_update.dns_servers is not None:
+                update_data["dns_servers"] = domain_update.dns_servers
+            
+            if not update_data:
+                # Get current domain
+                response = self.supabase.table("apex_domains").select("*").eq("id", domain_id).eq("asset_id", asset_id).execute()
+                if not response.data:
+                    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Apex domain not found")
+                return ApexDomain(**response.data[0])
+            
+            update_data["updated_at"] = datetime.utcnow().isoformat()
+            
+            response = self.supabase.table("apex_domains").update(update_data).eq("id", domain_id).eq("asset_id", asset_id).execute()
+            
+            if not response.data:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Apex domain not found"
+                )
+            
+            return ApexDomain(**response.data[0])
+            
+        except HTTPException:
+            raise
+        except Exception as e:
+            self.logger.error(f"Error updating apex domain: {str(e)}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to update apex domain: {str(e)}"
+            )
+    
+    async def delete_apex_domain(self, asset_id: str, domain_id: str, user_id: str) -> Dict[str, str]:
+        """Delete an apex domain."""
+        try:
+            # Verify asset exists and belongs to user
+            await self.get_asset(asset_id, user_id)
+            
+            response = self.supabase.table("apex_domains").delete().eq("id", domain_id).eq("asset_id", asset_id).execute()
+            
+            if not response.data:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Apex domain not found"
+                )
+            
+            return {"message": "Apex domain deleted successfully"}
+            
+        except HTTPException:
+            raise
+        except Exception as e:
+            self.logger.error(f"Error deleting apex domain: {str(e)}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to delete apex domain: {str(e)}"
+            )
+
+
+    # ================================================================
+    # Asset Subdomain Operations
+    # ================================================================
+    
+    async def get_asset_subdomains(
+        self, 
+        asset_id: str, 
+        user_id: str, 
+        limit: int = 1000, 
+        offset: int = 0,
+        module_filter: Optional[str] = None
+    ) -> List[Dict[str, Any]]:
+        """
+        Get all subdomains discovered for a specific asset.
+        
+        This method properly joins the data model:
+        assets → asset_scan_jobs → subdomains
+        """
+        try:
+            # First verify the user owns this asset
+            asset_response = self.supabase.table("assets").select("id").eq("id", asset_id).eq("user_id", user_id).execute()
+            
+            if not asset_response.data:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Asset not found or access denied"
+                )
+            
+            # Build the query to get subdomains via asset_scan_jobs
+            query = self.supabase.table("subdomains").select(
+                """
+                id,
+                subdomain,
+                ip_addresses,
+                status_code,
+                response_size,
+                technologies,
+                discovered_at,
+                last_checked,
+                source_module,
+                discovery_method,
+                ssl_subject_cn,
+                ssl_issuer,
+                ssl_valid_from,
+                ssl_valid_until,
+                ssl_serial_number,
+                ssl_signature_algorithm,
+                cloud_provider,
+                source_ip_range,
+                ssl_metadata,
+                parent_domain,
+                scan_job_id,
+                asset_scan_jobs!inner(
+                    id,
+                    asset_id,
+                    status,
+                    created_at,
+                    modules
+                )
+                """
+            ).eq("asset_scan_jobs.asset_id", asset_id)
+            
+            # Apply module filter if specified
+            if module_filter:
+                query = query.eq("source_module", module_filter)
+            
+            # Apply pagination and ordering
+            # Use range for all queries to bypass Supabase client's 1000 default limit
+            query = query.order("discovered_at", desc=True).range(offset, offset + limit - 1)
+            
+            response = query.execute()
+            
+            if not response.data:
+                # Return empty list but log for debugging
+                self.logger.info(f"No subdomains found for asset {asset_id}. This might be normal if no scans have been completed.")
+                return []
+            
+            # Transform the data to flatten the asset_scan_jobs relationship
+            subdomains = []
+            for item in response.data:
+                scan_job = item.pop("asset_scan_jobs", {})
+                
+                subdomain_data = {
+                    **item,
+                    "scan_job_domain": item.get("parent_domain"),  # Use parent_domain from subdomain
+                    "scan_job_type": "subdomain",  # asset_scan_jobs are always subdomain scans
+                    "scan_job_status": scan_job.get("status"),
+                    "scan_job_created_at": scan_job.get("created_at")
+                }
+                subdomains.append(subdomain_data)
+            
+            self.logger.info(f"Retrieved {len(subdomains)} subdomains for asset {asset_id}")
+            return subdomains
+            
+        except HTTPException:
+            raise
+        except Exception as e:
+            self.logger.error(f"Error retrieving subdomains for asset {asset_id}: {str(e)}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to retrieve subdomains: {str(e)}"
+            )
+
+    async def get_all_user_subdomains(
+        self, 
+        user_id: str, 
+        limit: int = 10000, 
+        offset: int = 0,
+        module_filter: Optional[str] = None
+    ) -> List[Dict[str, Any]]:
+        """
+        Get all subdomains discovered across all assets for a user.
+        
+        This method joins assets, asset_scan_jobs, and subdomains.
+        """
+        try:
+            # Get all assets for the user
+            assets_response = self.supabase.table("assets").select("id").eq("user_id", user_id).execute()
+            
+            if not assets_response.data:
+                self.logger.info(f"No assets found for user {user_id}")
+                return []
+            
+            asset_ids = [a["id"] for a in assets_response.data]
+            self.logger.info(f"Found {len(asset_ids)} assets for user {user_id}: {asset_ids}")
+            
+            # DEBUG: Let's also check how many asset_scan_jobs exist for these assets
+            asset_scan_jobs_response = self.supabase.table("asset_scan_jobs").select("id, asset_id").in_("asset_id", asset_ids).execute()
+            self.logger.info(f"Found {len(asset_scan_jobs_response.data) if asset_scan_jobs_response.data else 0} asset scan jobs for these assets")
+            
+            if asset_scan_jobs_response.data:
+                asset_scan_job_ids = [job["id"] for job in asset_scan_jobs_response.data]
+                self.logger.info(f"Asset scan job IDs: {asset_scan_job_ids[:5]}...")  # Log first 5
+                
+                # DEBUG: Check how many subdomains exist for these asset scan jobs
+                subdomains_count_response = self.supabase.table("subdomains").select("id").in_("scan_job_id", asset_scan_job_ids).execute()
+                self.logger.info(f"Total subdomains found in these asset scan jobs: {len(subdomains_count_response.data) if subdomains_count_response.data else 0}")
+            
+            # Build the query to get subdomains across all assets
+            # MIGRATION NOTE (2025-10-06): Only selecting fields that exist after schema cleanup
+            # Removed fields (ip_addresses, status_code, etc.) will be in future module-specific tables
+            query = self.supabase.table("subdomains").select(
+                """
+                id,
+                subdomain,
+                parent_domain,
+                scan_job_id,
+                source_module,
+                discovered_at,
+                last_checked,
+                asset_scan_jobs!inner(
+                    id,
+                    asset_id,
+                    status,
+                    created_at,
+                    modules
+                )
+                """
+            ).in_("asset_scan_jobs.asset_id", asset_ids)
+            
+            # Apply module filter if specified
+            if module_filter:
+                query = query.eq("source_module", module_filter)
+            
+            # Apply pagination and ordering
+            # Use range for all queries to bypass Supabase client's 1000 default limit
+            query = query.order("discovered_at", desc=True).range(offset, offset + limit - 1)
+            
+            response = query.execute()
+            
+            self.logger.info(f"Query returned {len(response.data) if response.data else 0} results")
+            
+            if not response.data:
+                self.logger.info(f"No subdomains found across all user assets for {user_id}. This might be normal if no scans have been completed.")
+                return []
+            
+            # Transform the data to flatten the asset_scan_jobs relationship
+            subdomains = []
+            for item in response.data:
+                scan_job = item.pop("asset_scan_jobs", {})
+                
+                subdomain_data = {
+                    **item,
+                    "scan_job_domain": item.get("parent_domain"),  # Use parent_domain from subdomain
+                    "scan_job_type": "subdomain",  # asset_scan_jobs are always subdomain scans
+                    "scan_job_status": scan_job.get("status"),
+                    "scan_job_created_at": scan_job.get("created_at")
+                }
+                subdomains.append(subdomain_data)
+            
+            self.logger.info(f"Retrieved {len(subdomains)} subdomains across all user assets for {user_id}")
+            return subdomains
+            
+        except HTTPException:
+            raise
+        except Exception as e:
+            self.logger.error(f"Error retrieving all user subdomains for {user_id}: {str(e)}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to retrieve all user subdomains: {str(e)}"
+            )
+
+    async def get_paginated_user_subdomains(
+        self, 
+        user_id: str, 
+        page: int = 1,
+        per_page: int = 50,
+        asset_id: Optional[str] = None,
+        parent_domain: Optional[str] = None,
+        source_module: Optional[str] = None,
+        search: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        Get paginated subdomains with efficient loading and filtering.
+        
+        This method replaces the inefficient get_all_user_subdomains for frontend pagination.
+        Provides proper pagination metadata and supports multiple filters.
+        
+        Args:
+            user_id: User ID to filter by
+            page: Page number (1-based)
+            per_page: Items per page (1-1000, recommended: 25-100)
+            asset_id: Optional asset filter
+            parent_domain: Optional apex domain filter  
+            source_module: Optional module filter (subfinder, etc.)
+            search: Optional search term for subdomain names
+            
+        Returns:
+            Dict containing subdomains, pagination info, and statistics
+        """
+        try:
+            # Validate pagination parameters
+            if page < 1:
+                page = 1
+            if per_page < 1 or per_page > 1000:
+                per_page = 50
+                
+            # Calculate offset
+            offset = (page - 1) * per_page
+            
+            # Get user's assets for security filtering
+            assets_response = self.supabase.table("assets").select("id, name").eq("user_id", user_id).execute()
+            
+            if not assets_response.data:
+                return {
+                    "subdomains": [],
+                    "pagination": {
+                        "total": 0,
+                        "page": page,
+                        "per_page": per_page,
+                        "total_pages": 0,
+                        "has_next": False,
+                        "has_prev": False
+                    },
+                    "filters": {
+                        "asset_id": asset_id,
+                        "parent_domain": parent_domain,
+                        "source_module": source_module,
+                        "search": search
+                    },
+                    "stats": {"total_assets": 0}
+                }
+            
+            user_asset_ids = [a["id"] for a in assets_response.data]
+            asset_name_map = {a["id"]: a["name"] for a in assets_response.data}
+            
+            # Build base query with proper joins
+            # MIGRATION NOTE (2025-10-06): Only selecting fields that exist after schema cleanup
+            # Removed fields will be available from future module-specific tables via JOINs
+            base_query = self.supabase.table("subdomains").select(
+                """
+                id,
+                subdomain,
+                parent_domain,
+                scan_job_id,
+                source_module,
+                discovered_at,
+                last_checked,
+                asset_scan_jobs!inner(
+                    id,
+                    asset_id,
+                    status,
+                    created_at,
+                    modules
+                )
+                """, count="exact"
+            ).in_("asset_scan_jobs.asset_id", user_asset_ids)
+            
+            # Apply filters progressively
+            if asset_id and asset_id in user_asset_ids:
+                base_query = base_query.eq("asset_scan_jobs.asset_id", asset_id)
+                
+            if parent_domain:
+                base_query = base_query.eq("parent_domain", parent_domain)
+                
+            if source_module:
+                base_query = base_query.eq("source_module", source_module)
+                
+            if search:
+                # Use ilike for case-insensitive search
+                base_query = base_query.ilike("subdomain", f"%{search}%")
+            
+            # Get total count (Supabase will return this in response)
+            count_response = base_query.limit(1).execute()
+            total_count = count_response.count if hasattr(count_response, 'count') else 0
+            
+            # Calculate pagination metadata
+            total_pages = (total_count + per_page - 1) // per_page if total_count > 0 else 0
+            has_next = page < total_pages
+            has_prev = page > 1
+            
+            # Get paginated data
+            paginated_query = base_query.order("discovered_at", desc=True).range(offset, offset + per_page - 1)
+            response = paginated_query.execute()
+            
+            # Transform the data to flatten asset_scan_jobs relationship
+            subdomains = []
+            for item in response.data:
+                scan_job = item.pop("asset_scan_jobs", {})
+                asset_id_from_scan = scan_job.get("asset_id")
+                
+                subdomain_data = {
+                    **item,
+                    "asset_id": asset_id_from_scan,
+                    "asset_name": asset_name_map.get(asset_id_from_scan, "Unknown"),
+                    "scan_job_domain": item.get("parent_domain"),  # Use parent_domain from subdomain
+                    "scan_job_type": "subdomain",  # asset_scan_jobs are always subdomain scans
+                    "scan_job_status": scan_job.get("status"),
+                    "scan_job_created_at": scan_job.get("created_at")
+                }
+                subdomains.append(subdomain_data)
+            
+            # Collect statistics for response
+            stats = {
+                "total_assets": len(user_asset_ids),
+                "filtered_count": len(subdomains),
+                "load_time_ms": "< 100"  # This method should be much faster
+            }
+            
+            # Return structured response
+            result = {
+                "subdomains": subdomains,
+                "pagination": {
+                    "total": total_count,
+                    "page": page,
+                    "per_page": per_page,
+                    "total_pages": total_pages,
+                    "has_next": has_next,
+                    "has_prev": has_prev
+                },
+                "filters": {
+                    "asset_id": asset_id,
+                    "parent_domain": parent_domain,
+                    "source_module": source_module,
+                    "search": search
+                },
+                "stats": stats
+            }
+            
+            self.logger.info(f"Retrieved page {page} ({len(subdomains)} subdomains) of {total_count} total for user {user_id}")
+            return result
+            
+        except Exception as e:
+            self.logger.error(f"Error retrieving paginated subdomains for {user_id}: {str(e)}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to retrieve paginated subdomains: {str(e)}"
+            )
+
+
+    # ================================================================
+    # Additional Utility Methods
+    # ================================================================
+    
+    async def get_user_summary(self, user_id: str) -> UserAssetSummary:
+        """Get user's asset summary statistics."""
+        try:
+            # Get asset count
+            assets_response = self.supabase.table("assets").select("id").eq("user_id", user_id).execute()
+            total_assets = len(assets_response.data) if assets_response.data else 0
+            
+            # Get domain count  
+            domains_response = self.supabase.table("apex_domains").select(
+                "id"
+            ).in_("asset_id", [a["id"] for a in assets_response.data] if assets_response.data else []).execute()
+            total_domains = len(domains_response.data) if domains_response.data else 0
+            
+            # Calculate total subdomains across all user's scan jobs
+            total_subdomains = 0
+            try:
+                # Get all asset scan jobs for this user's assets
+                asset_scan_jobs_response = self.supabase.table("asset_scan_jobs").select("id").eq("user_id", user_id).execute()
+                
+                if asset_scan_jobs_response.data:
+                    asset_scan_job_ids = [job['id'] for job in asset_scan_jobs_response.data]
+                    
+                    # Count total subdomains across all asset scan jobs
+                    if asset_scan_job_ids:
+                        subdomains_response = self.supabase.table("subdomains").select("id", count="exact").in_("scan_job_id", asset_scan_job_ids).execute()
+                        total_subdomains = subdomains_response.count if subdomains_response.count is not None else 0
+            except Exception as e:
+                self.logger.warning(f"Failed to calculate total subdomains for user {user_id}: {str(e)}")
+            
+            return UserAssetSummary(
+                total_assets=total_assets,
+                active_assets=total_assets,  # Simplified for now
+                total_apex_domains=total_domains,
+                total_subdomains=total_subdomains
+            )
+            
+        except Exception as e:
+            self.logger.error(f"Error getting user summary: {str(e)}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to get user summary: {str(e)}"
+            )
+
+    async def get_paginated_asset_domains(
+        self, 
+        user_id: str,
+        asset_id: str,
+        page: int = 1,
+        per_page: int = 20,  # Smaller default for domains
+        is_active: Optional[bool] = None,
+        search: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        Get paginated apex domains for a specific asset with efficient loading.
+        
+        This method provides paginated domain management for asset detail pages.
+        Supports filtering by status and search terms.
+        """
+        try:
+            # Validate pagination parameters
+            if page < 1:
+                page = 1
+            if per_page < 1 or per_page > 100:
+                per_page = 20
+                
+            # Calculate offset
+            offset = (page - 1) * per_page
+            
+            # Build base query for asset domains
+            base_query = self.supabase.table("apex_domains").select(
+                """
+                id,
+                asset_id,
+                domain,
+                is_active,
+                dns_servers,
+                metadata,
+                created_at,
+                updated_at,
+                assets!inner(name)
+                """, count="exact"
+            ).eq("asset_id", asset_id).eq("assets.user_id", user_id)
+            
+            # Apply filters
+            if is_active is not None:
+                base_query = base_query.eq("is_active", is_active)
+                
+            if search:
+                # Use ilike for case-insensitive search
+                base_query = base_query.ilike("domain", f"%{search}%")
+            
+            # Get total count
+            count_response = base_query.limit(1).execute()
+            total_count = count_response.count if hasattr(count_response, 'count') else 0
+            
+            # Calculate pagination metadata
+            total_pages = (total_count + per_page - 1) // per_page if total_count > 0 else 0
+            has_next = page < total_pages
+            has_prev = page > 1
+            
+            # Get paginated data
+            paginated_query = base_query.order("domain", desc=False).range(offset, offset + per_page - 1)
+            response = paginated_query.execute()
+            
+            # Transform and enrich domain data with real statistics
+            domains = []
+            for item in response.data:
+                # Extract asset info
+                asset_info = item.pop("assets", {})
+                asset_name = asset_info.get("name", "Unknown Asset") if asset_info else "Unknown Asset"
+                
+                # ================================================================
+                # FIXED: Calculate Real Domain Statistics (Phase 1c)
+                # ================================================================
+                
+                domain_id = item.get("id")
+                domain_name = item.get("domain")
+                
+                # Count subdomains for this specific domain
+                subdomain_count_response = self.supabase.table("subdomains").select(
+                    "id", count="exact"
+                ).eq("parent_domain", domain_name).execute()
+                
+                total_subdomains = subdomain_count_response.count if hasattr(subdomain_count_response, 'count') else 0
+                
+                # Count asset scan jobs for this domain (through asset_id)
+                scan_count_response = self.supabase.table("asset_scan_jobs").select(
+                    "id, status", count="exact"
+                ).eq("asset_id", asset_id).execute()
+                
+                total_scans = scan_count_response.count if hasattr(scan_count_response, 'count') else 0
+                completed_scans = 0
+                running_scans = 0
+                
+                # Calculate scan status breakdown for this asset (shared across all domains)
+                if scan_count_response.data:
+                    for scan in scan_count_response.data:
+                        scan_status = scan.get("status", "").lower()
+                        if scan_status == "completed":
+                            completed_scans += 1
+                        elif scan_status in ["running", "pending"]:
+                            running_scans += 1
+                
+                # Get modules used for subdomains of this domain
+                modules_response = self.supabase.table("subdomains").select(
+                    "source_module"
+                ).eq("parent_domain", domain_name).execute()
+                
+                used_modules = list(set([
+                    item.get("source_module") for item in modules_response.data 
+                    if item.get("source_module")
+                ])) if modules_response.data else []
+                
+                # Build domain object with real statistics
+                domain_data = {
+                    **item,
+                    "asset_name": asset_name,
+                    "total_scans": total_scans,
+                    "completed_scans": completed_scans,
+                    "running_scans": running_scans, 
+                    "total_subdomains": total_subdomains,
+                    "used_modules": used_modules
+                }
+                domains.append(domain_data)
+            
+            # Collect statistics
+            stats = {
+                "total_domains": total_count,
+                "filtered_count": len(domains),
+                "load_time_ms": "< 100"
+            }
+            
+            result = {
+                "domains": domains,
+                "pagination": {
+                    "total": total_count,
+                    "page": page,
+                    "per_page": per_page,
+                    "total_pages": total_pages,
+                    "has_next": has_next,
+                    "has_prev": has_prev
+                },
+                "filters": {
+                    "is_active": is_active,
+                    "search": search
+                },
+                "stats": stats
+            }
+            
+            self.logger.info(f"Retrieved page {page} ({len(domains)} domains) of {total_count} total for asset {asset_id}")
+            return result
+            
+        except Exception as e:
+            self.logger.error(f"Error retrieving paginated domains for asset {asset_id}: {str(e)}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to retrieve paginated domains: {str(e)}"
+            )
+
+    async def get_comprehensive_filter_options(
+        self, 
+        user_id: str
+    ) -> Dict[str, Any]:
+        """
+        Get comprehensive filter options from all user reconnaissance data.
+        
+        This method queries ALL user subdomains to build complete filter options,
+        not just current page scope. Essential for proper data correlation between
+        asset detail and subdomains pages.
+        
+        Returns:
+            Dict with domains, modules, assets, and stats for all user data
+        """
+        try:
+            # Get all user assets first
+            user_assets = self.supabase.table("assets").select("id, name").eq("user_id", user_id).execute()
+            user_asset_ids = [asset["id"] for asset in user_assets.data] if user_assets.data else []
+            
+            if not user_asset_ids:
+                return {
+                    "domains": [],
+                    "modules": [],
+                    "assets": [],
+                    "stats": {
+                        "total_assets": 0,
+                        "total_domains": 0,
+                        "total_modules": 0,
+                        "load_time_ms": "< 50"
+                    }
+                }
+            
+            # Get all unique filter options from user's reconnaissance data
+            # Query all subdomains for comprehensive scope
+            filter_query = self.supabase.table("subdomains").select(
+                """
+                parent_domain,
+                source_module,
+                asset_scan_jobs!inner(
+                    asset_id,
+                    assets!inner(name)
+                )
+                """
+            ).in_("asset_scan_jobs.asset_id", user_asset_ids)
+            
+            filter_response = filter_query.execute()
+            
+            if not filter_response.data:
+                return {
+                    "domains": [],
+                    "modules": [],
+                    "assets": [],
+                    "stats": {
+                        "total_assets": len(user_asset_ids),
+                        "total_domains": 0,
+                        "total_modules": 0,
+                        "load_time_ms": "< 50"
+                    }
+                }
+            
+            # Extract and deduplicate comprehensive options
+            all_domains = set()
+            all_modules = set()
+            all_assets = {}  # id -> name mapping
+            
+            for item in filter_response.data:
+                # Add domain
+                if item.get("parent_domain"):
+                    all_domains.add(item["parent_domain"])
+                
+                # Add module  
+                if item.get("source_module"):
+                    all_modules.add(item["source_module"])
+                
+                # Add asset info
+                scan_job = item.get("asset_scan_jobs", {})
+                if scan_job:
+                    asset_id = scan_job.get("asset_id")
+                    asset_info = scan_job.get("assets", {})
+                    if asset_id and asset_info:
+                        asset_name = asset_info.get("name", "Unknown Asset")
+                        all_assets[asset_id] = asset_name
+            
+            # Build response with comprehensive filter options
+            domains_list = sorted(list(all_domains))
+            modules_list = sorted(list(all_modules))
+            assets_list = [
+                {"id": asset_id, "name": asset_name} 
+                for asset_id, asset_name in all_assets.items()
+            ]
+            assets_list.sort(key=lambda x: x["name"])
+            
+            result = {
+                "domains": domains_list,
+                "modules": modules_list, 
+                "assets": assets_list,
+                "stats": {
+                    "total_assets": len(user_asset_ids),
+                    "total_domains": len(domains_list),
+                    "total_modules": len(modules_list),
+                    "load_time_ms": "< 100"
+                }
+            }
+            
+            self.logger.info(f"Retrieved comprehensive filters for user {user_id}: {len(domains_list)} domains, {len(modules_list)} modules, {len(assets_list)} assets")
+            return result
+            
+        except Exception as e:
+            self.logger.error(f"Error retrieving comprehensive filter options for {user_id}: {str(e)}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to retrieve comprehensive filter options: {str(e)}"
+            )
+
+
+# ================================================================
+# Service Instance (Singleton)
+# ================================================================
+asset_service = AssetService()

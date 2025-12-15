@@ -1,0 +1,67 @@
+{
+  "family": "neobotnet-v2-dev-dnsx-batch",
+  "taskRoleArn": "arn:aws:iam::108457888166:role/neobotnet-v2-dev-ecs-task-role",
+  "executionRoleArn": "arn:aws:iam::108457888166:role/neobotnet-v2-dev-ecs-task-execution-role",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "256",
+  "memory": "512",
+  "containerDefinitions": [
+    {
+      "name": "dnsx-scanner",
+      "image": "108457888166.dkr.ecr.us-east-1.amazonaws.com/neobotnet-v2-dnsx:latest",
+      "essential": true,
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/neobotnet-v2-dnsx",
+          "awslogs-region": "us-east-1",
+          "awslogs-stream-prefix": "dnsx"
+        }
+      },
+      "environment": [
+        {
+          "name": "MODULE_TYPE",
+          "value": "dnsx"
+        },
+        {
+          "name": "BATCH_MODE",
+          "value": "true"
+        },
+        {
+          "name": "LOG_LEVEL",
+          "value": "info"
+        },
+        {
+          "name": "HEALTH_CHECK_ENABLED",
+          "value": "true"
+        },
+        {
+          "name": "REDIS_HOST",
+          "value": "neobotnet-v2-dev-redis.ip26gs.0001.use1.cache.amazonaws.com"
+        },
+        {
+          "name": "REDIS_PORT",
+          "value": "6379"
+        }
+      ],
+      "secrets": [
+        {
+          "name": "SUPABASE_URL",
+          "valueFrom": "arn:aws:ssm:us-east-1:108457888166:parameter/neobotnet-v2-dev/supabase-url"
+        },
+        {
+          "name": "SUPABASE_SERVICE_ROLE_KEY",
+          "valueFrom": "arn:aws:ssm:us-east-1:108457888166:parameter/neobotnet-v2-dev/supabase-service-role-key"
+        }
+      ],
+      "healthCheck": {
+        "command": ["CMD-SHELL", "/app/health-check.sh || exit 1"],
+        "interval": 30,
+        "timeout": 15,
+        "retries": 3,
+        "startPeriod": 10
+      }
+    }
+  ]
+}
