@@ -1,22 +1,5 @@
-import axios from 'axios';
-import { API_BASE_URL, API_ENDPOINTS } from './config';
-
-// Create axios instance with cookie-based auth
-const api = axios.create({
-  baseURL: API_BASE_URL,
-  headers: {
-    'Content-Type': 'application/json',
-  },
-  withCredentials: true, // Enable cookie-based authentication
-});
-
-// Response interceptor to handle auth errors
-api.interceptors.response.use(
-  (response) => response,
-  (error) => {
-    return Promise.reject(error);
-  }
-);
+import { apiClient } from './client';
+import { API_ENDPOINTS } from './config';
 
 // ================================================================
 // Unified Reconnaissance Data Types
@@ -136,7 +119,7 @@ class ReconDataService {
     console.log('🚀 ReconDataService: Fetching fresh data from unified endpoint');
     
     try {
-      const response = await api.get(API_ENDPOINTS.USAGE.RECON_DATA);
+      const response = await apiClient.get(API_ENDPOINTS.USAGE.RECON_DATA);
       const data: ReconData = response.data;
       
       // Update cache

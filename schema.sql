@@ -2312,6 +2312,86 @@ ALTER TABLE ONLY "public"."user_usage"
 
 
 
+CREATE POLICY "Authenticated users can read all DNS records" ON "public"."dns_records" FOR SELECT USING ((("auth"."role"() = 'authenticated'::"text") OR ("auth"."role"() = 'service_role'::"text")));
+
+
+
+COMMENT ON POLICY "Authenticated users can read all DNS records" ON "public"."dns_records" IS 'LEAN model: All authenticated users can read all reconnaissance data. Part of public data sharing for bug bounty researchers.';
+
+
+
+CREATE POLICY "Authenticated users can read all HTTP probes" ON "public"."http_probes" FOR SELECT USING ((("auth"."role"() = 'authenticated'::"text") OR ("auth"."role"() = 'service_role'::"text")));
+
+
+
+COMMENT ON POLICY "Authenticated users can read all HTTP probes" ON "public"."http_probes" IS 'LEAN model: All authenticated users can read all reconnaissance data. Part of public data sharing for bug bounty researchers.';
+
+
+
+CREATE POLICY "Authenticated users can read all assets" ON "public"."assets" FOR SELECT USING ((("auth"."role"() = 'authenticated'::"text") OR ("auth"."role"() = 'service_role'::"text")));
+
+
+
+COMMENT ON POLICY "Authenticated users can read all assets" ON "public"."assets" IS 'LEAN model: All authenticated users can read all reconnaissance data. Part of public data sharing for bug bounty researchers.';
+
+
+
+CREATE POLICY "Authenticated users can read all batch scans" ON "public"."batch_scan_jobs" FOR SELECT USING ((("auth"."role"() = 'authenticated'::"text") OR ("auth"."role"() = 'service_role'::"text")));
+
+
+
+CREATE POLICY "Authenticated users can read all domains" ON "public"."apex_domains" FOR SELECT USING ((("auth"."role"() = 'authenticated'::"text") OR ("auth"."role"() = 'service_role'::"text")));
+
+
+
+CREATE POLICY "Authenticated users can read all scan jobs" ON "public"."asset_scan_jobs" FOR SELECT USING ((("auth"."role"() = 'authenticated'::"text") OR ("auth"."role"() = 'service_role'::"text")));
+
+
+
+CREATE POLICY "Authenticated users can read all subdomains" ON "public"."subdomains" FOR SELECT USING ((("auth"."role"() = 'authenticated'::"text") OR ("auth"."role"() = 'service_role'::"text")));
+
+
+
+COMMENT ON POLICY "Authenticated users can read all subdomains" ON "public"."subdomains" IS 'LEAN model: All authenticated users can read all reconnaissance data. Part of public data sharing for bug bounty researchers.';
+
+
+
+CREATE POLICY "Authenticated users can read module profiles" ON "public"."scan_module_profiles" FOR SELECT USING ((("auth"."role"() = 'authenticated'::"text") OR ("auth"."role"() = 'service_role'::"text")));
+
+
+
+CREATE POLICY "Service role can manage DNS records" ON "public"."dns_records" USING (("auth"."role"() = 'service_role'::"text")) WITH CHECK (("auth"."role"() = 'service_role'::"text"));
+
+
+
+CREATE POLICY "Service role can manage HTTP probes" ON "public"."http_probes" USING (("auth"."role"() = 'service_role'::"text")) WITH CHECK (("auth"."role"() = 'service_role'::"text"));
+
+
+
+CREATE POLICY "Service role can manage assets" ON "public"."assets" USING (("auth"."role"() = 'service_role'::"text")) WITH CHECK (("auth"."role"() = 'service_role'::"text"));
+
+
+
+CREATE POLICY "Service role can manage batch scans" ON "public"."batch_scan_jobs" USING (("auth"."role"() = 'service_role'::"text")) WITH CHECK (("auth"."role"() = 'service_role'::"text"));
+
+
+
+CREATE POLICY "Service role can manage domains" ON "public"."apex_domains" USING (("auth"."role"() = 'service_role'::"text")) WITH CHECK (("auth"."role"() = 'service_role'::"text"));
+
+
+
+CREATE POLICY "Service role can manage module profiles" ON "public"."scan_module_profiles" USING (("auth"."role"() = 'service_role'::"text")) WITH CHECK (("auth"."role"() = 'service_role'::"text"));
+
+
+
+CREATE POLICY "Service role can manage scan jobs" ON "public"."asset_scan_jobs" USING (("auth"."role"() = 'service_role'::"text")) WITH CHECK (("auth"."role"() = 'service_role'::"text"));
+
+
+
+CREATE POLICY "Service role can manage subdomains" ON "public"."subdomains" USING (("auth"."role"() = 'service_role'::"text")) WITH CHECK (("auth"."role"() = 'service_role'::"text"));
+
+
+
 CREATE POLICY "Service role full access batch assignments" ON "public"."batch_domain_assignments" USING (("auth"."role"() = 'service_role'::"text"));
 
 
@@ -2366,10 +2446,6 @@ CREATE POLICY "Users can delete own API keys" ON "public"."api_keys" FOR DELETE 
 
 
 
-CREATE POLICY "Users can delete own assets" ON "public"."assets" FOR DELETE USING (("auth"."uid"() = "user_id"));
-
-
-
 CREATE POLICY "Users can delete own batch scans" ON "public"."batch_scan_jobs" FOR DELETE USING (("auth"."uid"() = "user_id"));
 
 
@@ -2390,10 +2466,6 @@ CREATE POLICY "Users can insert apex domains for own assets" ON "public"."apex_d
 
 
 
-CREATE POLICY "Users can insert own assets" ON "public"."assets" FOR INSERT WITH CHECK (("auth"."uid"() = "user_id"));
-
-
-
 CREATE POLICY "Users can insert own subdomains" ON "public"."subdomains" FOR INSERT WITH CHECK ((EXISTS ( SELECT 1
    FROM "public"."asset_scan_jobs"
   WHERE (("asset_scan_jobs"."id" = "subdomains"."scan_job_id") AND ("asset_scan_jobs"."user_id" = "auth"."uid"())))));
@@ -2409,14 +2481,6 @@ CREATE POLICY "Users can update apex domains of own assets" ON "public"."apex_do
 
 
 CREATE POLICY "Users can update own API keys" ON "public"."api_keys" FOR UPDATE USING (("user_id" = "auth"."uid"()));
-
-
-
-CREATE POLICY "Users can update own assets" ON "public"."assets" FOR UPDATE USING (("auth"."uid"() = "user_id")) WITH CHECK (("auth"."uid"() = "user_id"));
-
-
-
-CREATE POLICY "Users can update own batch scans" ON "public"."batch_scan_jobs" FOR UPDATE USING (("auth"."uid"() = "user_id"));
 
 
 
@@ -2448,27 +2512,13 @@ CREATE POLICY "Users can view own API keys" ON "public"."api_keys" FOR SELECT US
 
 
 
-CREATE POLICY "Users can view own assets" ON "public"."assets" FOR SELECT USING (("auth"."uid"() = "user_id"));
-
-
-
 CREATE POLICY "Users can view own batch domain assignments" ON "public"."batch_domain_assignments" FOR SELECT USING ((EXISTS ( SELECT 1
    FROM "public"."batch_scan_jobs"
   WHERE (("batch_scan_jobs"."id" = "batch_domain_assignments"."batch_scan_id") AND ("batch_scan_jobs"."user_id" = "auth"."uid"())))));
 
 
 
-CREATE POLICY "Users can view own batch scans" ON "public"."batch_scan_jobs" FOR SELECT USING (("auth"."uid"() = "user_id"));
-
-
-
 CREATE POLICY "Users can view own quotas" ON "public"."user_quotas" FOR SELECT USING (("auth"."uid"() = "user_id"));
-
-
-
-CREATE POLICY "Users can view own subdomains" ON "public"."subdomains" FOR SELECT USING ((EXISTS ( SELECT 1
-   FROM "public"."asset_scan_jobs"
-  WHERE (("asset_scan_jobs"."id" = "subdomains"."scan_job_id") AND ("asset_scan_jobs"."user_id" = "auth"."uid"())))));
 
 
 

@@ -1,28 +1,52 @@
 // API Configuration - Dynamic backend URL detection
 function getBackendURL(): string {
-  // If we have explicit environment variables, use them
-  if (process.env.NEXT_PUBLIC_LINODE_ENVIRONMENT) {
-    return process.env.NEXT_PUBLIC_LINODE_ENVIRONMENT;
-  }
+  // Priority 1: Explicit API URL from environment
   if (process.env.NEXT_PUBLIC_API_URL) {
     return process.env.NEXT_PUBLIC_API_URL;
   }
   
-  // For client-side, detect backend URL based on current host
+  // Priority 2: Legacy Linode environment variable
+  if (process.env.NEXT_PUBLIC_LINODE_ENVIRONMENT) {
+    return process.env.NEXT_PUBLIC_LINODE_ENVIRONMENT;
+  }
+  
+  // Priority 3: For local development
   if (typeof window !== 'undefined') {
     const currentHost = window.location.hostname;
     
-    // If accessing via IP address, use the same IP for backend
-    if (currentHost !== 'localhost' && currentHost !== '127.0.0.1') {
+    // Local development - use localhost backend
+    if (currentHost === 'localhost' || currentHost === '127.0.0.1') {
+      return 'http://localhost:8000';
+    }
+    
+    // IP-based access (e.g., Linode direct)
+    const ipPattern = /^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/;
+    if (ipPattern.test(currentHost)) {
       return `http://${currentHost}:8000`;
     }
+    
+    // IMPORTANT: For Vercel/production deployments, API_URL MUST be set
+    // If we reach here in production without NEXT_PUBLIC_API_URL, 
+    // log a warning and return empty to avoid wrong host requests
+    console.warn(
+      '⚠️ No NEXT_PUBLIC_API_URL configured. API calls will fail in production.',
+      'Please set NEXT_PUBLIC_API_URL in Vercel environment variables.'
+    );
   }
   
-  // Default fallback
+  // Default fallback for local dev
   return 'http://localhost:8000';
 }
 
 export const API_BASE_URL = getBackendURL();
+
+// Log API configuration for debugging
+if (typeof window !== 'undefined') {
+  console.log('🔧 API Configuration:', {
+    API_BASE_URL,
+    hasEnvVar: !!process.env.NEXT_PUBLIC_API_URL
+  });
+}
 export const API_VERSION = 'v1';
 
 // API Endpoints

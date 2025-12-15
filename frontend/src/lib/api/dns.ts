@@ -1,5 +1,6 @@
 import axios from 'axios';
-import { API_BASE_URL, API_ENDPOINTS } from './config';
+import { apiClient } from './client';
+import { API_ENDPOINTS } from './config';
 import type {
   DNSRecord,
   DNSRecordListResponse,
@@ -9,29 +10,6 @@ import type {
   DNSFetchOptions,
   DNSRecordType,
 } from '@/types/dns';
-
-// Create axios instance with cookie-based auth
-const api = axios.create({
-  baseURL: API_BASE_URL,
-  headers: {
-    'Content-Type': 'application/json',
-  },
-  withCredentials: true, // Enable cookie-based authentication
-});
-
-// Response interceptor to handle auth errors
-api.interceptors.response.use(
-  (response) => response,
-  (error) => {
-    // Handle 401 unauthorized by redirecting to login
-    if (error.response?.status === 401) {
-      if (typeof window !== 'undefined') {
-        window.location.href = '/auth/login';
-      }
-    }
-    return Promise.reject(error);
-  }
-);
 
 // ================================================================
 // DNS Service with Smart Caching
@@ -86,7 +64,7 @@ class DNSService {
       }
 
       // Create the request promise
-      const requestPromise = api.get<DNSRecordListResponse>(url).then((response) => response.data);
+      const requestPromise = apiClient.get<DNSRecordListResponse>(url).then((response) => response.data);
       
       // Store it to prevent duplicate requests
       this.pendingRequests.set(requestKey, requestPromise);
@@ -119,7 +97,7 @@ class DNSService {
   async fetchDNSRecordById(recordId: string): Promise<DNSRecord> {
     try {
       const endpoint = API_ENDPOINTS.DNS.RECORD_BY_ID(recordId);
-      const response = await api.get<DNSRecord>(endpoint);
+      const response = await apiClient.get<DNSRecord>(endpoint);
       return response.data;
     } catch (error) {
       if (axios.isAxiosError(error)) {

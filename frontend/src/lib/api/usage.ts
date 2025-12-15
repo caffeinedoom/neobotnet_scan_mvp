@@ -1,22 +1,5 @@
-import axios from 'axios';
-import { API_BASE_URL, API_ENDPOINTS } from './config';
-
-// Create axios instance with cookie-based auth
-const api = axios.create({
-  baseURL: API_BASE_URL,
-  headers: {
-    'Content-Type': 'application/json',
-  },
-  withCredentials: true, // Enable cookie-based authentication
-});
-
-// Response interceptor to handle auth errors
-api.interceptors.response.use(
-  (response) => response,
-  (error) => {
-    return Promise.reject(error);
-  }
-);
+import { apiClient } from './client';
+import { API_ENDPOINTS } from './config';
 
 // ================================================================
 // Types and Interfaces  
@@ -83,17 +66,17 @@ class UsageAPI {
    * - Scales O(1) instead of O(n²)
    */
   async getDashboardStatistics(): Promise<DashboardStatistics> {
-    const response = await api.get(API_ENDPOINTS.USAGE.DASHBOARD_STATS);
+    const response = await apiClient.get(API_ENDPOINTS.USAGE.DASHBOARD_STATS);
     return response.data;
   }
 
   async getUsageOverview(): Promise<UsageOverview> {
-    const response = await api.get(API_ENDPOINTS.USAGE.OVERVIEW);
+    const response = await apiClient.get(API_ENDPOINTS.USAGE.OVERVIEW);
     return response.data;
   }
 
   async getQuotaLimits(): Promise<QuotaLimits> {
-    const response = await api.get(API_ENDPOINTS.USAGE.QUOTAS);
+    const response = await apiClient.get(API_ENDPOINTS.USAGE.QUOTAS);
     return response.data;
   }
 
@@ -103,7 +86,7 @@ class UsageAPI {
     limit: number;
     usage_percent: number;
   }> {
-    const response = await api.get(API_ENDPOINTS.USAGE.LIMITS_ASSETS);
+    const response = await apiClient.get(API_ENDPOINTS.USAGE.LIMITS_ASSETS);
     return response.data;
   }
 
@@ -128,7 +111,7 @@ class UsageAPI {
       limit_reached: boolean;
     };
   }> {
-    const response = await api.get(API_ENDPOINTS.USAGE.LIMITS_SCANS);
+    const response = await apiClient.get(API_ENDPOINTS.USAGE.LIMITS_SCANS);
     return response.data;
   }
 }

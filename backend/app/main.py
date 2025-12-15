@@ -3,18 +3,20 @@ Main Backend FastAPI application.
 """ 
 import logging
 import sys
+import re
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
+from starlette.responses import Response
 
 from .core.config import settings
 from .api.v1.auth import router as auth_router
 from .api.v1.assets import router as assets_router
 from .api.v1.programs import router as programs_router  # LEAN: Public programs API
-# REMOVED: from .api.v1.usage import router as usage_router  # LEAN refactor - no usage tracking
+from .api.v1.usage import router as usage_router  # LEAN: Backwards compatibility for recon-data
 from .api.v1.websocket import router as websocket_router
 from .api.v1.scans import router as scans_router
 from .api.v1.http_probes import router as http_probes_router
@@ -57,6 +59,62 @@ class ReverseProxyMiddleware(BaseHTTPMiddleware):
             request.scope['server'] = (forwarded_host, None)
         
         response = await call_next(request)
+        return response
+
+
+def is_origin_allowed(origin: str) -> bool:
+    """
+    Check if origin is allowed via static list or dynamic patterns.
+    
+    This enables CORS for:
+    - All Vercel preview deployments (*.vercel.app)
+    - All neobotnet subdomains (*.neobotnet.com)
+    - Localhost development
+    """
+    if not origin:
+        return False
+    
+    # Check static list first
+    if origin in settings.allowed_origins:
+        return True
+    
+    # Check dynamic patterns
+    for pattern in settings.cors_origin_patterns:
+        if re.match(pattern, origin):
+            return True
+    
+    return False
+
+
+class DynamicCORSMiddleware(BaseHTTPMiddleware):
+    """
+    Custom CORS middleware that supports dynamic origin patterns.
+    
+    Extends standard CORS to allow Vercel preview URLs dynamically.
+    """
+    async def dispatch(self, request: Request, call_next) -> Response:
+        origin = request.headers.get("origin")
+        
+        # Handle preflight requests
+        if request.method == "OPTIONS":
+            if origin and is_origin_allowed(origin):
+                response = Response(status_code=200)
+                response.headers["Access-Control-Allow-Origin"] = origin
+                response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, PATCH, DELETE, OPTIONS"
+                response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization, X-API-Key, X-Requested-With"
+                response.headers["Access-Control-Allow-Credentials"] = "true"
+                response.headers["Access-Control-Max-Age"] = "600"
+                return response
+        
+        # Process actual request
+        response = await call_next(request)
+        
+        # Add CORS headers if origin is allowed
+        if origin and is_origin_allowed(origin):
+            response.headers["Access-Control-Allow-Origin"] = origin
+            response.headers["Access-Control-Allow-Credentials"] = "true"
+            response.headers["Access-Control-Expose-Headers"] = "Content-Type"
+        
         return response
 
 
@@ -180,27 +238,13 @@ def create_application() -> FastAPI:
     # This ensures proper HTTPS redirect handling behind CloudFront/ALB
     app.add_middleware(ReverseProxyMiddleware)
     
-    # Add CORS middleware - configured for cookie-based authentication and WebSocket support
-    if settings.environment in ["dev", "development", "local", "local-dev"]:
-        # Development CORS - use specific origins with credentials support
-        app.add_middleware(
-            CORSMiddleware,
-            allow_origins=settings.allowed_origins,
-            allow_credentials=True,  # Required for httpOnly cookies
-            allow_methods=["*"],
-            allow_headers=["*"],
-            expose_headers=["*"],
-        )
-    else:
-        # Production CORS - strict configuration with credentials
-        app.add_middleware(
-            CORSMiddleware,
-            allow_origins=settings.allowed_origins,
-            allow_credentials=True,  # Required for httpOnly cookies
-            allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-            allow_headers=["Content-Type", "Authorization", "X-Requested-With"],
-            expose_headers=["Content-Type"],
-        )
+    # Add dynamic CORS middleware - supports pattern-based origins for Vercel
+    # This handles ALL CORS including preflight OPTIONS requests
+    app.add_middleware(DynamicCORSMiddleware)
+    
+    # Log CORS configuration for debugging
+    logger.info(f"🔒 CORS configured with {len(settings.allowed_origins)} static origins")
+    logger.info(f"🔒 CORS patterns: {settings.cors_origin_patterns}")
     
     # Add trusted host middleware for production security
     if settings.environment == "production":
@@ -227,7 +271,7 @@ def create_application() -> FastAPI:
     app.include_router(auth_router, prefix=settings.api_v1_str)
     app.include_router(assets_router, prefix=settings.api_v1_str)
     app.include_router(programs_router, prefix=settings.api_v1_str)  # LEAN: Public programs API
-    # REMOVED: app.include_router(usage_router, prefix=settings.api_v1_str)  # LEAN refactor
+    app.include_router(usage_router, prefix=settings.api_v1_str)  # LEAN: Backwards compatibility
     app.include_router(websocket_router, prefix=settings.api_v1_str)  # Add WebSocket routes
     app.include_router(scans_router, prefix=settings.api_v1_str)  # Unified scan endpoint
     app.include_router(http_probes_router, prefix=f"{settings.api_v1_str}/http-probes", tags=["http-probes"])

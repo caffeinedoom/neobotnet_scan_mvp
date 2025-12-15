@@ -79,23 +79,15 @@ async function fetchPaginatedSubdomains(params: {
   if (params.source_module) searchParams.append('source_module', params.source_module);
   if (params.search) searchParams.append('search', params.search);
 
-  // Try new paginated endpoint first, fallback to old endpoint for backward compatibility
+  // Use centralized API client with JWT authentication
   try {
-    // Import API config to get the proper base URL
-    const { API_BASE_URL } = await import('@/lib/api/config');
+    const { apiClient } = await import('@/lib/api/client');
     
-    const response = await fetch(`${API_BASE_URL}/api/v1/assets/subdomains/paginated?${searchParams}`, {
-      credentials: 'include',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    });
+    const response = await apiClient.get<PaginatedSubdomainResponse>(
+      `/api/v1/assets/subdomains/paginated?${searchParams}`
+    );
 
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-
-    return await response.json();
+    return response.data;
      } catch {
      console.warn('New paginated endpoint not available, using fallback approach');
     

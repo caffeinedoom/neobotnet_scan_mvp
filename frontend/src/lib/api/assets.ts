@@ -1,5 +1,4 @@
-import axios from 'axios';
-import { API_BASE_URL } from './config';
+import { apiClient } from './client';
 import type {
   UnifiedScanRequest,
   UnifiedScanResponse,
@@ -7,36 +6,28 @@ import type {
   ListScansResponse,
 } from '@/types/scans';
 
-// Create axios instance with cookie-based auth (matching main API)
-const api = axios.create({
-  baseURL: `${API_BASE_URL}/api/v1`,
-  headers: {
-    'Content-Type': 'application/json',
+// Use the centralized API client with JWT authentication
+// All requests will automatically include the Supabase access token
+const api = {
+  request: async <T>({ url, method = 'GET', data, headers }: {
+    url: string;
+    method?: string;
+    data?: unknown;
+    headers?: Record<string, string>;
+  }): Promise<{ data: T }> => {
+    const response = await apiClient.request<T>({
+      url: `/api/v1${url}`,
+      method,
+      data,
+      headers,
+    });
+    return { data: response.data };
   },
-  withCredentials: true, // SECURITY FIX: Enable cookie-based authentication
-});
-
-// Request interceptor - no longer needed for token injection since we use httpOnly cookies
-// Cookies are automatically sent with each request
-api.interceptors.request.use(
-  (config) => {
-    // No manual token handling - httpOnly cookies are sent automatically
-    return config;
+  post: async <T>(url: string, data?: unknown, config?: { headers?: Record<string, string> }): Promise<{ data: T }> => {
+    const response = await apiClient.post<T>(`/api/v1${url}`, data, config);
+    return { data: response.data };
   },
-  (error) => {
-    return Promise.reject(error);
-  }
-);
-
-// Response interceptor to handle auth errors
-api.interceptors.response.use(
-  (response) => response,
-  (error) => {
-    // Don't automatically redirect on 401 errors - let the application handle authentication state
-    // The AuthContext will manage authentication status and redirects appropriately
-    return Promise.reject(error);
-  }
-);
+};
 
 // ================================================================
 // Types and Interfaces
@@ -341,13 +332,13 @@ interface ApiRequestOptions {
 }
 
 async function apiRequest<T>(url: string, options: ApiRequestOptions = {}): Promise<T> {
-  const response = await api.request({
+  const response = await api.request<T>({
     url,
     method: options.method || 'GET',
     data: options.body,
     headers: options.headers,
   });
-  return response.data;
+  return response.data as T;
 }
 
 // ================================================================
@@ -457,12 +448,12 @@ class AssetAPI {
     const formData = new FormData();
     formData.append('file', file);
 
-    const response = await api.post(`/assets/${assetId}/domains/upload`, formData, {
+    const response = await api.post<DomainUploadResult>(`/assets/${assetId}/domains/upload`, formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
     });
-    return response.data;
+    return response.data as DomainUploadResult;
   }
 
   // ================================================================

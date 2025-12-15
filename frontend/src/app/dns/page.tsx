@@ -19,7 +19,6 @@ import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { formatDistanceToNow } from 'date-fns';
 import { assetAPI } from '@/lib/api/assets';
-import { API_BASE_URL } from '@/lib/api/config';
 
 // ================================================================
 // Types and Interfaces - GROUPED VERSION
@@ -248,18 +247,13 @@ function DNSPageContent() {
       if (recordTypeParam) params.append('record_type', recordTypeParam);
       if (searchQuery) params.append('search', searchQuery);
 
-      const response = await fetch(`${API_BASE_URL}/api/v1/assets/dns-records/paginated?${params}`, {
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
+      // Use centralized API client with JWT authentication
+      const { apiClient } = await import('@/lib/api/client');
+      const response = await apiClient.get<PaginatedGroupedDNSResponse>(
+        `/api/v1/assets/dns-records/paginated?${params}`
+      );
 
-      if (!response.ok) {
-        throw new Error(`Failed to fetch DNS records: ${response.statusText}`);
-      }
-
-      const data: PaginatedGroupedDNSResponse = await response.json();
+      const data = response.data;
       setDnsData(data);
 
       // Extract unique parent domains for filter dropdown

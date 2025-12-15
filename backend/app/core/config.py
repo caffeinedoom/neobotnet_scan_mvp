@@ -35,15 +35,26 @@ class Settings(BaseSettings):
     # CORS Configuration
     allowed_origins: List[str] = Field(
         default=[
+            # Local development
             "http://localhost:3000", 
             "http://127.0.0.1:3000", 
             "http://172.236.127.72:3000",
-            "https://neobotnet-v2-git-dev-sams-projects-3ea6cef5.vercel.app",
-            # Add common development patterns
             "http://0.0.0.0:3000",
-            "http://[::1]:3000"
+            "http://[::1]:3000",
+            # Vercel deployments (all patterns)
+            "https://neobotnet-scan-mvp.vercel.app",
+            "https://neobotnet-v2-git-dev-sams-projects-3ea6cef5.vercel.app",
         ],
         description="Allowed CORS origins"
+    )
+    
+    # Additional CORS origin patterns (checked dynamically)
+    cors_origin_patterns: List[str] = Field(
+        default=[
+            r"https://.*\.vercel\.app$",  # All Vercel preview deployments
+            r"https://.*\.neobotnet\.com$",  # All neobotnet subdomains
+        ],
+        description="Regex patterns for allowed CORS origins"
     )
     
     @field_validator('allowed_origins', mode='before')

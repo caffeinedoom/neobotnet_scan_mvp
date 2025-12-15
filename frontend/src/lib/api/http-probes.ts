@@ -1,5 +1,4 @@
-import axios from 'axios';
-import { API_BASE_URL } from './config';
+import { apiClient } from './client';
 import type {
   HTTPProbe,
   HTTPProbeStats,
@@ -8,29 +7,6 @@ import type {
   HTTPProbeCacheEntry,
   HTTPProbeFetchOptions,
 } from '@/types/http-probes';
-
-// Create axios instance with cookie-based auth
-const api = axios.create({
-  baseURL: API_BASE_URL,
-  headers: {
-    'Content-Type': 'application/json',
-  },
-  withCredentials: true, // Enable cookie-based authentication
-});
-
-// Response interceptor to handle auth errors
-api.interceptors.response.use(
-  (response) => response,
-  (error) => {
-    // Handle 401 unauthorized by redirecting to login
-    if (error.response?.status === 401) {
-      if (typeof window !== 'undefined') {
-        window.location.href = '/auth/login';
-      }
-    }
-    return Promise.reject(error);
-  }
-);
 
 // ================================================================
 // HTTP Probes Service with Smart Caching
@@ -116,7 +92,7 @@ class HTTPProbesService {
       const url = queryParams.toString() ? `${endpoint}?${queryParams}` : endpoint;
 
       // Create the request promise
-      const requestPromise = api.get<HTTPProbeListResponse>(url, {
+      const requestPromise = apiClient.get<HTTPProbeListResponse>(url, {
         signal: options?.signal,
       }).then((response) => response.data);
 
@@ -152,7 +128,7 @@ class HTTPProbesService {
    */
   async fetchHTTPProbeById(probeId: string): Promise<HTTPProbe> {
     try {
-      const response = await api.get<HTTPProbe>(`/api/v1/http-probes/${probeId}`);
+      const response = await apiClient.get<HTTPProbe>(`/api/v1/http-probes/${probeId}`);
       return response.data;
     } catch (error) {
       console.error(`Error fetching HTTP probe ${probeId}:`, error);
@@ -179,7 +155,7 @@ class HTTPProbesService {
         ? `/api/v1/http-probes/stats/summary?${queryParams}`
         : '/api/v1/http-probes/stats/summary';
 
-      const response = await api.get<HTTPProbeStats>(url);
+      const response = await apiClient.get<HTTPProbeStats>(url);
       return response.data;
     } catch (error) {
       console.error('Error fetching HTTP probe stats:', error);
