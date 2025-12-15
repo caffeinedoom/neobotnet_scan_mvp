@@ -13,8 +13,7 @@ import {
   Activity, 
   Eye,
   Upload,
-  Trash2,
-  Info
+  Trash2
 } from 'lucide-react';
 import Link from 'next/link';
 import { assetAPI } from '@/lib/api/assets';

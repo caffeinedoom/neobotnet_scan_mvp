@@ -15,8 +15,11 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js';
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-// Validate environment variables
-if (!supabaseUrl || !supabaseAnonKey) {
+// Check if we have valid env vars (not during build time)
+const isConfigured = !!(supabaseUrl && supabaseAnonKey);
+
+// Validate environment variables (only warn in browser, not during build)
+if (!isConfigured && typeof window !== 'undefined') {
   console.warn(
     'Missing Supabase environment variables. ' +
     'Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY in your .env.local file.'
@@ -24,9 +27,10 @@ if (!supabaseUrl || !supabaseAnonKey) {
 }
 
 // Create Supabase client with auth configuration
+// Use placeholder values during build to prevent errors
 export const supabase: SupabaseClient = createClient(
-  supabaseUrl || '',
-  supabaseAnonKey || '',
+  supabaseUrl || 'https://placeholder.supabase.co',
+  supabaseAnonKey || 'placeholder-anon-key',
   {
     auth: {
       // Persist session in localStorage

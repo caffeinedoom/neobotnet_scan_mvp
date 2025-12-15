@@ -1,13 +1,22 @@
 'use client';
 
+/**
+ * Navigation Component for NeoBot-Net LEAN
+ * 
+ * Simplified navigation with:
+ * - Dashboard (API keys, user info)
+ * - Data browsers (subdomains, DNS, probes)
+ * - Google SSO authentication
+ */
+
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
-import { LogOut, User, Building2, Search, BarChart3, Radar } from 'lucide-react';
+import { LogOut, User, BarChart3, Globe, Database, Wifi } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
 export const Navigation: React.FC = () => {
-  const { user, isAuthenticated, logout, isLoading } = useAuth();
+  const { user, isAuthenticated, signOut, isLoading } = useAuth();
   const pathname = usePathname();
 
   if (isLoading) {
@@ -17,7 +26,7 @@ export const Navigation: React.FC = () => {
           <div className="flex h-14 items-center justify-between">
             <div className="flex items-center">
               <Link href="/" className="flex items-center space-x-2">
-                <span className="font-bold text-lg">Neobotnet</span>
+                <span className="font-bold text-lg">NeoBot-Net</span>
               </Link>
             </div>
             <div className="flex items-center space-x-4">
@@ -30,9 +39,10 @@ export const Navigation: React.FC = () => {
   }
 
   const handleLogout = async () => {
-    await logout();
+    await signOut();
   };
 
+  // LEAN navigation - data browsing only, no scan management
   const navItems = [
     {
       href: '/dashboard',
@@ -41,22 +51,22 @@ export const Navigation: React.FC = () => {
       active: pathname === '/dashboard'
     },
     {
-      href: '/assets',
-      label: 'Assets',
-      icon: Building2,
-      active: pathname.startsWith('/assets')
+      href: '/subdomains',
+      label: 'Subdomains',
+      icon: Globe,
+      active: pathname.startsWith('/subdomains')
     },
     {
-      href: '/scans',
-      label: 'Scans',
-      icon: Radar,
-      active: pathname.startsWith('/scans')
+      href: '/dns',
+      label: 'DNS Records',
+      icon: Database,
+      active: pathname.startsWith('/dns')
     },
     {
-      href: '/recon',
-      label: 'Recon',
-      icon: Search,
-      active: pathname.startsWith('/recon') || pathname.startsWith('/subdomains')
+      href: '/probes',
+      label: 'HTTP Probes',
+      icon: Wifi,
+      active: pathname.startsWith('/probes')
     }
   ];
 
@@ -66,7 +76,7 @@ export const Navigation: React.FC = () => {
         <div className="flex h-14 items-center justify-between">
           <div className="flex items-center space-x-8">
             <Link href="/" className="flex items-center space-x-2">
-              <span className="font-bold text-lg">Neobotnet</span>
+              <span className="font-bold text-lg">NeoBot-Net</span>
             </Link>
             
             {/* Navigation Links - Only show when authenticated */}
@@ -95,33 +105,20 @@ export const Navigation: React.FC = () => {
             // Authenticated state
             <>
               {/* Mobile Navigation Menu */}
-              <div className="md:hidden">
-                <Button variant="ghost" size="sm" asChild>
-                  <Link href="/dashboard">
-                    <BarChart3 className="h-4 w-4" />
-                  </Link>
-                </Button>
-                <Button variant="ghost" size="sm" asChild>
-                  <Link href="/assets">
-                    <Building2 className="h-4 w-4" />
-                  </Link>
-                </Button>
-                <Button variant="ghost" size="sm" asChild>
-                  <Link href="/scans">
-                    <Radar className="h-4 w-4" />
-                  </Link>
-                </Button>
-                <Button variant="ghost" size="sm" asChild>
-                  <Link href="/recon">
-                    <Search className="h-4 w-4" />
-                  </Link>
-                </Button>
+              <div className="md:hidden flex items-center">
+                {navItems.map((item) => (
+                  <Button key={item.href} variant="ghost" size="sm" asChild>
+                    <Link href={item.href}>
+                      <item.icon className="h-4 w-4" />
+                    </Link>
+                  </Button>
+                ))}
               </div>
 
               <div className="hidden sm:flex items-center space-x-2 text-sm">
                 <User className="h-4 w-4" />
                 <span className="truncate max-w-[150px]">
-                  {user?.full_name || user?.email}
+                  {user?.user_metadata?.full_name || user?.email}
                 </span>
               </div>
               <Button 
@@ -135,19 +132,14 @@ export const Navigation: React.FC = () => {
               </Button>
             </>
           ) : (
-            // Unauthenticated state
-            <div className="flex items-center space-x-2">
-              <Button variant="ghost" size="sm" asChild>
-                <Link href="/auth/login">Sign in</Link>
-              </Button>
-              <Button size="sm" asChild>
-                <Link href="/auth/register">Sign up</Link>
-              </Button>
-            </div>
+            // Unauthenticated state - Google SSO only
+            <Button size="sm" asChild>
+              <Link href="/auth/login">Sign in with Google</Link>
+            </Button>
           )}
           </div>
         </div>
       </div>
     </nav>
   );
-}; 
+};
