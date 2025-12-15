@@ -197,12 +197,8 @@ jobs:
         terraform_wrapper: false
         
     - name: Terraform Deploy
-      env:
-        TF_VAR_supabase_url: ${{ secrets.SUPABASE_URL }}
-        TF_VAR_supabase_anon_key: ${{ secrets.SUPABASE_ANON_KEY }}
-        TF_VAR_supabase_service_role_key: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-        TF_VAR_jwt_secret_key: ${{ secrets.JWT_SECRET_KEY }}
-        TF_VAR_allowed_origins: '["https://${{ secrets.FRONTEND_DOMAIN }}"]'
+      # Secrets are read from AWS SSM Parameter Store (no GitHub secrets needed)
+      # Only AWS credentials are required
       run: |
         cd infrastructure/terraform
         terraform init

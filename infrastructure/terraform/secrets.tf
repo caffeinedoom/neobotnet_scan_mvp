@@ -1,52 +1,50 @@
-# SSM Parameter for Supabase URL
-resource "aws_ssm_parameter" "supabase_url" {
-  name      = "/${local.name_prefix}/supabase-url"
-  type      = "SecureString"
-  value     = var.supabase_url
-  overwrite = true
+# ================================================================
+# AWS SSM Parameter Store - Read Existing Secrets
+# ================================================================
+# Secrets are managed manually in AWS Console (one-time setup)
+# Terraform reads them via data sources - no secrets in code/GitHub
+# ================================================================
 
-  tags = merge(local.common_tags, {
-    Name = "${local.name_prefix}-supabase-url"
-  })
+# ================================================================
+# DATA SOURCES - Read existing SSM parameters
+# ================================================================
+
+data "aws_ssm_parameter" "supabase_url" {
+  name = "/${local.name_prefix}/supabase-url"
 }
 
-# SSM Parameter for Supabase Anonymous Key
-resource "aws_ssm_parameter" "supabase_anon_key" {
-  name      = "/${local.name_prefix}/supabase-anon-key"
-  type      = "SecureString"
-  value     = var.supabase_anon_key
-  overwrite = true
-
-  tags = merge(local.common_tags, {
-    Name = "${local.name_prefix}-supabase-anon-key"
-  })
+data "aws_ssm_parameter" "supabase_anon_key" {
+  name            = "/${local.name_prefix}/supabase-anon-key"
+  with_decryption = true
 }
 
-# SSM Parameter for Supabase Service Role Key
-resource "aws_ssm_parameter" "supabase_service_role_key" {
-  name      = "/${local.name_prefix}/supabase-service-role-key"
-  type      = "SecureString"
-  value     = var.supabase_service_role_key
-  overwrite = true
-
-  tags = merge(local.common_tags, {
-    Name = "${local.name_prefix}-supabase-service-role-key"
-  })
+data "aws_ssm_parameter" "supabase_service_role_key" {
+  name            = "/${local.name_prefix}/supabase-service-role-key"
+  with_decryption = true
 }
 
-# SSM Parameter for JWT Secret Key
-resource "aws_ssm_parameter" "jwt_secret_key" {
-  name      = "/${local.name_prefix}/jwt-secret-key"
-  type      = "SecureString"
-  value     = var.jwt_secret_key
-  overwrite = true
-
-  tags = merge(local.common_tags, {
-    Name = "${local.name_prefix}-jwt-secret-key"
-  })
+data "aws_ssm_parameter" "jwt_secret_key" {
+  name            = "/${local.name_prefix}/jwt-secret-key"
+  with_decryption = true
 }
 
+# ================================================================
+# LOCAL VALUES - Reference secrets throughout Terraform
+# ================================================================
+
+locals {
+  secrets = {
+    supabase_url              = data.aws_ssm_parameter.supabase_url.value
+    supabase_anon_key         = data.aws_ssm_parameter.supabase_anon_key.value
+    supabase_service_role_key = data.aws_ssm_parameter.supabase_service_role_key.value
+    jwt_secret_key            = data.aws_ssm_parameter.jwt_secret_key.value
+  }
+}
+
+# ================================================================
 # IAM Policy for ECS tasks to read SSM parameters
+# ================================================================
+
 resource "aws_iam_policy" "ecs_ssm_policy" {
   name        = "${local.name_prefix}-ecs-ssm-policy"
   description = "Policy for ECS tasks to read SSM parameters"
@@ -62,10 +60,7 @@ resource "aws_iam_policy" "ecs_ssm_policy" {
           "ssm:GetParametersByPath"
         ]
         Resource = [
-          aws_ssm_parameter.supabase_url.arn,
-          aws_ssm_parameter.supabase_anon_key.arn,
-          aws_ssm_parameter.supabase_service_role_key.arn,
-          aws_ssm_parameter.jwt_secret_key.arn
+          "arn:aws:ssm:${var.aws_region}:${data.aws_caller_identity.current.account_id}:parameter/${local.name_prefix}/*"
         ]
       }
     ]
@@ -82,4 +77,13 @@ resource "aws_iam_policy" "ecs_ssm_policy" {
 resource "aws_iam_role_policy_attachment" "ecs_ssm_policy" {
   role       = aws_iam_role.ecs_task_execution_role.name
   policy_arn = aws_iam_policy.ecs_ssm_policy.arn
-} 
+}
+
+# ================================================================
+# OUTPUTS - For reference (values are sensitive)
+# ================================================================
+
+output "ssm_parameter_prefix" {
+  description = "SSM parameter path prefix for this environment"
+  value       = "/${local.name_prefix}/"
+}

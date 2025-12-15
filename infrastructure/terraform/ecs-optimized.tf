@@ -277,11 +277,11 @@ resource "aws_ecs_task_definition" "dnsx" {
       secrets = [
         {
           name      = "SUPABASE_URL"
-          valueFrom = aws_ssm_parameter.supabase_url.arn
+          valueFrom = data.aws_ssm_parameter.supabase_url.arn
         },
         {
           name      = "SUPABASE_SERVICE_ROLE_KEY"
-          valueFrom = aws_ssm_parameter.supabase_service_role_key.arn
+          valueFrom = data.aws_ssm_parameter.supabase_service_role_key.arn
         }
       ]
 
@@ -391,11 +391,11 @@ resource "aws_ecs_task_definition" "httpx" {
       secrets = [
         {
           name      = "SUPABASE_URL"
-          valueFrom = aws_ssm_parameter.supabase_url.arn
+          valueFrom = data.aws_ssm_parameter.supabase_url.arn
         },
         {
           name      = "SUPABASE_SERVICE_ROLE_KEY"
-          valueFrom = aws_ssm_parameter.supabase_service_role_key.arn
+          valueFrom = data.aws_ssm_parameter.supabase_service_role_key.arn
         }
       ]
 
@@ -502,11 +502,11 @@ resource "aws_ecs_task_definition" "katana" {
       secrets = [
         {
           name      = "SUPABASE_URL"
-          valueFrom = aws_ssm_parameter.supabase_url.arn
+          valueFrom = data.aws_ssm_parameter.supabase_url.arn
         },
         {
           name      = "SUPABASE_SERVICE_ROLE_KEY"
-          valueFrom = aws_ssm_parameter.supabase_service_role_key.arn
+          valueFrom = data.aws_ssm_parameter.supabase_service_role_key.arn
         }
       ]
 

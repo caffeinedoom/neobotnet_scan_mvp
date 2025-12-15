@@ -69,30 +69,18 @@ variable "fargate_memory" {
   default     = 1024
 }
 
-# Application Configuration - SECURE VARIABLES (no defaults)
-variable "supabase_url" {
-  description = "Supabase project URL"
-  type        = string
-  sensitive   = true
-}
-
-variable "supabase_anon_key" {
-  description = "Supabase anonymous key"
-  type        = string
-  sensitive   = true
-}
-
-variable "supabase_service_role_key" {
-  description = "Supabase service role key"
-  type        = string
-  sensitive   = true
-}
-
-variable "jwt_secret_key" {
-  description = "JWT secret key"
-  type        = string
-  sensitive   = true
-}
+# ================================================================
+# SECRETS - Managed in AWS SSM Parameter Store
+# ================================================================
+# Secrets are NOT passed as Terraform variables.
+# They are read from SSM Parameter Store via data sources in secrets.tf
+# 
+# Required SSM Parameters (create manually in AWS Console):
+#   /${project_name}-${environment}/supabase-url
+#   /${project_name}-${environment}/supabase-anon-key
+#   /${project_name}-${environment}/supabase-service-role-key
+#   /${project_name}-${environment}/jwt-secret-key
+# ================================================================
 
 variable "allowed_origins" {
   description = "List of allowed CORS origins"
