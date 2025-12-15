@@ -253,11 +253,11 @@ export default function DashboardPage() {
                 <span className="text-sm">{user?.email}</span>
               </div>
               
-              {user?.full_name && (
+              {user?.user_metadata?.full_name && (
                 <div className="flex items-center space-x-2">
                   <User className="h-4 w-4 text-muted-foreground" />
                   <span className="text-sm font-medium">Name:</span>
-                  <span className="text-sm">{user.full_name}</span>
+                  <span className="text-sm">{user.user_metadata.full_name}</span>
                 </div>
               )}
               
