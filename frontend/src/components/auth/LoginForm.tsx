@@ -3,7 +3,7 @@
 /**
  * Login Form for NeoBot-Net LEAN
  * 
- * Uses Google SSO via Supabase Auth.
+ * Uses Google and X (Twitter) SSO via Supabase Auth.
  * Email/password auth has been removed for the LEAN refactor.
  */
 
@@ -33,15 +33,27 @@ const GoogleIcon = () => (
   </svg>
 );
 
+// X (Twitter) Icon SVG
+const XIcon = () => (
+  <svg className="h-5 w-5 mr-2" viewBox="0 0 24 24" fill="currentColor">
+    <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+  </svg>
+);
+
 interface LoginFormProps {
   onSuccess?: () => void;
 }
 
 export const LoginForm: React.FC<LoginFormProps> = () => {
-  const { signInWithGoogle, isLoading } = useAuth();
+  const { signInWithGoogle, signInWithTwitter, isLoading } = useAuth();
 
   const handleGoogleSignIn = async () => {
     await signInWithGoogle();
+    // Redirect happens automatically via Supabase OAuth flow
+  };
+
+  const handleTwitterSignIn = async () => {
+    await signInWithTwitter();
     // Redirect happens automatically via Supabase OAuth flow
   };
 
@@ -69,6 +81,22 @@ export const LoginForm: React.FC<LoginFormProps> = () => {
             <>
               <GoogleIcon />
               Continue with Google
+            </>
+          )}
+        </Button>
+
+        <Button 
+          onClick={handleTwitterSignIn}
+          variant="outline"
+          className="w-full h-12 text-base"
+          disabled={isLoading}
+        >
+          {isLoading ? (
+            'Signing in...'
+          ) : (
+            <>
+              <XIcon />
+              Continue with X
             </>
           )}
         </Button>

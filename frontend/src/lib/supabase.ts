@@ -98,6 +98,27 @@ export const signInWithGoogle = async () => {
 };
 
 /**
+ * Sign in with X (Twitter) SSO
+ * Redirects to Twitter OAuth flow
+ */
+export const signInWithTwitter = async () => {
+  const { data, error } = await supabase.auth.signInWithOAuth({
+    provider: 'twitter',
+    options: {
+      // Redirect back to our callback page after auth
+      redirectTo: `${window.location.origin}/auth/callback`,
+    },
+  });
+
+  if (error) {
+    console.error('Twitter sign-in error:', error.message);
+    throw error;
+  }
+
+  return data;
+};
+
+/**
  * Sign out the current user
  */
 export const signOut = async () => {

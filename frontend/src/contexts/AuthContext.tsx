@@ -12,7 +12,7 @@
 
 import React, { createContext, useContext, useEffect, useReducer, ReactNode, useCallback } from 'react';
 import { toast } from 'sonner';
-import { supabase, signInWithGoogle, signOut as supabaseSignOut, getSession } from '@/lib/supabase';
+import { supabase, signInWithGoogle, signInWithTwitter, signOut as supabaseSignOut, getSession } from '@/lib/supabase';
 import type { Session, User } from '@supabase/supabase-js';
 
 // ============================================================================
@@ -38,6 +38,7 @@ interface APIKey {
 
 interface AuthContextType extends AuthState {
   signInWithGoogle: () => Promise<void>;
+  signInWithTwitter: () => Promise<void>;
   signOut: () => Promise<void>;
   getAPIKeys: () => Promise<APIKey[]>;
   createAPIKey: (name?: string) => Promise<APIKey>;
@@ -162,6 +163,20 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   }, []);
 
+  // Sign in with X (Twitter)
+  const handleSignInWithTwitter = useCallback(async () => {
+    try {
+      dispatch({ type: 'SET_LOADING', payload: true });
+      await signInWithTwitter();
+      // Note: The actual sign-in happens via redirect
+      // The onAuthStateChange listener will handle the session update
+    } catch (error) {
+      console.error('Twitter sign-in failed:', error);
+      toast.error('Failed to sign in with X');
+      dispatch({ type: 'SET_LOADING', payload: false });
+    }
+  }, []);
+
   // Sign out
   const handleSignOut = useCallback(async () => {
     try {
@@ -241,6 +256,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const value: AuthContextType = {
     ...state,
     signInWithGoogle: handleSignInWithGoogle,
+    signInWithTwitter: handleSignInWithTwitter,
     signOut: handleSignOut,
     getAPIKeys,
     createAPIKey,
