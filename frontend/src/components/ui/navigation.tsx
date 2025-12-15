@@ -11,7 +11,7 @@
 
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
-import { LogOut, User, BarChart3, Globe, Database, Wifi } from 'lucide-react';
+import { LogOut, User, Globe, Database, Wifi, Building2, Code2 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
@@ -42,13 +42,13 @@ export const Navigation: React.FC = () => {
     await signOut();
   };
 
-  // LEAN navigation - data browsing only, no scan management
+  // LEAN navigation - programs and data browsing
   const navItems = [
     {
-      href: '/dashboard',
-      label: 'Dashboard',
-      icon: BarChart3,
-      active: pathname === '/dashboard'
+      href: '/programs',
+      label: 'Programs',
+      icon: Building2,
+      active: pathname.startsWith('/programs')
     },
     {
       href: '/subdomains',
@@ -58,15 +58,21 @@ export const Navigation: React.FC = () => {
     },
     {
       href: '/dns',
-      label: 'DNS Records',
+      label: 'DNS',
       icon: Database,
       active: pathname.startsWith('/dns')
     },
     {
       href: '/probes',
-      label: 'HTTP Probes',
+      label: 'Probes',
       icon: Wifi,
       active: pathname.startsWith('/probes')
+    },
+    {
+      href: '/api-docs',
+      label: 'API',
+      icon: Code2,
+      active: pathname.startsWith('/api-docs')
     }
   ];
 

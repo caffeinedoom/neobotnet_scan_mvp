@@ -742,14 +742,14 @@ ALTER TABLE assets DROP COLUMN IF EXISTS user_id;
 
 | Phase | Status | Started | Completed | Notes |
 |-------|--------|---------|-----------|-------|
-| 1. Auth Simplification | ✅ Completed | Dec 14 | Dec 14 | Google SSO + API keys implemented |
-| 2. Database Refactoring | ⬜ Not Started | | | |
-| 3. CLI Development | ⬜ Not Started | | | |
+| 1. Auth Simplification | ✅ Completed | Dec 14 | Dec 15 | Google SSO + X SSO + API keys implemented |
+| 2. Database Refactoring | ⬜ Not Started | | | RLS policies for public data |
+| 3. CLI Development | ⬜ Not Started | | | Operator CLI for triggering scans |
 | 4. Katana Integration | 🟡 Partial | Dec 14 | | Terraform + CI/CD done, pipeline integration pending |
-| 5. API Simplification | ⬜ Not Started | | | |
-| 6. Frontend Simplification | ⬜ Not Started | | | |
-| 7. Infrastructure Cleanup | 🟡 Partial | Dec 14 | | New workflow, Katana ECR added |
-| 8. Testing & Validation | ⬜ Not Started | | | |
+| 5. API Simplification | ⬜ Not Started | | | Read-only public endpoints |
+| 6. Frontend Simplification | 🟡 In Progress | Dec 15 | | Deleted: scans, recon, assets/create, register. Remaining: programs page, API docs |
+| 7. Infrastructure Cleanup | 🟡 Partial | Dec 14 | | New workflow, Katana ECR. Remaining: remove ALB, backend ECS |
+| 8. Testing & Validation | ⬜ Not Started | | | End-to-end testing |
 
 ### Legend
 - ⬜ Not Started
@@ -829,6 +829,55 @@ cd frontend && pnpm install
    ```
 
 **Next Step:** Phase 2 - Database Refactoring (RLS policies for public data)
+
+### December 15, 2025 - Session 4 (Frontend Cleanup + Auth Complete)
+**Completed:**
+- ✅ Fixed frontend build errors (TypeScript, unused imports)
+- ✅ Deleted `/scans` page - scans triggered via CLI
+- ✅ Deleted `/recon` page - scan forms not needed
+- ✅ Deleted `/assets/create` page - assets managed via CLI
+- ✅ Deleted `/assets/[id]/edit` page - edit via CLI
+- ✅ Deleted `/auth/register` page - Google/X SSO only
+- ✅ Deleted `DomainScanForm.tsx`, `ScanHistory.tsx`, `ScanResults.tsx` - scan components
+- ✅ Deleted `RegisterForm.tsx` - no registration
+- ✅ Rewrote `navigation.tsx` - simplified LEAN navigation
+- ✅ Rewrote `LoginForm.tsx` - Google + X SSO buttons only
+- ✅ Added X (Twitter) SSO support to `supabase.ts` and `AuthContext.tsx`
+- ✅ Fixed `supabase.ts` to handle missing env vars during build
+
+**Frontend Pages Remaining:**
+```
+/                    - Landing page
+/auth/login          - Google + X SSO
+/auth/callback       - OAuth redirect
+/dashboard           - API keys, user info
+/assets              - Browse assets (read-only)
+/assets/[id]         - Asset details
+/subdomains          - Browse subdomains
+/dns                 - Browse DNS records
+/probes              - Browse HTTP probes
+```
+
+**Files Deleted (2,823 lines removed):**
+- `frontend/src/app/scans/page.tsx`
+- `frontend/src/app/recon/page.tsx`
+- `frontend/src/app/assets/create/page.tsx`
+- `frontend/src/app/assets/[id]/edit/page.tsx`
+- `frontend/src/app/auth/register/page.tsx`
+- `frontend/src/components/recon/DomainScanForm.tsx`
+- `frontend/src/components/recon/ScanHistory.tsx`
+- `frontend/src/components/recon/ScanResults.tsx`
+- `frontend/src/components/auth/RegisterForm.tsx`
+
+**OAuth Configuration Completed:**
+- Google SSO working ✓
+- X (Twitter) SSO working ✓
+- Supabase redirect URLs configured ✓
+
+**Next Steps:**
+1. Phase 2: Database Refactoring (RLS policies for public data)
+2. Phase 3: CLI Development
+3. Phase 6: Frontend - Add programs page and API docs
 
 ---
 
