@@ -13,6 +13,7 @@ from starlette.requests import Request
 from .core.config import settings
 from .api.v1.auth import router as auth_router
 from .api.v1.assets import router as assets_router
+from .api.v1.programs import router as programs_router  # LEAN: Public programs API
 # REMOVED: from .api.v1.usage import router as usage_router  # LEAN refactor - no usage tracking
 from .api.v1.websocket import router as websocket_router
 from .api.v1.scans import router as scans_router
@@ -225,6 +226,7 @@ def create_application() -> FastAPI:
     # Include routers
     app.include_router(auth_router, prefix=settings.api_v1_str)
     app.include_router(assets_router, prefix=settings.api_v1_str)
+    app.include_router(programs_router, prefix=settings.api_v1_str)  # LEAN: Public programs API
     # REMOVED: app.include_router(usage_router, prefix=settings.api_v1_str)  # LEAN refactor
     app.include_router(websocket_router, prefix=settings.api_v1_str)  # Add WebSocket routes
     app.include_router(scans_router, prefix=settings.api_v1_str)  # Unified scan endpoint

@@ -743,11 +743,11 @@ ALTER TABLE assets DROP COLUMN IF EXISTS user_id;
 | Phase | Status | Started | Completed | Notes |
 |-------|--------|---------|-----------|-------|
 | 1. Auth Simplification | ✅ Completed | Dec 14 | Dec 15 | Google SSO + X SSO + API keys implemented |
-| 2. Database Refactoring | ⬜ Not Started | | | RLS policies for public data |
+| 2. Database Refactoring | ✅ Completed | Dec 15 | Dec 15 | RLS migration created, pending execution |
 | 3. CLI Development | ⬜ Not Started | | | Operator CLI for triggering scans |
 | 4. Katana Integration | 🟡 Partial | Dec 14 | | Terraform + CI/CD done, pipeline integration pending |
-| 5. API Simplification | ⬜ Not Started | | | Read-only public endpoints |
-| 6. Frontend Simplification | 🟡 In Progress | Dec 15 | | Deleted: scans, recon, assets/create, register. Remaining: programs page, API docs |
+| 5. API Simplification | ✅ Completed | Dec 15 | Dec 15 | /v1/programs endpoints for public read access |
+| 6. Frontend Simplification | ✅ Completed | Dec 15 | Dec 15 | Programs page, API docs, landing page, navigation |
 | 7. Infrastructure Cleanup | 🟡 Partial | Dec 14 | | New workflow, Katana ECR. Remaining: remove ALB, backend ECS |
 | 8. Testing & Validation | ⬜ Not Started | | | End-to-end testing |
 

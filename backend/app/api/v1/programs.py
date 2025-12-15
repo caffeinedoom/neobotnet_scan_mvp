@@ -1,0 +1,478 @@
+"""
+LEAN Programs API - Public Read Access for Bug Bounty Programs
+
+This API provides read-only access to reconnaissance data for all authenticated users.
+In the LEAN model:
+- All authenticated users can read ALL program data
+- No user-specific filtering (data is public within the platform)
+- API keys or JWT tokens are required for authentication
+"""
+from fastapi import APIRouter, Depends, HTTPException, status, Query
+from typing import List, Dict, Any, Optional
+from uuid import UUID
+import logging
+
+from ...core.dependencies import get_current_user
+from ...schemas.auth import UserResponse
+from ...core.supabase_client import supabase_client
+
+router = APIRouter(prefix="/programs", tags=["programs"])
+logger = logging.getLogger(__name__)
+
+
+# ================================================================
+# Programs (Bug Bounty Assets) - Public Read Access
+# ================================================================
+
+@router.get("", response_model=List[Dict[str, Any]])
+async def list_programs(
+    include_stats: bool = Query(True, description="Include statistics"),
+    search: Optional[str] = Query(None, description="Search by program name"),
+    limit: int = Query(100, ge=1, le=500, description="Maximum programs to return"),
+    offset: int = Query(0, ge=0, description="Pagination offset"),
+    current_user: UserResponse = Depends(get_current_user)
+):
+    """
+    List all bug bounty programs with reconnaissance statistics.
+    
+    All authenticated users have access to all programs.
+    This is the LEAN public data model.
+    
+    Returns:
+        List of programs with statistics including:
+        - Program name, description, URL
+        - Domain count
+        - Subdomain count
+        - Last scan date
+    """
+    try:
+        # Use service client for public data access
+        client = supabase_client.service_client
+        
+        # Build query
+        query = client.table("assets").select(
+            "id, name, description, bug_bounty_url, is_active, priority, tags, created_at, updated_at"
+        )
+        
+        # Apply search filter
+        if search:
+            query = query.ilike("name", f"%{search}%")
+        
+        # Apply pagination
+        query = query.range(offset, offset + limit - 1)
+        query = query.order("created_at", desc=True)
+        
+        result = query.execute()
+        programs = result.data or []
+        
+        # Enrich with statistics if requested
+        if include_stats and programs:
+            programs = await _enrich_programs_with_stats(client, programs)
+        
+        logger.info(f"Returning {len(programs)} programs for user {current_user.id}")
+        return programs
+        
+    except Exception as e:
+        logger.error(f"Error listing programs: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to list programs"
+        )
+
+
+@router.get("/{program_id}", response_model=Dict[str, Any])
+async def get_program(
+    program_id: str,
+    current_user: UserResponse = Depends(get_current_user)
+):
+    """
+    Get detailed information about a specific program.
+    
+    Returns:
+        Program details with full statistics
+    """
+    try:
+        client = supabase_client.service_client
+        
+        result = client.table("assets").select(
+            "id, name, description, bug_bounty_url, is_active, priority, tags, created_at, updated_at"
+        ).eq("id", program_id).single().execute()
+        
+        if not result.data:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Program {program_id} not found"
+            )
+        
+        program = result.data
+        
+        # Get detailed stats
+        enriched = await _enrich_programs_with_stats(client, [program])
+        
+        logger.info(f"Returning program {program_id} for user {current_user.id}")
+        return enriched[0] if enriched else program
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting program {program_id}: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to get program"
+        )
+
+
+# ================================================================
+# Subdomains - Public Read Access
+# ================================================================
+
+@router.get("/{program_id}/subdomains", response_model=Dict[str, Any])
+async def get_program_subdomains(
+    program_id: str,
+    page: int = Query(1, ge=1, description="Page number"),
+    per_page: int = Query(100, ge=1, le=1000, description="Items per page"),
+    search: Optional[str] = Query(None, description="Search subdomain names"),
+    source_module: Optional[str] = Query(None, description="Filter by discovery module"),
+    current_user: UserResponse = Depends(get_current_user)
+):
+    """
+    Get subdomains for a specific program with pagination.
+    
+    Returns:
+        Paginated list of subdomains with metadata
+    """
+    try:
+        client = supabase_client.service_client
+        
+        # Verify program exists
+        program_check = client.table("assets").select("id").eq("id", program_id).execute()
+        if not program_check.data:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Program {program_id} not found"
+            )
+        
+        # Get asset_scan_job IDs for this program
+        scan_jobs = client.table("asset_scan_jobs").select("id").eq("asset_id", program_id).execute()
+        scan_job_ids = [job["id"] for job in (scan_jobs.data or [])]
+        
+        if not scan_job_ids:
+            return {
+                "subdomains": [],
+                "pagination": {
+                    "total": 0,
+                    "page": page,
+                    "per_page": per_page,
+                    "total_pages": 0,
+                    "has_next": False,
+                    "has_prev": False
+                }
+            }
+        
+        # Build subdomains query
+        query = client.table("subdomains").select(
+            "id, subdomain, parent_domain, source_module, discovered_at, scan_job_id",
+            count="exact"
+        ).in_("scan_job_id", scan_job_ids)
+        
+        # Apply filters
+        if search:
+            query = query.ilike("subdomain", f"%{search}%")
+        if source_module:
+            query = query.eq("source_module", source_module)
+        
+        # Apply pagination
+        offset = (page - 1) * per_page
+        query = query.range(offset, offset + per_page - 1)
+        query = query.order("discovered_at", desc=True)
+        
+        result = query.execute()
+        total = result.count or 0
+        total_pages = (total + per_page - 1) // per_page if total > 0 else 0
+        
+        logger.info(f"Returning {len(result.data or [])} subdomains for program {program_id}")
+        
+        return {
+            "subdomains": result.data or [],
+            "pagination": {
+                "total": total,
+                "page": page,
+                "per_page": per_page,
+                "total_pages": total_pages,
+                "has_next": page < total_pages,
+                "has_prev": page > 1
+            }
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting subdomains for program {program_id}: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to get subdomains"
+        )
+
+
+# ================================================================
+# DNS Records - Public Read Access
+# ================================================================
+
+@router.get("/{program_id}/dns", response_model=Dict[str, Any])
+async def get_program_dns_records(
+    program_id: str,
+    page: int = Query(1, ge=1, description="Page number"),
+    per_page: int = Query(100, ge=1, le=1000, description="Items per page"),
+    record_type: Optional[str] = Query(None, description="Filter by record type (A, AAAA, CNAME, MX, TXT)"),
+    subdomain: Optional[str] = Query(None, description="Filter by subdomain"),
+    current_user: UserResponse = Depends(get_current_user)
+):
+    """
+    Get DNS records for a specific program with pagination.
+    
+    Returns:
+        Paginated list of DNS records
+    """
+    try:
+        client = supabase_client.service_client
+        
+        # Verify program exists
+        program_check = client.table("assets").select("id").eq("id", program_id).execute()
+        if not program_check.data:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Program {program_id} not found"
+            )
+        
+        # Build DNS records query
+        query = client.table("dns_records").select(
+            "id, subdomain_name, record_type, record_value, ttl, resolved_at, cloud_provider",
+            count="exact"
+        ).eq("asset_id", program_id)
+        
+        # Apply filters
+        if record_type:
+            query = query.eq("record_type", record_type.upper())
+        if subdomain:
+            query = query.ilike("subdomain_name", f"%{subdomain}%")
+        
+        # Apply pagination
+        offset = (page - 1) * per_page
+        query = query.range(offset, offset + per_page - 1)
+        query = query.order("resolved_at", desc=True)
+        
+        result = query.execute()
+        total = result.count or 0
+        total_pages = (total + per_page - 1) // per_page if total > 0 else 0
+        
+        logger.info(f"Returning {len(result.data or [])} DNS records for program {program_id}")
+        
+        return {
+            "dns_records": result.data or [],
+            "pagination": {
+                "total": total,
+                "page": page,
+                "per_page": per_page,
+                "total_pages": total_pages,
+                "has_next": page < total_pages,
+                "has_prev": page > 1
+            }
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting DNS records for program {program_id}: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to get DNS records"
+        )
+
+
+# ================================================================
+# HTTP Probes - Public Read Access
+# ================================================================
+
+@router.get("/{program_id}/probes", response_model=Dict[str, Any])
+async def get_program_http_probes(
+    program_id: str,
+    page: int = Query(1, ge=1, description="Page number"),
+    per_page: int = Query(100, ge=1, le=1000, description="Items per page"),
+    status_code: Optional[int] = Query(None, description="Filter by HTTP status code"),
+    technology: Optional[str] = Query(None, description="Filter by detected technology"),
+    current_user: UserResponse = Depends(get_current_user)
+):
+    """
+    Get HTTP probe results for a specific program with pagination.
+    
+    Returns:
+        Paginated list of HTTP probe results
+    """
+    try:
+        client = supabase_client.service_client
+        
+        # Verify program exists
+        program_check = client.table("assets").select("id").eq("id", program_id).execute()
+        if not program_check.data:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Program {program_id} not found"
+            )
+        
+        # Build HTTP probes query
+        query = client.table("http_probes").select(
+            "id, url, status_code, title, content_length, content_type, technologies, webserver, cdn, probed_at",
+            count="exact"
+        ).eq("asset_id", program_id)
+        
+        # Apply filters
+        if status_code:
+            query = query.eq("status_code", status_code)
+        if technology:
+            # Technologies is stored as array, use contains
+            query = query.contains("technologies", [technology])
+        
+        # Apply pagination
+        offset = (page - 1) * per_page
+        query = query.range(offset, offset + per_page - 1)
+        query = query.order("probed_at", desc=True)
+        
+        result = query.execute()
+        total = result.count or 0
+        total_pages = (total + per_page - 1) // per_page if total > 0 else 0
+        
+        logger.info(f"Returning {len(result.data or [])} HTTP probes for program {program_id}")
+        
+        return {
+            "probes": result.data or [],
+            "pagination": {
+                "total": total,
+                "page": page,
+                "per_page": per_page,
+                "total_pages": total_pages,
+                "has_next": page < total_pages,
+                "has_prev": page > 1
+            }
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting HTTP probes for program {program_id}: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to get HTTP probes"
+        )
+
+
+# ================================================================
+# Global Subdomains Endpoint
+# ================================================================
+
+@router.get("/all/subdomains", response_model=Dict[str, Any])
+async def get_all_subdomains(
+    page: int = Query(1, ge=1, description="Page number"),
+    per_page: int = Query(100, ge=1, le=1000, description="Items per page"),
+    search: Optional[str] = Query(None, description="Search subdomain names"),
+    current_user: UserResponse = Depends(get_current_user)
+):
+    """
+    Get all subdomains across all programs with pagination.
+    
+    Returns:
+        Paginated list of all subdomains
+    """
+    try:
+        client = supabase_client.service_client
+        
+        # Build subdomains query
+        query = client.table("subdomains").select(
+            "id, subdomain, parent_domain, source_module, discovered_at, scan_job_id",
+            count="exact"
+        )
+        
+        # Apply search filter
+        if search:
+            query = query.ilike("subdomain", f"%{search}%")
+        
+        # Apply pagination
+        offset = (page - 1) * per_page
+        query = query.range(offset, offset + per_page - 1)
+        query = query.order("discovered_at", desc=True)
+        
+        result = query.execute()
+        total = result.count or 0
+        total_pages = (total + per_page - 1) // per_page if total > 0 else 0
+        
+        logger.info(f"Returning {len(result.data or [])} subdomains (all programs)")
+        
+        return {
+            "subdomains": result.data or [],
+            "pagination": {
+                "total": total,
+                "page": page,
+                "per_page": per_page,
+                "total_pages": total_pages,
+                "has_next": page < total_pages,
+                "has_prev": page > 1
+            }
+        }
+        
+    except Exception as e:
+        logger.error(f"Error getting all subdomains: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to get subdomains"
+        )
+
+
+# ================================================================
+# Helper Functions
+# ================================================================
+
+async def _enrich_programs_with_stats(client, programs: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Enrich programs with statistics."""
+    
+    enriched = []
+    for program in programs:
+        program_id = program["id"]
+        
+        # Count apex domains
+        domains_result = client.table("apex_domains").select(
+            "id", count="exact"
+        ).eq("asset_id", program_id).execute()
+        domain_count = domains_result.count or 0
+        
+        # Get scan job IDs
+        scan_jobs = client.table("asset_scan_jobs").select("id").eq("asset_id", program_id).execute()
+        scan_job_ids = [job["id"] for job in (scan_jobs.data or [])]
+        
+        # Count subdomains
+        subdomain_count = 0
+        if scan_job_ids:
+            subdomains_result = client.table("subdomains").select(
+                "id", count="exact"
+            ).in_("scan_job_id", scan_job_ids).execute()
+            subdomain_count = subdomains_result.count or 0
+        
+        # Get last scan date
+        last_scan_date = None
+        if scan_jobs.data:
+            last_scan_jobs = client.table("asset_scan_jobs").select(
+                "created_at"
+            ).eq("asset_id", program_id).order(
+                "created_at", desc=True
+            ).limit(1).execute()
+            
+            if last_scan_jobs.data:
+                last_scan_date = last_scan_jobs.data[0]["created_at"]
+        
+        enriched.append({
+            **program,
+            "domain_count": domain_count,
+            "subdomain_count": subdomain_count,
+            "last_scan_date": last_scan_date
+        })
+    
+    return enriched
+
