@@ -65,8 +65,8 @@ Implement httpOnly cookie-based authentication for the web application to provid
 |-------|------|--------|-------|
 | 1 | Backend Cookie Support | ✅ Complete | Session endpoints, cookie validation |
 | 2 | Frontend Cookie Integration | ✅ Complete | AuthContext, apiClient updates |
-| 3 | Backend LEAN Fixes | 🟡 In Progress | Remove user_id filtering |
-| 4 | Testing & Cleanup | ⬜ Not Started | End-to-end validation |
+| 3 | Backend LEAN Fixes | ✅ Complete | Remove user_id filtering |
+| 4 | Testing & Cleanup | 🟡 In Progress | End-to-end validation |
 
 ---
 
@@ -129,15 +129,17 @@ Implement httpOnly cookie-based authentication for the web application to provid
 
 ### Tasks
 
-- [ ] **3.1** Remove user_id filtering from `http_probes.py`
-- [ ] **3.2** Verify `dns-records/paginated` has no user_id filter
-- [ ] **3.3** Verify `subdomains/paginated` has no user_id filter
-- [ ] **3.4** Verify `filter-options` has no user_id filter
+- [x] **3.1** Remove user_id filtering from `http_probes.py` ✅ COMPLETED
+- [x] **3.2** Remove user_id filtering from `dns_service.py` ✅ COMPLETED
+- [x] **3.3** Remove user_id filtering from `asset_service.py` (subdomains) ✅ COMPLETED
+- [x] **3.4** Remove user_id filtering from `filter-options` ✅ COMPLETED
 
-### Files to Modify
-- `backend/app/api/v1/http_probes.py`
-- `backend/app/api/v1/assets.py`
-- `backend/app/services/asset_service.py`
+### Files Modified
+- `backend/app/api/v1/http_probes.py` - Removed RLS filtering from all endpoints
+- `backend/app/services/dns_service.py` - Removed user_id filter from paginated methods
+- `backend/app/services/asset_service.py` - Removed user_id filter from:
+  - `get_paginated_user_subdomains()`
+  - `get_comprehensive_filter_options()`
 
 ---
 
@@ -168,7 +170,11 @@ Implement httpOnly cookie-based authentication for the web application to provid
   - Added `createBackendSession()` to AuthContext.tsx
   - Updated apiClient with `withCredentials: true`
   - Fixed subdomains/page.tsx to use apiClient
-- 🟡 Starting Phase 3: Backend LEAN Fixes
+- ✅ Completed Phase 3: Backend LEAN Fixes
+  - Removed user_id filtering from http_probes.py
+  - Removed user_id filtering from dns_service.py
+  - Removed user_id filtering from asset_service.py (subdomains, filter-options)
+- 🟡 Starting Phase 4: Testing & Cleanup
 
 ---
 

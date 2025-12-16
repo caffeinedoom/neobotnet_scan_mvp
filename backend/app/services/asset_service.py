@@ -666,7 +666,7 @@ class AssetService:
 
     async def get_paginated_user_subdomains(
         self, 
-        user_id: str, 
+        user_id: str = None,  # Kept for API compatibility but ignored (LEAN architecture)
         page: int = 1,
         per_page: int = 50,
         asset_id: Optional[str] = None,
@@ -677,11 +677,11 @@ class AssetService:
         """
         Get paginated subdomains with efficient loading and filtering.
         
-        This method replaces the inefficient get_all_user_subdomains for frontend pagination.
-        Provides proper pagination metadata and supports multiple filters.
+        LEAN Architecture: All authenticated users see ALL data.
+        The user_id parameter is kept for API compatibility but ignored.
         
         Args:
-            user_id: User ID to filter by
+            user_id: Kept for API compatibility but ignored (LEAN architecture)
             page: Page number (1-based)
             per_page: Items per page (1-1000, recommended: 25-100)
             asset_id: Optional asset filter
@@ -702,8 +702,8 @@ class AssetService:
             # Calculate offset
             offset = (page - 1) * per_page
             
-            # Get user's assets for security filtering
-            assets_response = self.supabase.table("assets").select("id, name").eq("user_id", user_id).execute()
+            # LEAN Architecture: Get ALL assets (no user_id filter)
+            assets_response = self.supabase.table("assets").select("id, name").execute()
             
             if not assets_response.data:
                 return {
@@ -725,12 +725,13 @@ class AssetService:
                     "stats": {"total_assets": 0}
                 }
             
-            user_asset_ids = [a["id"] for a in assets_response.data]
+            all_asset_ids = [a["id"] for a in assets_response.data]
             asset_name_map = {a["id"]: a["name"] for a in assets_response.data}
             
             # Build base query with proper joins
             # MIGRATION NOTE (2025-10-06): Only selecting fields that exist after schema cleanup
             # Removed fields will be available from future module-specific tables via JOINs
+            # LEAN Architecture: No user filtering - all authenticated users see all data
             base_query = self.supabase.table("subdomains").select(
                 """
                 id,
@@ -748,10 +749,10 @@ class AssetService:
                     modules
                 )
                 """, count="exact"
-            ).in_("asset_scan_jobs.asset_id", user_asset_ids)
+            ).in_("asset_scan_jobs.asset_id", all_asset_ids)
             
             # Apply filters progressively
-            if asset_id and asset_id in user_asset_ids:
+            if asset_id and asset_id in all_asset_ids:
                 base_query = base_query.eq("asset_scan_jobs.asset_id", asset_id)
                 
             if parent_domain:
@@ -821,7 +822,7 @@ class AssetService:
                 "stats": stats
             }
             
-            self.logger.info(f"Retrieved page {page} ({len(subdomains)} subdomains) of {total_count} total for user {user_id}")
+            self.logger.info(f"Retrieved page {page} ({len(subdomains)} subdomains) of {total_count} total")
             return result
             
         except Exception as e:
@@ -1037,24 +1038,27 @@ class AssetService:
 
     async def get_comprehensive_filter_options(
         self, 
-        user_id: str
+        user_id: str = None  # Kept for API compatibility but ignored (LEAN architecture)
     ) -> Dict[str, Any]:
         """
-        Get comprehensive filter options from all user reconnaissance data.
+        Get comprehensive filter options from all reconnaissance data.
         
-        This method queries ALL user subdomains to build complete filter options,
+        LEAN Architecture: All authenticated users see ALL data.
+        The user_id parameter is kept for API compatibility but ignored.
+        
+        This method queries ALL subdomains to build complete filter options,
         not just current page scope. Essential for proper data correlation between
         asset detail and subdomains pages.
         
         Returns:
-            Dict with domains, modules, assets, and stats for all user data
+            Dict with domains, modules, assets, and stats for all data
         """
         try:
-            # Get all user assets first
-            user_assets = self.supabase.table("assets").select("id, name").eq("user_id", user_id).execute()
-            user_asset_ids = [asset["id"] for asset in user_assets.data] if user_assets.data else []
+            # LEAN Architecture: Get ALL assets (no user_id filter)
+            all_assets = self.supabase.table("assets").select("id, name").execute()
+            all_asset_ids = [asset["id"] for asset in all_assets.data] if all_assets.data else []
             
-            if not user_asset_ids:
+            if not all_asset_ids:
                 return {
                     "domains": [],
                     "modules": [],
@@ -1067,7 +1071,7 @@ class AssetService:
                     }
                 }
             
-            # Get all unique filter options from user's reconnaissance data
+            # Get all unique filter options from ALL reconnaissance data
             # Query all subdomains for comprehensive scope
             filter_query = self.supabase.table("subdomains").select(
                 """
@@ -1078,7 +1082,7 @@ class AssetService:
                     assets!inner(name)
                 )
                 """
-            ).in_("asset_scan_jobs.asset_id", user_asset_ids)
+            ).in_("asset_scan_jobs.asset_id", all_asset_ids)
             
             filter_response = filter_query.execute()
             
@@ -1088,7 +1092,7 @@ class AssetService:
                     "modules": [],
                     "assets": [],
                     "stats": {
-                        "total_assets": len(user_asset_ids),
+                        "total_assets": len(all_asset_ids),
                         "total_domains": 0,
                         "total_modules": 0,
                         "load_time_ms": "< 50"
@@ -1132,18 +1136,18 @@ class AssetService:
                 "modules": modules_list, 
                 "assets": assets_list,
                 "stats": {
-                    "total_assets": len(user_asset_ids),
+                    "total_assets": len(all_asset_ids),
                     "total_domains": len(domains_list),
                     "total_modules": len(modules_list),
                     "load_time_ms": "< 100"
                 }
             }
             
-            self.logger.info(f"Retrieved comprehensive filters for user {user_id}: {len(domains_list)} domains, {len(modules_list)} modules, {len(assets_list)} assets")
+            self.logger.info(f"Retrieved comprehensive filters: {len(domains_list)} domains, {len(modules_list)} modules, {len(assets_list)} assets")
             return result
             
         except Exception as e:
-            self.logger.error(f"Error retrieving comprehensive filter options for {user_id}: {str(e)}")
+            self.logger.error(f"Error retrieving comprehensive filter options: {str(e)}")
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail=f"Failed to retrieve comprehensive filter options: {str(e)}"

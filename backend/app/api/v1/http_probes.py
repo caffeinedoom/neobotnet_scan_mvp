@@ -43,7 +43,7 @@ async def get_http_probes(
     
     Pagination: Use `limit` and `offset` parameters (default: 100 items per page).
     
-    Note: Users can only view HTTP probes from their own scans (RLS enforced).
+    LEAN Architecture: All authenticated users see ALL data.
     """
     try:
         supabase = supabase_client.client
@@ -90,21 +90,9 @@ async def get_http_probes(
         if not response.data:
             return []
         
-        # Filter results to only show user's probes (enforce RLS at application level)
-        # Query asset_scan_jobs to get user's scan job IDs
-        user_scan_jobs_response = supabase.table("asset_scan_jobs").select("id").eq(
-            "user_id", current_user.id
-        ).execute()
-        
-        user_scan_job_ids = {job["id"] for job in user_scan_jobs_response.data} if user_scan_jobs_response.data else set()
-        
-        # Filter probes to only include those from user's scans
-        filtered_probes = [
-            probe for probe in response.data 
-            if probe["scan_job_id"] in user_scan_job_ids
-        ]
-        
-        return filtered_probes
+        # LEAN Architecture: All authenticated users see ALL data
+        # No per-user filtering - authentication is sufficient for access
+        return response.data
         
     except Exception as e:
         raise HTTPException(
@@ -146,17 +134,8 @@ async def get_http_probe_by_id(
         
         probe = response.data[0]
         
-        # Verify user owns this probe (check via scan_job_id)
-        scan_job_response = supabase.table("asset_scan_jobs").select("user_id").eq(
-            "id", probe["scan_job_id"]
-        ).execute()
-        
-        if not scan_job_response.data or scan_job_response.data[0]["user_id"] != current_user.id:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="HTTP probe not found"
-            )
-        
+        # LEAN Architecture: All authenticated users see ALL data
+        # No per-user filtering - authentication is sufficient for access
         return probe
         
     except HTTPException:
@@ -190,44 +169,17 @@ async def get_http_probe_stats(
     try:
         supabase = supabase_client.client
         
-        # First, get user's scan job IDs for RLS enforcement
-        user_scan_jobs_response = supabase.table("asset_scan_jobs").select("id").eq(
-            "user_id", current_user.id
-        ).execute()
-        
-        user_scan_job_ids = [job["id"] for job in user_scan_jobs_response.data] if user_scan_jobs_response.data else []
-        
-        if not user_scan_job_ids:
-            # User has no scans, return empty stats
-            return HTTPProbeStatsResponse(
-                total_probes=0,
-                status_code_distribution={},
-                top_technologies=[],
-                top_servers=[],
-                cdn_usage={},
-                redirect_chains_count=0
-            )
+        # LEAN Architecture: All authenticated users see ALL data
+        # No per-user filtering - authentication is sufficient for access
         
         # Build query with filters
-        query = supabase.table("http_probes").select("*").in_("scan_job_id", user_scan_job_ids)
+        query = supabase.table("http_probes").select("*")
         
         if asset_id:
             query = query.eq("asset_id", asset_id)
         
         if scan_job_id:
-            # Verify this scan job belongs to user
-            if scan_job_id in user_scan_job_ids:
-                query = query.eq("scan_job_id", scan_job_id)
-            else:
-                # User doesn't own this scan job, return empty stats
-                return HTTPProbeStatsResponse(
-                    total_probes=0,
-                    status_code_distribution={},
-                    top_technologies=[],
-                    top_servers=[],
-                    cdn_usage={},
-                    redirect_chains_count=0
-                )
+            query = query.eq("scan_job_id", scan_job_id)
         
         # Fetch all probes for statistics calculation
         response = query.execute()

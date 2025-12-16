@@ -440,7 +440,7 @@ class DNSService:
     
     async def get_user_dns_records_paginated(
         self,
-        user_id: UUID,
+        user_id: UUID = None,  # Kept for API compatibility but ignored (LEAN architecture)
         page: int = 1,
         per_page: int = 50,
         asset_id: Optional[UUID] = None,
@@ -449,21 +449,19 @@ class DNSService:
         search: Optional[str] = None
     ) -> Dict[str, Any]:
         """
-        Get all DNS records for a user with pagination and filtering.
+        Get all DNS records with pagination and filtering.
         
-        This is the user-level endpoint similar to get_user_subdomains_paginated.
-        It returns DNS records across all user assets with comprehensive filtering,
-        pagination metadata, and statistics.
+        LEAN Architecture: All authenticated users see ALL data.
+        The user_id parameter is kept for API compatibility but ignored.
         
         Query Strategy:
         - JOIN dns_records with assets to get asset_name
-        - JOIN assets with asset_scan_jobs to filter by user_id
         - Apply filters: asset_id, parent_domain, record_type, search
         - Calculate statistics: total_assets, record_type_breakdown
         - Return paginated results with metadata
         
         Args:
-            user_id: UUID of the user (for authorization)
+            user_id: Kept for API compatibility but ignored (LEAN architecture)
             page: Page number (1-indexed)
             per_page: Records per page (max 100)
             asset_id: Optional filter by specific asset UUID
@@ -483,7 +481,6 @@ class DNSService:
             
         Example:
             result = await dns_service.get_user_dns_records_paginated(
-                user_id=UUID("..."),
                 page=1,
                 per_page=50,
                 record_type="A",
@@ -501,19 +498,18 @@ class DNSService:
                 record_type = self._validate_record_type(record_type)
             
             self.logger.info(
-                f"Fetching user DNS records (user={user_id}, page={page}, per_page={per_page}, "
+                f"Fetching DNS records (page={page}, per_page={per_page}, "
                 f"asset_id={asset_id}, parent_domain={parent_domain}, record_type={record_type}, search={search})"
             )
             
-            # Step 1: Get all user's asset IDs (for filtering DNS records by user ownership)
+            # LEAN Architecture: Get ALL assets (no user_id filter)
             assets_response = (self.supabase.table('assets')
                               .select('id, name')
-                              .eq('user_id', str(user_id))
                               .execute())
             
             if not assets_response.data:
-                # User has no assets, return empty result
-                self.logger.info(f"User {user_id} has no assets")
+                # No assets in system, return empty result
+                self.logger.info("No assets found in system")
                 return {
                     'dns_records': [],
                     'pagination': {
@@ -539,12 +535,12 @@ class DNSService:
             
             # Build asset_id -> asset_name mapping
             asset_map = {asset['id']: asset['name'] for asset in assets_response.data}
-            user_asset_ids = list(asset_map.keys())
+            all_asset_ids = list(asset_map.keys())
             
-            # Step 2: Build DNS query filtered by user's assets
+            # Step 2: Build DNS query for ALL assets
             query = (self.supabase.table('dns_records')
                     .select('*', count='exact')
-                    .in_('asset_id', user_asset_ids))
+                    .in_('asset_id', all_asset_ids))
             
             # Apply additional filters
             if asset_id:
@@ -650,12 +646,12 @@ class DNSService:
             # Re-raise validation errors
             raise
         except Exception as e:
-            self.logger.error(f"Error fetching user DNS records: {str(e)}")
+            self.logger.error(f"Error fetching DNS records: {str(e)}")
             raise
     
     async def get_user_dns_records_paginated_grouped(
         self,
-        user_id: UUID,
+        user_id: UUID = None,  # Kept for API compatibility but ignored (LEAN architecture)
         page: int = 1,
         per_page: int = 50,
         asset_id: Optional[UUID] = None,
@@ -665,6 +661,8 @@ class DNSService:
     ) -> Dict[str, Any]:
         """
         Get DNS records grouped by subdomain for elegant UI display.
+        
+        LEAN Architecture: All authenticated users see ALL data.
         
         This method aggregates all DNS records by subdomain and organizes
         them by record type (A, AAAA, CNAME, MX, TXT). Pagination is applied
@@ -713,18 +711,17 @@ class DNSService:
                 record_type = self._validate_record_type(record_type)
             
             self.logger.info(
-                f"Fetching grouped DNS records (user={user_id}, page={page}, per_page={per_page}, "
+                f"Fetching grouped DNS records (page={page}, per_page={per_page}, "
                 f"asset_id={asset_id}, parent_domain={parent_domain}, record_type={record_type}, search={search})"
             )
             
-            # Step 1: Get all user's asset IDs
+            # LEAN Architecture: Get ALL assets (no user_id filter)
             assets_response = (self.supabase.table('assets')
                               .select('id, name')
-                              .eq('user_id', str(user_id))
                               .execute())
             
             if not assets_response.data:
-                # User has no assets, return empty result
+                # No assets in system, return empty result
                 return {
                     'grouped_records': [],
                     'pagination': {
@@ -751,12 +748,12 @@ class DNSService:
             
             # Build asset_id -> asset_name mapping
             asset_map = {asset['id']: asset['name'] for asset in assets_response.data}
-            user_asset_ids = list(asset_map.keys())
+            all_asset_ids = list(asset_map.keys())
             
             # Step 2: Fetch ALL DNS records with filters (no pagination yet - we paginate after grouping)
             query = (self.supabase.table('dns_records')
                     .select('*')
-                    .in_('asset_id', user_asset_ids))
+                    .in_('asset_id', all_asset_ids))
             
             # Apply filters
             if asset_id:
