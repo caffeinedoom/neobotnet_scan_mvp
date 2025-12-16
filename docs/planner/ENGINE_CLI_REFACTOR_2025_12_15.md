@@ -93,11 +93,11 @@ cli/
 
 | Task | Status | Notes |
 |------|--------|-------|
-| 1.1 Create `cli/orchestrator/main.py` | ⬜ Pending | Wrapper for scan_pipeline |
-| 1.2 Create `cli/orchestrator/Dockerfile` | ⬜ Pending | Based on backend container |
-| 1.3 Create `cli/orchestrator/requirements.txt` | ⬜ Pending | Minimal deps |
-| 1.4 Add Terraform: ECR repository | ⬜ Pending | For orchestrator image |
-| 1.5 Add Terraform: ECS task definition | ⬜ Pending | Orchestrator task |
+| 1.1 Create `cli/orchestrator/main.py` | ✅ Done | Wrapper for scan_pipeline |
+| 1.2 Create `cli/orchestrator/Dockerfile` | ✅ Done | Based on backend container |
+| 1.3 Create `cli/orchestrator/requirements.txt` | ✅ Done | Minimal deps |
+| 1.4 Add Terraform: ECR repository | ✅ Done | For orchestrator image |
+| 1.5 Add Terraform: ECS task definition | ✅ Done | Orchestrator task |
 | 1.6 Apply Terraform | ⬜ Pending | Create AWS resources |
 | 1.7 Build & push container | ⬜ Pending | Deploy to ECR |
 
@@ -105,15 +105,15 @@ cli/
 
 | Task | Status | Notes |
 |------|--------|-------|
-| 2.1 Create CLI package structure | ⬜ Pending | neobotnet/ folder |
-| 2.2 Create `cli/neobotnet/config.py` | ⬜ Pending | AWS/Supabase config |
-| 2.3 Create `cli/neobotnet/main.py` | ⬜ Pending | Typer app entry |
-| 2.4 Implement `scan run` command | ⬜ Pending | Core functionality |
-| 2.5 Implement `scan status` command | ⬜ Pending | Check scan progress |
-| 2.6 Implement `programs list` command | ⬜ Pending | List programs |
-| 2.7 Implement `programs add` command | ⬜ Pending | Add program + domains |
-| 2.8 Create `pyproject.toml` | ⬜ Pending | Package config |
-| 2.9 Create CLI README | ⬜ Pending | Usage documentation |
+| 2.1 Create CLI package structure | ✅ Done | neobotnet/ folder |
+| 2.2 Create `cli/neobotnet/config.py` | ✅ Done | AWS/Supabase config |
+| 2.3 Create `cli/neobotnet/main.py` | ✅ Done | Typer app entry |
+| 2.4 Implement `scan run` command | ✅ Done | Core functionality |
+| 2.5 Implement `scan status` command | ✅ Done | Check scan progress |
+| 2.6 Implement `programs list` command | ✅ Done | List programs |
+| 2.7 Implement `programs add` command | ✅ Done | Add program + domains |
+| 2.8 Create `pyproject.toml` | ✅ Done | Package config |
+| 2.9 Create CLI README | ✅ Done | Usage documentation |
 
 ### Phase 3: Testing & Integration
 

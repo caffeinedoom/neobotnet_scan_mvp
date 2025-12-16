@@ -44,33 +44,9 @@ resource "aws_cloudfront_response_headers_policy" "api_policy" {
     }
   }
 
-  # CORS configuration
-  cors_config {
-    access_control_allow_credentials = true
-    access_control_allow_headers {
-      items = [
-        "Authorization",
-        "Content-Type",
-        "Accept",
-        "Origin",
-        "User-Agent",
-        "DNT",
-        "Cache-Control",
-        "X-Mx-ReqToken",
-        "Keep-Alive",
-        "X-Requested-With",
-        "If-Modified-Since"
-      ]
-    }
-    access_control_allow_methods {
-      items = ["DELETE", "GET", "HEAD", "OPTIONS", "PATCH", "POST", "PUT"]
-    }
-    access_control_allow_origins {
-      items = var.allowed_origins
-    }
-    access_control_max_age_sec = 600
-    origin_override            = true
-  }
+  # CORS is handled by the backend (FastAPI CORSMiddleware)
+  # This allows dynamic origin matching including Vercel preview deployments
+  # DO NOT add cors_config here - it would override backend CORS headers
 }
 
 # CloudFront Distribution for aldous-api.neobotnet.com

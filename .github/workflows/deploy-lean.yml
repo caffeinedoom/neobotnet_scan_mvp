@@ -26,6 +26,7 @@ env:
   
   # ECR Repositories
   ECR_BACKEND: neobotnet-backend
+  ECR_ORCHESTRATOR: neobotnet-v2-dev-orchestrator
   ECR_SUBFINDER: neobotnet-v2-dev-subfinder
   ECR_DNSX: neobotnet-v2-dev-dnsx
   ECR_HTTPX: neobotnet-v2-dev-httpx
@@ -40,6 +41,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       backend: ${{ steps.changes.outputs.backend }}
+      orchestrator: ${{ steps.changes.outputs.orchestrator }}
       subfinder: ${{ steps.changes.outputs.subfinder }}
       dnsx: ${{ steps.changes.outputs.dnsx }}
       httpx: ${{ steps.changes.outputs.httpx }}
@@ -62,6 +64,7 @@ jobs:
         # Force all if requested or first commit
         if [ "${{ github.event.inputs.force_all }}" = "true" ] || [ -z "$CHANGED" ]; then
           echo "backend=true" >> $GITHUB_OUTPUT
+          echo "orchestrator=true" >> $GITHUB_OUTPUT
           echo "subfinder=true" >> $GITHUB_OUTPUT
           echo "dnsx=true" >> $GITHUB_OUTPUT
           echo "httpx=true" >> $GITHUB_OUTPUT
@@ -73,6 +76,8 @@ jobs:
         
         # Detect specific changes
         BACKEND=$(echo "$CHANGED" | grep -q "^backend/app\|^backend/requirements\|^backend/Dockerfile" && echo true || echo false)
+        # Orchestrator rebuilds when CLI orchestrator changes OR when backend changes (since it depends on backend)
+        ORCHESTRATOR=$(echo "$CHANGED" | grep -q "^cli/orchestrator\|^backend/app" && echo true || echo false)
         SUBFINDER=$(echo "$CHANGED" | grep -q "^backend/containers/subfinder-go" && echo true || echo false)
         DNSX=$(echo "$CHANGED" | grep -q "^backend/containers/dnsx-go" && echo true || echo false)
         HTTPX=$(echo "$CHANGED" | grep -q "^backend/containers/httpx-go" && echo true || echo false)
@@ -89,6 +94,7 @@ jobs:
         done
         
         echo "backend=$BACKEND" >> $GITHUB_OUTPUT
+        echo "orchestrator=$ORCHESTRATOR" >> $GITHUB_OUTPUT
         echo "subfinder=$SUBFINDER" >> $GITHUB_OUTPUT
         echo "dnsx=$DNSX" >> $GITHUB_OUTPUT
         echo "httpx=$HTTPX" >> $GITHUB_OUTPUT
@@ -96,7 +102,7 @@ jobs:
         echo "infrastructure=$INFRA" >> $GITHUB_OUTPUT
         echo "skip=$SKIP" >> $GITHUB_OUTPUT
         
-        echo "📊 Changes: backend=$BACKEND subfinder=$SUBFINDER dnsx=$DNSX httpx=$HTTPX katana=$KATANA infra=$INFRA skip=$SKIP"
+        echo "📊 Changes: backend=$BACKEND orchestrator=$ORCHESTRATOR subfinder=$SUBFINDER dnsx=$DNSX httpx=$HTTPX katana=$KATANA infra=$INFRA skip=$SKIP"
 
   # ================================================================
   # Job 2: Build Containers
@@ -130,6 +136,19 @@ jobs:
         docker push ${{ steps.ecr.outputs.registry }}/$ECR_BACKEND:${{ github.sha }}
         docker push ${{ steps.ecr.outputs.registry }}/$ECR_BACKEND:latest
         echo "✅ Backend built"
+        
+    - name: Build Orchestrator
+      if: needs.detect-changes.outputs.orchestrator == 'true' || needs.detect-changes.outputs.backend == 'true'
+      run: |
+        cd cli/orchestrator
+        # Build orchestrator using backend as base
+        docker build \
+          --build-arg ECR_REGISTRY=${{ steps.ecr.outputs.registry }} \
+          -t ${{ steps.ecr.outputs.registry }}/$ECR_ORCHESTRATOR:${{ github.sha }} .
+        docker tag ${{ steps.ecr.outputs.registry }}/$ECR_ORCHESTRATOR:${{ github.sha }} ${{ steps.ecr.outputs.registry }}/$ECR_ORCHESTRATOR:latest
+        docker push ${{ steps.ecr.outputs.registry }}/$ECR_ORCHESTRATOR:${{ github.sha }}
+        docker push ${{ steps.ecr.outputs.registry }}/$ECR_ORCHESTRATOR:latest
+        echo "✅ Orchestrator built"
         
     - name: Build Subfinder
       if: needs.detect-changes.outputs.subfinder == 'true'
