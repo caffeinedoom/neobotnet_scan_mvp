@@ -169,12 +169,16 @@ def add_program(
             asset_id = existing.data[0]['id']
         else:
             # Create new program
-            # Use a system user ID for CLI-created programs
-            system_user_id = '00000000-0000-0000-0000-000000000000'
+            # Use operator user ID from environment
+            import os
+            operator_user_id = os.environ.get('OPERATOR_USER_ID')
+            if not operator_user_id:
+                console.print("[bold red]❌ OPERATOR_USER_ID not set. Add it to ~/.neobotnet/.env[/bold red]")
+                raise typer.Exit(1)
             
             asset_data = {
                 'id': str(uuid.uuid4()),
-                'user_id': system_user_id,
+                'user_id': operator_user_id,
                 'name': name,
                 'description': description or f'Created via CLI on {datetime.utcnow().date()}',
                 'bug_bounty_url': bug_bounty_url,

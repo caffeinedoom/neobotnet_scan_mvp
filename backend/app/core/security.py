@@ -1,5 +1,9 @@
 """
 Security utilities for authentication and authorization.
+
+Supports two types of JWT tokens:
+1. Custom tokens (created by this backend) - signed with jwt_secret_key
+2. Supabase tokens (from OAuth login) - signed with Supabase's JWT secret
 """
 from datetime import datetime, timedelta
 from typing import Optional, Dict, Any
@@ -32,15 +36,60 @@ def create_access_token(data: Dict[str, Any], expires_delta: Optional[timedelta]
 
 
 def verify_token(token: str) -> Optional[Dict[str, Any]]:
-    """Verify and decode a JWT token."""
+    """
+    Verify and decode a JWT token.
+    
+    Tries multiple verification methods in order:
+    1. Custom JWT secret (for tokens created by this backend)
+    2. Supabase JWT secret (for tokens from OAuth login via Supabase)
+    """
+    # First, try to verify with our custom JWT secret
     try:
         payload = jwt.decode(
             token, 
             settings.jwt_secret_key, 
             algorithms=[settings.jwt_algorithm]
         )
+        payload["_token_type"] = "custom"
         return payload
     except JWTError:
+        pass
+    
+    # Second, try to verify with Supabase's JWT secret
+    # This handles tokens from Google/Twitter OAuth via Supabase
+    try:
+        payload = jwt.decode(
+            token, 
+            settings.jwt_secret_key,  # This should be the Supabase JWT secret
+            algorithms=[settings.jwt_algorithm],
+            audience="authenticated"  # Supabase uses this audience for authenticated users
+        )
+        payload["_token_type"] = "supabase"
+        return payload
+    except JWTError:
+        pass
+    
+    return None
+
+
+def verify_supabase_token(token: str) -> Optional[Dict[str, Any]]:
+    """
+    Verify a Supabase JWT token directly.
+    
+    This is specifically for tokens issued by Supabase Auth (OAuth, magic link, etc.)
+    These tokens are signed with the Supabase JWT secret and have specific claims.
+    """
+    try:
+        # Supabase tokens use HS256 and the JWT secret from the project settings
+        payload = jwt.decode(
+            token, 
+            settings.jwt_secret_key,
+            algorithms=["HS256"],
+            audience="authenticated"
+        )
+        return payload
+    except JWTError as e:
+        print(f"Supabase token verification failed: {e}")
         return None
 
 

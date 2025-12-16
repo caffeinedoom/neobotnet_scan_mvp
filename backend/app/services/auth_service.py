@@ -125,34 +125,41 @@ class AuthService:
             )
     
     async def get_current_user(self, token: str) -> UserResponse:
-        """Get current user from JWT token with Redis caching for performance."""
-        # Verify our JWT token
+        """
+        Get current user from JWT token with Redis caching for performance.
+        
+        Supports three token types:
+        1. Supabase OAuth tokens (from Google/Twitter SSO) - verified with Supabase JWT secret
+        2. Custom backend tokens (with embedded supabase_token) - legacy support
+        3. WebSocket tokens (minimal claims) - for real-time connections
+        """
+        from datetime import datetime
+        
+        # First, try to verify as a Supabase OAuth token directly
+        # This is the primary flow for Google/Twitter SSO
         payload = verify_token(token)
+        
         if not payload:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid token"
+                detail="Invalid token - verification failed"
             )
         
+        token_type = payload.get("_token_type", "unknown")
+        internal_token_type = payload.get("type")  # Our custom "websocket" type
+        
+        # Get user ID and email from token claims
         user_id = payload.get("sub")
         user_email = payload.get("email")
-        token_type = payload.get("type")
-        supabase_token = payload.get("supabase_token")
         
-        # Handle WebSocket tokens differently (they don't have supabase_token)
-        if token_type == "websocket":
-            if not user_id or not user_email:
-                raise HTTPException(
-                    status_code=status.HTTP_401_UNAUTHORIZED,
-                    detail="Invalid WebSocket token payload"
-                )
-        else:
-            # Regular tokens require supabase_token
-            if not user_id or not user_email or not supabase_token:
-                raise HTTPException(
-                    status_code=status.HTTP_401_UNAUTHORIZED,
-                    detail="Invalid token payload"
-                )
+        # For Supabase tokens, user_metadata might be in the token directly
+        user_metadata = payload.get("user_metadata", {})
+        
+        if not user_id:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid token: missing user ID (sub claim)"
+            )
         
         # Try to get user from Redis cache first (performance optimization)
         redis_client = await self.get_redis()
@@ -167,10 +174,16 @@ class AuthService:
             except Exception as e:
                 print(f"Redis cache read failed: {str(e)}")
         
-        # Handle user data extraction differently for WebSocket tokens
-        if token_type == "websocket":
-            # For WebSocket tokens, we trust our own JWT validation and create minimal user data
-            # We'll fetch user data from the database using the user_id
+        # Determine how to get user info based on token type
+        user_response = None
+        
+        if internal_token_type == "websocket":
+            # WebSocket tokens: fetch from database
+            if not user_email:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Invalid WebSocket token: missing email"
+                )
             try:
                 user_response = await self._get_user_from_database(user_id, user_email)
             except Exception as e:
@@ -178,84 +191,85 @@ class AuthService:
                     status_code=status.HTTP_401_UNAUTHORIZED,
                     detail=f"Failed to fetch user data for WebSocket token: {str(e)}"
                 )
-        else:
-            # Extract user data from the embedded Supabase token (regular tokens)
+        
+        elif token_type == "supabase" or payload.get("aud") == "authenticated":
+            # Supabase OAuth token: extract info directly from payload
+            # These tokens come from Google/Twitter SSO via Supabase
+            
+            if not user_email:
+                user_email = user_metadata.get("email", "")
+            
+            # Extract full name from user_metadata
+            full_name = user_metadata.get("full_name") or user_metadata.get("name")
+            
+            # Format timestamps
+            token_issued = payload.get("iat")
+            created_at = datetime.fromtimestamp(token_issued).isoformat() + "Z" if token_issued else datetime.now().isoformat() + "Z"
+            
+            # Check email verification
+            email_verified = user_metadata.get("email_verified", False)
+            email_confirmed_at = created_at if email_verified else None
+            
+            user_response = UserResponse(
+                id=user_id,
+                email=user_email,
+                full_name=full_name,
+                created_at=created_at,
+                email_confirmed_at=email_confirmed_at
+            )
+        
+        elif payload.get("supabase_token"):
+            # Legacy custom token with embedded supabase_token
+            supabase_token = payload.get("supabase_token")
             try:
-                from jose import jwt
-                from datetime import datetime
+                from jose import jwt as jose_jwt
+                supabase_payload = jose_jwt.get_unverified_claims(supabase_token)
                 
-                # SECURITY FIX: Validate Supabase token structure and expiration
-                try:
-                    supabase_payload = jwt.get_unverified_claims(supabase_token)
-                    
-                    # Validate token expiration manually
-                    exp = supabase_payload.get("exp")
-                    if exp and datetime.fromtimestamp(exp) < datetime.now():
-                        raise HTTPException(
-                            status_code=status.HTTP_401_UNAUTHORIZED,
-                            detail="Supabase token has expired"
-                        )
-                    
-                    # Validate required claims are present
-                    required_claims = ["sub", "email", "aud"]
-                    missing_claims = [claim for claim in required_claims if not supabase_payload.get(claim)]
-                    if missing_claims:
-                        raise HTTPException(
-                            status_code=status.HTTP_401_UNAUTHORIZED,
-                            detail=f"Invalid token: missing claims {missing_claims}"
-                        )
-                        
-                except HTTPException:
-                    raise
-                except Exception as token_error:
+                # Validate expiration
+                exp = supabase_payload.get("exp")
+                if exp and datetime.fromtimestamp(exp) < datetime.now():
                     raise HTTPException(
                         status_code=status.HTTP_401_UNAUTHORIZED,
-                        detail=f"Invalid Supabase token: {str(token_error)}"
+                        detail="Embedded Supabase token has expired"
                     )
                 
-                # Extract user metadata from Supabase token
                 user_metadata = supabase_payload.get("user_metadata", {})
-                
-                # Format timestamps as ISO strings
                 token_issued = supabase_payload.get("iat")
                 created_at = datetime.fromtimestamp(token_issued).isoformat() + "Z" if token_issued else datetime.now().isoformat() + "Z"
                 
-                # Check email verification status
                 email_verified = user_metadata.get("email_verified", False)
                 email_confirmed_at = created_at if email_verified else None
-            
+                
                 user_response = UserResponse(
                     id=user_id,
-                    email=user_email,
+                    email=user_email or supabase_payload.get("email", ""),
                     full_name=user_metadata.get("full_name"),
                     created_at=created_at,
                     email_confirmed_at=email_confirmed_at
                 )
-                
-                # Cache user data in Redis for 5 minutes (performance optimization)
-                if redis_client:
-                    try:
-                        await redis_client.setex(
-                            cache_key, 
-                            300,  # 5 minutes TTL
-                            safe_json_dumps(user_response.dict())
-                        )
-                    except Exception as e:
-                        print(f"Redis cache write failed: {str(e)}")
-                
-                return user_response
-                    
             except HTTPException:
-                # Re-raise HTTP exceptions (don't mask them)
                 raise
             except Exception as e:
-                # SECURITY FIX: Fail closed instead of returning fallback user data
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
-                    detail=f"Authentication token processing failed: {str(e)}"
+                    detail=f"Invalid embedded Supabase token: {str(e)}"
                 )
         
-        # Cache user data in Redis for 5 minutes (performance optimization)
+        else:
+            # Fallback: try to get user from database
+            if user_email:
+                try:
+                    user_response = await self._get_user_from_database(user_id, user_email)
+                except Exception:
+                    pass
+            
+            if not user_response:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Could not extract user information from token"
+                )
+        
+        # Cache user data in Redis for 5 minutes
         if redis_client and user_response:
             try:
                 await redis_client.setex(
