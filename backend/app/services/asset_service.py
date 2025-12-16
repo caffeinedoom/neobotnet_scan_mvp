@@ -80,14 +80,19 @@ class AssetService:
                 detail=f"Failed to create asset: {str(e)}"
             )
     
-    async def get_assets(self, user_id: str, include_stats: bool = True) -> List[AssetWithStats]:
-        """Get all assets for a user."""
+    async def get_assets(self, user_id: str = None, include_stats: bool = True) -> List[AssetWithStats]:
+        """
+        Get all assets (LEAN MVP: all authenticated users see ALL data).
+        
+        The user_id parameter is kept for API compatibility but ignored.
+        All authenticated users have access to all reconnaissance data.
+        """
         try:
             if include_stats:
-                # Get assets with statistics from view
+                # Get ALL assets with statistics (no user_id filter - LEAN architecture)
                 response = self.supabase.table("assets").select(
                     "*, apex_domains(count)"
-                ).eq("user_id", user_id).order("created_at", desc=True).execute()
+                ).order("created_at", desc=True).execute()
                 
                 assets_with_stats = []
                 for asset_data in response.data:
@@ -132,7 +137,8 @@ class AssetService:
                 
                 return assets_with_stats
             else:
-                response = self.supabase.table("assets").select("*").eq("user_id", user_id).order("created_at", desc=True).execute()
+                # Get ALL assets without stats (no user_id filter - LEAN architecture)
+                response = self.supabase.table("assets").select("*").order("created_at", desc=True).execute()
                 return [AssetWithStats(**asset) for asset in response.data]
                 
         except Exception as e:
@@ -142,10 +148,15 @@ class AssetService:
                 detail=f"Failed to get assets: {str(e)}"
             )
     
-    async def get_asset(self, asset_id: str, user_id: str) -> Asset:
-        """Get a specific asset."""
+    async def get_asset(self, asset_id: str, user_id: str = None) -> Asset:
+        """
+        Get a specific asset (LEAN MVP: all authenticated users see ALL data).
+        
+        The user_id parameter is kept for API compatibility but ignored.
+        """
         try:
-            response = self.supabase.table("assets").select("*").eq("id", asset_id).eq("user_id", user_id).execute()
+            # No user_id filter - LEAN architecture: all authenticated users see all data
+            response = self.supabase.table("assets").select("*").eq("id", asset_id).execute()
             
             if not response.data:
                 raise HTTPException(
@@ -164,11 +175,15 @@ class AssetService:
                 detail=f"Failed to get asset: {str(e)}"
             )
     
-    async def get_asset_with_stats(self, asset_id: str, user_id: str) -> AssetWithStats:
-        """Get a specific asset with statistics."""
+    async def get_asset_with_stats(self, asset_id: str, user_id: str = None) -> AssetWithStats:
+        """
+        Get a specific asset with statistics (LEAN MVP: all users see all data).
+        
+        The user_id parameter is kept for API compatibility but ignored.
+        """
         try:
-            # Get basic asset info
-            asset = await self.get_asset(asset_id, user_id)
+            # Get basic asset info (no user_id filter)
+            asset = await self.get_asset(asset_id)
             
             # Get apex domain count
             domains_response = self.supabase.table("apex_domains").select("id").eq("asset_id", asset_id).execute()
@@ -559,17 +574,19 @@ class AssetService:
         Get all subdomains discovered across all assets for a user.
         
         This method joins assets, asset_scan_jobs, and subdomains.
+        
+        LEAN MVP: All authenticated users see ALL data (no user filtering).
         """
         try:
-            # Get all assets for the user
-            assets_response = self.supabase.table("assets").select("id").eq("user_id", user_id).execute()
+            # Get ALL assets (LEAN architecture - no user_id filter)
+            assets_response = self.supabase.table("assets").select("id").execute()
             
             if not assets_response.data:
-                self.logger.info(f"No assets found for user {user_id}")
+                self.logger.info("No assets found in database")
                 return []
             
             asset_ids = [a["id"] for a in assets_response.data]
-            self.logger.info(f"Found {len(asset_ids)} assets for user {user_id}: {asset_ids}")
+            self.logger.info(f"Found {len(asset_ids)} total assets: {asset_ids[:5]}...")
             
             # DEBUG: Let's also check how many asset_scan_jobs exist for these assets
             asset_scan_jobs_response = self.supabase.table("asset_scan_jobs").select("id, asset_id").in_("asset_id", asset_ids).execute()
