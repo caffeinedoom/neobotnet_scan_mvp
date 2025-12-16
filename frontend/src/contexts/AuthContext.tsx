@@ -98,30 +98,14 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   // Initialize auth state on mount
   useEffect(() => {
-    const initializeAuth = async () => {
-      try {
-        const session = await getSession();
-        dispatch({
-          type: 'SET_SESSION',
-          payload: {
-            user: session?.user ?? null,
-            session: session ?? null,
-          },
-        });
-      } catch (error) {
-        console.error('Failed to initialize auth:', error);
-        dispatch({ type: 'SET_LOADING', payload: false });
-      }
-    };
-
-    initializeAuth();
-
-    // Subscribe to auth state changes
+    // Subscribe to auth state changes FIRST
+    // This will fire INITIAL_SESSION event with the current session state
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        console.log('Auth state changed:', event);
+        console.log('Auth state changed:', event, session ? 'has session' : 'no session');
         
-        if (event === 'SIGNED_IN' && session) {
+        // Handle all session-related events
+        if ((event === 'SIGNED_IN' || event === 'INITIAL_SESSION' || event === 'TOKEN_REFRESHED') && session) {
           dispatch({
             type: 'SET_SESSION',
             payload: {
@@ -129,23 +113,46 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
               session: session,
             },
           });
-          toast.success('Signed in successfully!');
+          // Only show toast for actual sign-in, not for session restore
+          if (event === 'SIGNED_IN') {
+            toast.success('Signed in successfully!');
+          }
         } else if (event === 'SIGNED_OUT') {
           dispatch({ type: 'SIGN_OUT' });
-        } else if (event === 'TOKEN_REFRESHED' && session) {
-          dispatch({
-            type: 'SET_SESSION',
-            payload: {
-              user: session.user,
-              session: session,
-            },
-          });
+        } else if (event === 'INITIAL_SESSION' && !session) {
+          // No existing session found - mark loading as done
+          dispatch({ type: 'SET_LOADING', payload: false });
         }
       }
     );
 
+    // Fallback: manually check session after a short delay
+    // This handles edge cases where onAuthStateChange might not fire
+    const timeoutId = setTimeout(async () => {
+      try {
+        const session = await getSession();
+        if (session) {
+          dispatch({ 
+            type: 'SET_SESSION',
+            payload: {
+              user: session.user,
+              session: session,
+            },
+          });
+        } else {
+          // Only set loading to false if we're still loading
+          // (onAuthStateChange might have already handled this)
+          dispatch({ type: 'SET_LOADING', payload: false });
+        }
+      } catch (error) {
+        console.error('Failed to check session:', error);
+        dispatch({ type: 'SET_LOADING', payload: false });
+      }
+    }, 1000);
+
     return () => {
       subscription.unsubscribe();
+      clearTimeout(timeoutId);
     };
   }, []);
 
@@ -280,4 +287,4 @@ export const useAuth = (): AuthContextType => {
     throw new Error('useAuth must be used within an AuthProvider');
   }
   return context;
-};
+}; 

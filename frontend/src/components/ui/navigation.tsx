@@ -116,8 +116,8 @@ export const Navigation: React.FC = () => {
                   <Button key={item.href} variant="ghost" size="sm" asChild>
                     <Link href={item.href}>
                       <item.icon className="h-4 w-4" />
-                    </Link>
-                  </Button>
+                  </Link>
+                </Button>
                 ))}
               </div>
 
@@ -139,13 +139,13 @@ export const Navigation: React.FC = () => {
             </>
           ) : (
             // Unauthenticated state - Google SSO only
-            <Button size="sm" asChild>
+              <Button size="sm" asChild>
               <Link href="/auth/login">Sign in with Google</Link>
-            </Button>
+              </Button>
           )}
           </div>
         </div>
       </div>
     </nav>
   );
-};
+}; 

@@ -41,7 +41,7 @@ async def get_current_user_profile(
     Works with both:
     - Supabase JWT (from Google SSO)
     - API keys (X-API-Key header)
-    
+        
     Returns:
         User profile information
     """
@@ -58,7 +58,7 @@ async def list_api_keys(
 ):
     """
     List all API keys for the current user.
-    
+        
     Returns:
         List of API keys (without the actual key values)
     """
@@ -143,7 +143,7 @@ async def delete_api_key(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="API key not found or you don't have permission to delete it"
-        )
+    )
     
     return {"message": "API key deleted permanently", "key_id": key_id}
 
@@ -165,4 +165,4 @@ async def auth_health():
         "service": "authentication",
         "message": "Authentication service is running",
         "auth_methods": ["google_sso", "api_key"]
-    }
+    } 

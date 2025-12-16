@@ -54,7 +54,7 @@ export default function Home() {
         <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-background to-background" />
         
         <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-24 sm:py-32">
-          <div className="text-center space-y-8">
+      <div className="text-center space-y-8">
             {/* Badge */}
             <Badge variant="secondary" className="px-4 py-2 text-sm">
               🚀 Free for Bug Bounty Researchers
@@ -65,8 +65,8 @@ export default function Home() {
               <span className="bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
                 NeoBot-Net
               </span>
-            </h1>
-            
+        </h1>
+        
             {/* Subtitle */}
             <p className="max-w-2xl mx-auto text-xl text-muted-foreground">
               Free reconnaissance data for bug bounty programs. 
@@ -74,21 +74,21 @@ export default function Home() {
             </p>
 
             {/* CTA Buttons */}
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+        <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Button size="lg" asChild className="text-lg px-8">
                 <Link href="/auth/login">
                   Get Started Free
                   <ArrowRight className="ml-2 h-5 w-5" />
-                </Link>
-              </Button>
+            </Link>
+          </Button>
               <Button variant="outline" size="lg" asChild className="text-lg px-8">
                 <Link href="/api-docs">
                   <Code2 className="mr-2 h-5 w-5" />
                   View API Docs
-                </Link>
-              </Button>
-            </div>
-          </div>
+            </Link>
+          </Button>
+        </div>
+      </div>
         </div>
       </section>
 

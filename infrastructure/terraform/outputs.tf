@@ -186,7 +186,7 @@ output "katana_task_definition_family" {
 
 # ================================================================
 # Orchestrator CLI Outputs
-# ================================================================
+# ================================================================ 
 
 output "orchestrator_ecr_repository_url" {
   description = "ECR repository URL for orchestrator container"

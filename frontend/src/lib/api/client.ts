@@ -64,11 +64,9 @@ const createApiClient = (): AxiosInstance => {
           const { data: { session }, error: refreshError } = await supabase.auth.refreshSession();
           
           if (refreshError || !session) {
-            console.error('Failed to refresh session, redirecting to login');
-            // Only redirect if we're in a browser
-            if (typeof window !== 'undefined') {
-              window.location.href = '/auth/login';
-            }
+            console.warn('Failed to refresh session - user may need to re-authenticate');
+            // DON'T automatically redirect - let the AuthContext handle this
+            // The redirect was causing logout loops when API calls happened before session was ready
           } else {
             // Retry the original request with new token
             const originalRequest = error.config;

@@ -68,29 +68,29 @@ export const LoginForm: React.FC<LoginFormProps> = () => {
         </CardDescription>
       </CardHeader>
       
-      <CardContent className="space-y-4">
-        <Button 
+          <CardContent className="space-y-4">
+                      <Button
           onClick={handleGoogleSignIn}
           variant="outline"
           className="w-full h-12 text-base"
-          disabled={isLoading}
-        >
+                        disabled={isLoading}
+                      >
           {isLoading ? (
             'Signing in...'
-          ) : (
+                        ) : (
             <>
               <GoogleIcon />
               Continue with Google
             </>
-          )}
-        </Button>
+                        )}
+                      </Button>
 
-        <Button 
+            <Button 
           onClick={handleTwitterSignIn}
           variant="outline"
           className="w-full h-12 text-base"
-          disabled={isLoading}
-        >
+              disabled={isLoading}
+            >
           {isLoading ? (
             'Signing in...'
           ) : (
@@ -99,8 +99,8 @@ export const LoginForm: React.FC<LoginFormProps> = () => {
               Continue with X
             </>
           )}
-        </Button>
-        
+            </Button>
+            
         <p className="text-xs text-center text-muted-foreground">
           By signing in, you agree to our Terms of Service and Privacy Policy.
           All reconnaissance data is provided free of charge.
@@ -108,4 +108,4 @@ export const LoginForm: React.FC<LoginFormProps> = () => {
       </CardContent>
     </Card>
   );
-};
+}; 
