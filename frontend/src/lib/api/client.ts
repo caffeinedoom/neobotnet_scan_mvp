@@ -20,6 +20,7 @@ const createApiClient = (): AxiosInstance => {
       'Content-Type': 'application/json',
     },
     timeout: 30000, // 30 second timeout
+    withCredentials: true, // Enable httpOnly cookie auth (Phase 2)
   });
 
   // Request interceptor to add authentication token

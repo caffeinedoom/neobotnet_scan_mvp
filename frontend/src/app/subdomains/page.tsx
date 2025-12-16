@@ -275,20 +275,10 @@ function SubdomainsContent() {
     if (!isAuthenticated) return;
     
     try {
-      const { API_BASE_URL } = await import('@/lib/api/config');
+      const { apiClient } = await import('@/lib/api/client');
       
-      const response = await fetch(`${API_BASE_URL}/api/v1/assets/filter-options`, {
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const filterData = await response.json();
+      const response = await apiClient.get('/api/v1/assets/filter-options');
+      const filterData = response.data;
       
       // Set comprehensive filter options from ALL user data
       setAvailableDomains(filterData.domains || []);

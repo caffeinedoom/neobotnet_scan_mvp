@@ -64,8 +64,8 @@ Implement httpOnly cookie-based authentication for the web application to provid
 | Phase | Name | Status | Notes |
 |-------|------|--------|-------|
 | 1 | Backend Cookie Support | ✅ Complete | Session endpoints, cookie validation |
-| 2 | Frontend Cookie Integration | 🟡 In Progress | AuthContext, apiClient updates |
-| 3 | Backend LEAN Fixes | ⬜ Not Started | Remove user_id filtering |
+| 2 | Frontend Cookie Integration | ✅ Complete | AuthContext, apiClient updates |
+| 3 | Backend LEAN Fixes | 🟡 In Progress | Remove user_id filtering |
 | 4 | Testing & Cleanup | ⬜ Not Started | End-to-end validation |
 
 ---
@@ -106,21 +106,22 @@ Implement httpOnly cookie-based authentication for the web application to provid
 
 ### Tasks
 
-- [ ] **2.1** Update `AuthContext.tsx`
-  - After Supabase `signInWithOAuth` success → POST to `/auth/session`
-  - On logout → DELETE `/auth/session`
-  - On token refresh → POST `/auth/session`
+- [x] **2.1** Update `AuthContext.tsx` ✅ COMPLETED
+  - After Supabase auth success → POST to `/auth/session` (creates cookie)
+  - On logout → DELETE `/auth/session` (clears cookie)
+  - On token refresh → POST `/auth/session` (updates cookie)
 
-- [ ] **2.2** Update `apiClient` in `client.ts`
-  - Add `withCredentials: true` to axios config
-  - Remove Bearer token interceptor
+- [x] **2.2** Update `apiClient` in `client.ts` ✅ COMPLETED
+  - Added `withCredentials: true` to axios config
+  - Kept Bearer token interceptor as fallback (both methods work)
 
-- [ ] **2.3** Verify all API calls use `credentials: 'include'`
+- [x] **2.3** Fix raw `fetch()` calls to use `apiClient` ✅ COMPLETED
+  - Fixed `subdomains/page.tsx` filter-options fetch
 
-### Files to Modify
-- `frontend/src/contexts/AuthContext.tsx`
-- `frontend/src/lib/api/client.ts`
-- `frontend/src/lib/api/assets.ts`
+### Files Modified
+- `frontend/src/contexts/AuthContext.tsx` - Added `createBackendSession()` call
+- `frontend/src/lib/api/client.ts` - Added `withCredentials: true`
+- `frontend/src/app/subdomains/page.tsx` - Replaced raw fetch with apiClient
 
 ---
 
@@ -163,7 +164,11 @@ Implement httpOnly cookie-based authentication for the web application to provid
   - Added `/api/v1/auth/session` endpoints (POST, DELETE, GET)
   - Updated `dependencies.py` to read `neobotnet_session` cookie
   - Verified CORS and cookie settings already configured
-- 🟡 Starting Phase 2: Frontend Cookie Integration
+- ✅ Completed Phase 2: Frontend Cookie Integration
+  - Added `createBackendSession()` to AuthContext.tsx
+  - Updated apiClient with `withCredentials: true`
+  - Fixed subdomains/page.tsx to use apiClient
+- 🟡 Starting Phase 3: Backend LEAN Fixes
 
 ---
 

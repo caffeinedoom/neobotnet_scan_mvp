@@ -13,6 +13,8 @@
 import React, { createContext, useContext, useEffect, useReducer, ReactNode, useCallback } from 'react';
 import { toast } from 'sonner';
 import { supabase, signInWithGoogle, signInWithTwitter, signOut as supabaseSignOut, getSession } from '@/lib/supabase';
+import { apiClient } from '@/lib/api/client';
+import { API_BASE_URL } from '@/lib/api/config';
 import type { Session, User } from '@supabase/supabase-js';
 
 // ============================================================================
@@ -96,6 +98,24 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [state, dispatch] = useReducer(authReducer, initialState);
 
+  // Create backend session (sets httpOnly cookie)
+  const createBackendSession = useCallback(async (accessToken: string) => {
+    try {
+      await fetch(`${API_BASE_URL}/api/v1/auth/session`, {
+        method: 'POST',
+        credentials: 'include', // Important: include cookies
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+      });
+      console.log('Backend session created (httpOnly cookie set)');
+    } catch (error) {
+      console.error('Failed to create backend session:', error);
+      // Don't fail login if backend session creation fails - Bearer token still works
+    }
+  }, []);
+
   // Initialize auth state on mount
   useEffect(() => {
     // Subscribe to auth state changes FIRST
@@ -106,6 +126,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         
         // Handle all session-related events
         if ((event === 'SIGNED_IN' || event === 'INITIAL_SESSION' || event === 'TOKEN_REFRESHED') && session) {
+          // Create backend session (sets httpOnly cookie for secure API calls)
+          await createBackendSession(session.access_token);
+          
           dispatch({
             type: 'SET_SESSION',
             payload: {
@@ -187,6 +210,18 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   // Sign out
   const handleSignOut = useCallback(async () => {
     try {
+      // Clear backend session (httpOnly cookie)
+      try {
+        await fetch(`${API_BASE_URL}/api/v1/auth/session`, {
+          method: 'DELETE',
+          credentials: 'include',
+        });
+        console.log('Backend session cleared');
+      } catch (error) {
+        console.error('Failed to clear backend session:', error);
+        // Continue with Supabase signout even if backend session clear fails
+      }
+      
       await supabaseSignOut();
       dispatch({ type: 'SIGN_OUT' });
       toast.success('Signed out successfully');
