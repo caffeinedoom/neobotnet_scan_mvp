@@ -99,6 +99,10 @@ def run_scan(
         ecs_client = boto3.client('ecs', region_name=config.aws.region)
         
         # Prepare container overrides with environment variables
+        # Include OPERATOR_USER_ID for proper database associations
+        import os
+        operator_user_id = os.environ.get('OPERATOR_USER_ID', '')
+        
         container_overrides = {
             "containerOverrides": [
                 {
@@ -106,7 +110,8 @@ def run_scan(
                     "environment": [
                         {"name": "PROGRAM_NAME", "value": program},
                         {"name": "DOMAINS", "value": ",".join(domain_list)},
-                        {"name": "MODULES", "value": ",".join(module_list)}
+                        {"name": "MODULES", "value": ",".join(module_list)},
+                        {"name": "OPERATOR_USER_ID", "value": operator_user_id}
                     ]
                 }
             ]

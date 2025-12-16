@@ -673,8 +673,16 @@ resource "aws_ecs_task_definition" "orchestrator" {
           valueFrom = data.aws_ssm_parameter.supabase_url.arn
         },
         {
+          name      = "SUPABASE_ANON_KEY"
+          valueFrom = data.aws_ssm_parameter.supabase_anon_key.arn
+        },
+        {
           name      = "SUPABASE_SERVICE_ROLE_KEY"
           valueFrom = data.aws_ssm_parameter.supabase_service_role_key.arn
+        },
+        {
+          name      = "JWT_SECRET_KEY"
+          valueFrom = data.aws_ssm_parameter.jwt_secret_key.arn
         }
       ]
 

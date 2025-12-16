@@ -149,6 +149,13 @@ async def run_scan_pipeline(
     """
     from app.services.scan_pipeline import ScanPipeline
     from app.schemas.assets import EnhancedAssetScanRequest
+    from app.services.module_config_loader import get_module_config
+    from app.core.supabase_client import supabase_client
+    
+    # Initialize module configuration from database (required before scan pipeline)
+    module_config = get_module_config()
+    if not module_config.is_initialized:
+        await module_config.initialize(supabase_client.service_client)
     
     # Create scan request
     scan_request = EnhancedAssetScanRequest(
@@ -193,9 +200,16 @@ async def main():
     logger.info(f"🌐 Domains: {domains if domains else '(use existing)'}")
     logger.info(f"🔧 Modules: {modules}")
     
-    # Initialize Supabase client
-    from app.core.supabase_client import supabase_client
-    client = supabase_client.service_client
+    # Initialize Supabase client directly (avoid backend's Settings which requires more env vars)
+    from supabase import create_client
+    supabase_url = os.environ.get('SUPABASE_URL')
+    supabase_key = os.environ.get('SUPABASE_SERVICE_ROLE_KEY')
+    
+    if not supabase_url or not supabase_key:
+        logger.error("❌ SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are required")
+        sys.exit(1)
+    
+    client = create_client(supabase_url, supabase_key)
     
     # Ensure program exists and get ID
     asset_id = await ensure_program_exists(client, program_name, domains)
