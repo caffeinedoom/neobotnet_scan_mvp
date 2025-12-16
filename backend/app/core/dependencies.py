@@ -56,7 +56,8 @@ async def get_current_user(
     token = None
     
     # Try httpOnly cookie first (most secure for browsers)
-    token = request.cookies.get("access_token")
+    # Check new cookie name first, then legacy name for backwards compatibility
+    token = request.cookies.get("neobotnet_session") or request.cookies.get("access_token")
     
     # Fallback to Authorization header (JWT)
     if not token and credentials:
