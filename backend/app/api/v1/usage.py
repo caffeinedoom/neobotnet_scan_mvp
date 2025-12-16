@@ -36,13 +36,16 @@ async def get_recon_data(
     """
     try:
         client = supabase_client.service_client
+        user_id = current_user.id
         
-        # Get all assets (programs)
+        # Get assets for the current user (filtered by user_id)
         assets_result = client.table("assets").select(
             "id, name, description, bug_bounty_url, is_active, priority, tags, created_at, updated_at"
-        ).order("created_at", desc=True).execute()
+        ).eq("user_id", user_id).order("created_at", desc=True).execute()
         
         assets = assets_result.data or []
+        
+        logger.debug(f"Found {len(assets)} assets for user {user_id}")
         
         # Enrich assets with statistics
         enriched_assets = []
@@ -122,10 +125,15 @@ async def get_recon_data(
                 "last_scan_date": asset_last_scan
             })
         
-        # Get recent scans (all assets)
-        recent_scans_result = client.table("asset_scan_jobs").select(
-            "id, asset_id, status, modules, total_domains, created_at, started_at, completed_at, error_message"
-        ).order("created_at", desc=True).limit(20).execute()
+        # Get recent scans (only for user's assets)
+        asset_ids = [asset["id"] for asset in assets]
+        
+        if asset_ids:
+            recent_scans_result = client.table("asset_scan_jobs").select(
+                "id, asset_id, status, modules, total_domains, created_at, started_at, completed_at, error_message"
+            ).in_("asset_id", asset_ids).order("created_at", desc=True).limit(20).execute()
+        else:
+            recent_scans_result = type('obj', (object,), {'data': []})()  # Empty result
         
         recent_scans = []
         for scan in (recent_scans_result.data or []):
