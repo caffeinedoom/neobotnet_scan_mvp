@@ -109,7 +109,7 @@ output "redis_port" {
 
 output "backend_ecr_repository_url" {
   description = "ECR repository URL for backend application"
-  value       = aws_ecr_repository.backend.repository_url
+  value       = data.aws_ecr_repository.backend.repository_url
 }
 
 # ================================================================
@@ -182,4 +182,23 @@ output "katana_task_definition_arn" {
 output "katana_task_definition_family" {
   description = "Family name of the Katana ECS task definition"
   value       = aws_ecs_task_definition.katana.family
-} 
+}
+
+# ================================================================
+# Orchestrator CLI Outputs
+# ================================================================
+
+output "orchestrator_ecr_repository_url" {
+  description = "ECR repository URL for orchestrator container"
+  value       = aws_ecr_repository.orchestrator.repository_url
+}
+
+output "orchestrator_task_definition_arn" {
+  description = "ARN of the orchestrator ECS task definition"
+  value       = aws_ecs_task_definition.orchestrator.arn
+}
+
+output "orchestrator_task_definition_family" {
+  description = "Family name of the orchestrator ECS task definition"
+  value       = aws_ecs_task_definition.orchestrator.family
+}

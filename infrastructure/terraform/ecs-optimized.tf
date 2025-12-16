@@ -8,19 +8,10 @@
 # ================================================================
 # ECR Repository for Main Backend Application
 # ================================================================
-resource "aws_ecr_repository" "backend" {
-  name                 = "neobotnet-backend"
-  image_tag_mutability = "MUTABLE"
-
-  image_scanning_configuration {
-    scan_on_push = true
-  }
-
-  lifecycle {
-    prevent_destroy = true
-  }
-
-  tags = local.common_tags
+# NOTE: This repository already exists (created outside Terraform)
+# Using data source to reference it instead of creating new
+data "aws_ecr_repository" "backend" {
+  name = "neobotnet-backend"
 }
 
 # ECS Cluster (unchanged - this is fine)
@@ -589,6 +580,126 @@ resource "aws_iam_role" "subfinder_task_role" {
 # Note: Cost monitoring resources removed due to AWS provider version compatibility
 # TODO: Re-add cost monitoring when upgrading to AWS provider >= 5.30
 # For now, monitor costs through AWS Console Cost Explorer
+
+# ================================================================
+# ORCHESTRATOR - CLI-TRIGGERED SCAN PIPELINE
+# ================================================================
+# The orchestrator runs inside the VPC and coordinates the scan pipeline:
+# - Receives program/domains from CLI via ECS task override
+# - Orchestrates Subfinder -> DNSx + HTTPx (parallel) -> Katana
+# - Has Redis access for streaming coordination
+# - Uses existing scan_pipeline.py code
+#
+# Resource allocation:
+# - 512 CPU (0.5 vCPU) for orchestration logic
+# - 1024 MB memory for pipeline coordination
+# - Cost: ~$0.01 per scan execution
+
+resource "aws_ecr_repository" "orchestrator" {
+  name                 = "${local.name_prefix}-orchestrator"
+  image_tag_mutability = "MUTABLE"
+
+  image_scanning_configuration {
+    scan_on_push = true
+  }
+
+  lifecycle {
+    prevent_destroy = true
+  }
+
+  tags = merge(local.common_tags, {
+    Name = "${local.name_prefix}-orchestrator-ecr"
+  })
+}
+
+resource "aws_ecs_task_definition" "orchestrator" {
+  family                   = "${local.name_prefix}-orchestrator"
+  network_mode             = "awsvpc"
+  requires_compatibilities = ["FARGATE"]
+  cpu                      = 512   # Orchestration logic
+  memory                   = 1024  # Pipeline coordination
+  execution_role_arn       = aws_iam_role.ecs_task_execution_role.arn
+  task_role_arn            = aws_iam_role.ecs_task_role.arn
+
+  container_definitions = jsonencode([
+    {
+      name      = "orchestrator"
+      image     = "${aws_ecr_repository.orchestrator.repository_url}:latest"
+      essential = true
+
+      environment = [
+        {
+          name  = "LOG_LEVEL"
+          value = "info"
+        },
+        {
+          name  = "REDIS_HOST"
+          value = aws_elasticache_cluster.redis.cache_nodes[0].address
+        },
+        {
+          name  = "REDIS_PORT"
+          value = tostring(aws_elasticache_cluster.redis.cache_nodes[0].port)
+        },
+        {
+          name  = "ECS_CLUSTER"
+          value = aws_ecs_cluster.main.name
+        },
+        {
+          name  = "AWS_REGION"
+          value = var.aws_region
+        },
+        # Scan module task ARNs for orchestration
+        {
+          name  = "SUBFINDER_TASK_DEFINITION"
+          value = aws_ecs_task_definition.subfinder.arn
+        },
+        {
+          name  = "DNSX_TASK_DEFINITION"
+          value = aws_ecs_task_definition.dnsx.arn
+        },
+        {
+          name  = "HTTPX_TASK_DEFINITION"
+          value = aws_ecs_task_definition.httpx.arn
+        },
+        {
+          name  = "KATANA_TASK_DEFINITION"
+          value = aws_ecs_task_definition.katana.arn
+        }
+      ]
+
+      secrets = [
+        {
+          name      = "SUPABASE_URL"
+          valueFrom = data.aws_ssm_parameter.supabase_url.arn
+        },
+        {
+          name      = "SUPABASE_SERVICE_ROLE_KEY"
+          valueFrom = data.aws_ssm_parameter.supabase_service_role_key.arn
+        }
+      ]
+
+      # Resource limits
+      memory = 960  # Container memory < task memory
+      cpu    = 512
+
+      # Logging configuration
+      logConfiguration = {
+        logDriver = "awslogs"
+        options = {
+          awslogs-group         = aws_cloudwatch_log_group.ecs.name
+          awslogs-region        = var.aws_region
+          awslogs-stream-prefix = "orchestrator"
+        }
+      }
+
+      # No health check - this is a one-shot task, not a service
+    }
+  ])
+
+  tags = merge(local.common_tags, {
+    Name = "${local.name_prefix}-orchestrator-task"
+  })
+}
 
 # ================================================================
 # COST OPTIMIZATION SUMMARY

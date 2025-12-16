@@ -1,0 +1,11 @@
+# Orchestrator dependencies
+# Note: Most deps come from base backend container
+# This file exists for documentation and standalone builds
+
+# These are inherited from backend:
+# - supabase
+# - redis
+# - boto3
+# - pydantic
+# - asyncio
+
