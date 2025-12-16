@@ -5,6 +5,24 @@
 # Target: Reduce monthly costs from $116 to $18-25
 # ================================================================
 
+# ================================================================
+# ECR Repository for Main Backend Application
+# ================================================================
+resource "aws_ecr_repository" "backend" {
+  name                 = "neobotnet-backend"
+  image_tag_mutability = "MUTABLE"
+
+  image_scanning_configuration {
+    scan_on_push = true
+  }
+
+  lifecycle {
+    prevent_destroy = true
+  }
+
+  tags = local.common_tags
+}
+
 # ECS Cluster (unchanged - this is fine)
 resource "aws_ecs_cluster" "main" {
   name = "${local.name_prefix}-cluster"

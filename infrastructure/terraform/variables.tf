@@ -32,10 +32,13 @@ variable "availability_zones_count" {
 }
 
 # ECS Configuration
+# DEPRECATED: app_image variable no longer used
+# Backend image now comes from aws_ecr_repository.backend.repository_url
+# Kept for backwards compatibility but not referenced anywhere
 variable "app_image" {
-  description = "Docker image for the application"
+  description = "DEPRECATED - Backend image now uses ECR repository directly"
   type        = string
-  default     = "neobotnet-backend:latest"
+  default     = "DEPRECATED-use-ecr-repository"
 }
 
 variable "app_port" {

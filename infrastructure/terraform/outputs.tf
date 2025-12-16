@@ -104,6 +104,15 @@ output "redis_port" {
 }
 
 # ================================================================
+# Backend Application Outputs
+# ================================================================
+
+output "backend_ecr_repository_url" {
+  description = "ECR repository URL for backend application"
+  value       = aws_ecr_repository.backend.repository_url
+}
+
+# ================================================================
 # Subfinder Container Outputs
 # ================================================================
 
