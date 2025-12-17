@@ -12,15 +12,22 @@ import (
 	"katana-go/internal/models"
 
 	"github.com/projectdiscovery/katana/pkg/engine/hybrid"
+	"github.com/projectdiscovery/katana/pkg/engine/standard"
 	"github.com/projectdiscovery/katana/pkg/output"
 	"github.com/projectdiscovery/katana/pkg/types"
 )
+
+// Crawler is an interface that both hybrid and standard crawlers implement
+type Crawler interface {
+	Crawl(string) error
+	Close() error
+}
 
 // Scanner wraps Katana crawler functionality
 type Scanner struct {
 	cfg     *config.Config
 	logger  *config.Logger
-	engine  *hybrid.Crawler
+	engine  Crawler
 	results []*models.CrawledEndpoint
 	mu      sync.Mutex
 }
@@ -66,11 +73,26 @@ func NewScanner(cfg *config.Config, logger *config.Logger) (*Scanner, error) {
 		return nil, fmt.Errorf("failed to create crawler options: %w", err)
 	}
 
-	// Create hybrid crawler (supports headless mode with Chromium)
-	crawler, err := hybrid.New(crawlerOptions)
-	if err != nil {
-		crawlerOptions.Close()
-		return nil, fmt.Errorf("failed to initialize Katana hybrid crawler: %w", err)
+	// Choose crawler based on headless mode
+	// - Headless=true: Use hybrid crawler (requires Chromium for JavaScript rendering)
+	// - Headless=false: Use standard crawler (pure HTTP, faster, no browser needed)
+	var crawler Crawler
+	if cfg.HeadlessMode {
+		logger.Info("Using HYBRID crawler (headless Chrome for JS rendering)")
+		hybridCrawler, err := hybrid.New(crawlerOptions)
+		if err != nil {
+			crawlerOptions.Close()
+			return nil, fmt.Errorf("failed to initialize Katana hybrid crawler: %w", err)
+		}
+		crawler = hybridCrawler
+	} else {
+		logger.Info("Using STANDARD crawler (pure HTTP, no browser)")
+		standardCrawler, err := standard.New(crawlerOptions)
+		if err != nil {
+			crawlerOptions.Close()
+			return nil, fmt.Errorf("failed to initialize Katana standard crawler: %w", err)
+		}
+		crawler = standardCrawler
 	}
 
 	scanner.engine = crawler
@@ -242,7 +264,10 @@ func (s *Scanner) createSeedEndpoint(seedURL string) *models.CrawledEndpoint {
 // Close cleans up scanner resources
 func (s *Scanner) Close() error {
 	if s.engine != nil {
-		s.engine.Close()
+		if err := s.engine.Close(); err != nil {
+			s.logger.Warn("Error closing scanner engine: %v", err)
+			return err
+		}
 	}
 	s.logger.Debug("Scanner closed")
 	return nil

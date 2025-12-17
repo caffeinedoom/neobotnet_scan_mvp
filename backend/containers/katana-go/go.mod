@@ -2,10 +2,8 @@ module katana-go
 
 go 1.24.0
 
-toolchain go1.24.10
-
 require (
-	github.com/projectdiscovery/gologger v1.1.54
+	github.com/go-redis/redis/v8 v8.11.5
 	github.com/projectdiscovery/katana v1.2.2
 )
 
@@ -24,8 +22,10 @@ require (
 	github.com/bodgit/plumbing v1.3.0 // indirect
 	github.com/bodgit/sevenzip v1.6.0 // indirect
 	github.com/bodgit/windows v1.0.1 // indirect
+	github.com/cespare/xxhash/v2 v2.1.2 // indirect
 	github.com/cloudflare/circl v1.6.1 // indirect
 	github.com/cnf/structhash v0.0.0-20201127153200-e1b16c1ebc08 // indirect
+	github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f // indirect
 	github.com/dimchansky/utfbom v1.1.1 // indirect
 	github.com/ditashi/jsbeautifier-go v0.0.0-20141206144643-2520a8026a9c // indirect
 	github.com/docker/go-units v0.5.0 // indirect
@@ -60,6 +60,7 @@ require (
 	github.com/projectdiscovery/dsl v0.5.1 // indirect
 	github.com/projectdiscovery/fastdialer v0.4.5 // indirect
 	github.com/projectdiscovery/goflags v0.1.74 // indirect
+	github.com/projectdiscovery/gologger v1.1.54 // indirect
 	github.com/projectdiscovery/gostruct v0.0.2 // indirect
 	github.com/projectdiscovery/hmap v0.0.92 // indirect
 	github.com/projectdiscovery/mapcidr v1.1.34 // indirect

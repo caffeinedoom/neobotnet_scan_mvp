@@ -7,13 +7,13 @@ LEAN Refactor:
 - Simplified auth flow
 - Added httpOnly cookie session management for XSS protection
 """
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, Optional
 from fastapi import APIRouter, Depends, HTTPException, status, Response, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel
 
 from ...schemas.auth import UserResponse
-from ...services.api_key_service import api_key_service, APIKey, APIKeyCreated
+from ...services.api_key_service import api_key_service, APIKey, APIKeyCreated, APIKeyWithSecret
 from ...services.auth_service import auth_service
 from ...core.dependencies import get_current_active_user
 from ...core.config import settings
@@ -26,15 +26,6 @@ bearer_scheme = HTTPBearer(auto_error=False)
 
 # Cookie configuration
 COOKIE_NAME = "neobotnet_session"
-
-
-# ============================================================================
-# SCHEMAS
-# ============================================================================
-
-class CreateAPIKeyRequest(BaseModel):
-    """Request to create a new API key."""
-    name: str = "Default"
 
 
 class SessionResponse(BaseModel):
@@ -186,103 +177,87 @@ async def get_current_user_profile(
 
 
 # ============================================================================
-# API KEY MANAGEMENT ENDPOINTS
+# API KEY MANAGEMENT ENDPOINTS (One Key Per User)
 # ============================================================================
 
-@router.get("/api-keys", response_model=List[APIKey])
-async def list_api_keys(
+@router.get("/api-key", response_model=Optional[APIKey])
+async def get_api_key(
     current_user: UserResponse = Depends(get_current_active_user)
 ):
     """
-    List all API keys for the current user.
+    Get the user's API key (without revealing the secret).
+    
+    Each user can have only ONE API key.
         
     Returns:
-        List of API keys (without the actual key values)
+        APIKey if exists, null otherwise
     """
-    return await api_key_service.list_keys(current_user.id)
+    return await api_key_service.get_user_key(current_user.id)
 
 
-@router.post("/api-keys", response_model=APIKeyCreated, status_code=status.HTTP_201_CREATED)
+@router.get("/api-key/reveal", response_model=Optional[APIKeyWithSecret])
+async def reveal_api_key(
+    current_user: UserResponse = Depends(get_current_active_user)
+):
+    """
+    Get the user's API key with the secret revealed.
+    
+    Returns the full API key that can be copied and used.
+        
+    Returns:
+        APIKeyWithSecret with the actual key value
+    """
+    return await api_key_service.get_user_key_revealed(current_user.id)
+
+
+@router.post("/api-key", response_model=APIKeyCreated, status_code=status.HTTP_201_CREATED)
 async def create_api_key(
-    request: CreateAPIKeyRequest,
     current_user: UserResponse = Depends(get_current_active_user)
 ):
     """
-    Create a new API key.
+    Create a new API key (one-click).
     
-    IMPORTANT: The full API key is only returned once at creation.
-    Store it securely - it cannot be retrieved again.
+    Each user can only have ONE API key. If you already have a key,
+    you must delete it first before creating a new one.
     
-    Args:
-        request: API key creation request with optional name
+    The key can be revealed anytime using the /api-key/reveal endpoint.
         
     Returns:
-        Created API key with the full key value (shown only once)
+        Created API key with the full key value
+        
+    Raises:
+        400: If user already has an API key
     """
-    return await api_key_service.create_key(
-        user_id=current_user.id,
-        name=request.name
-    )
+    try:
+        return await api_key_service.create_key(user_id=current_user.id)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
 
 
-@router.delete("/api-keys/{key_id}")
-async def revoke_api_key(
-    key_id: str,
+@router.delete("/api-key")
+async def delete_api_key(
     current_user: UserResponse = Depends(get_current_active_user)
 ):
     """
-    Revoke (deactivate) an API key.
+    Delete the user's API key.
     
-    The key will no longer work for authentication.
-    
-    Args:
-        key_id: The ID of the key to revoke
+    This action cannot be undone. You can create a new key afterward.
         
     Returns:
         Confirmation message
     """
-    success = await api_key_service.revoke_key(
-        user_id=current_user.id,
-        key_id=key_id
-    )
+    success = await api_key_service.delete_key(user_id=current_user.id)
     
     if not success:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="API key not found or you don't have permission to revoke it"
+            detail="No API key found to delete"
         )
     
-    return {"message": "API key revoked successfully", "key_id": key_id}
-
-
-@router.delete("/api-keys/{key_id}/permanent")
-async def delete_api_key(
-    key_id: str,
-    current_user: UserResponse = Depends(get_current_active_user)
-):
-    """
-    Permanently delete an API key.
-    
-    This action cannot be undone.
-    
-    Args:
-        key_id: The ID of the key to delete
-        
-    Returns:
-        Confirmation message
-    """
-    success = await api_key_service.delete_key(
-        user_id=current_user.id,
-        key_id=key_id
-    )
-    
-    if not success:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="API key not found or you don't have permission to delete it"
-    )
-    
-    return {"message": "API key deleted permanently", "key_id": key_id}
+    return {"message": "API key deleted successfully"}
 
 
 # ============================================================================

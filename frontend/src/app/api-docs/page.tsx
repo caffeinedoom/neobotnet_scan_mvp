@@ -3,10 +3,10 @@
 /**
  * API Documentation & Key Management Page - NeoBot-Net LEAN
  * 
- * Complete API hub for researchers:
- * - Generate and manage API keys
- * - View API documentation
- * - Copy working examples
+ * Simplified API hub:
+ * - One API key per user (one-click generate/delete)
+ * - Key can be revealed anytime
+ * - API documentation with examples
  */
 
 import { useEffect, useState, useCallback } from 'react';
@@ -17,7 +17,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Input } from '@/components/ui/input';
 import { 
   Key,
   Copy,
@@ -28,20 +27,21 @@ import {
   Trash2,
   Loader2,
   Eye,
-  EyeOff,
-  AlertCircle
+  EyeOff
 } from 'lucide-react';
 import { toast } from 'sonner';
 
-// Types
+// Types - Simplified for one key per user
 interface APIKey {
   id: string;
-  key?: string; // Only present on creation
   key_prefix: string;
-  name: string;
   created_at: string;
   last_used_at: string | null;
   is_active: boolean;
+}
+
+interface APIKeyWithSecret extends APIKey {
+  key: string;
 }
 
 export default function APIDocsPage() {
@@ -50,14 +50,14 @@ export default function APIDocsPage() {
   const [copied, setCopied] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState('programs');
   
-  // API Key Management State
-  const [apiKeys, setApiKeys] = useState<APIKey[]>([]);
-  const [keysLoading, setKeysLoading] = useState(true);
+  // API Key State - Simplified for one key
+  const [apiKey, setApiKey] = useState<APIKey | null>(null);
+  const [revealedKey, setRevealedKey] = useState<string | null>(null);
+  const [showKey, setShowKey] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
-  const [newKeyName, setNewKeyName] = useState('');
-  const [newlyCreatedKey, setNewlyCreatedKey] = useState<string | null>(null);
-  const [showNewKey, setShowNewKey] = useState(true);
-  const [revokingId, setRevokingId] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [revealing, setRevealing] = useState(false);
 
   // Auth redirect
   useEffect(() => {
@@ -68,68 +68,91 @@ export default function APIDocsPage() {
     }
   }, [isAuthenticated, authLoading, router]);
 
-  // Fetch API keys
-  const fetchApiKeys = useCallback(async () => {
+  // Fetch user's API key
+  const fetchApiKey = useCallback(async () => {
     if (!session?.access_token) return;
     
     try {
-      setKeysLoading(true);
-      const response = await apiClient.get<APIKey[]>('/api/v1/auth/api-keys');
-      setApiKeys(response.data);
+      setLoading(true);
+      const response = await apiClient.get<APIKey | null>('/api/v1/auth/api-key');
+      setApiKey(response.data);
+      // Clear revealed key when fetching fresh data
+      setRevealedKey(null);
+      setShowKey(false);
     } catch (error) {
-      console.error('Failed to fetch API keys:', error);
-      toast.error('Failed to load API keys');
+      console.error('Failed to fetch API key:', error);
+      // 404 means no key exists, which is fine
+      setApiKey(null);
     } finally {
-      setKeysLoading(false);
+      setLoading(false);
     }
   }, [session?.access_token]);
 
   useEffect(() => {
     if (isAuthenticated && session?.access_token) {
-      fetchApiKeys();
+      fetchApiKey();
     }
-  }, [isAuthenticated, session?.access_token, fetchApiKeys]);
+  }, [isAuthenticated, session?.access_token, fetchApiKey]);
 
-  // Create new API key
+  // Create API key (one-click)
   const createApiKey = async () => {
     if (!session?.access_token) return;
     
     try {
       setCreating(true);
-      const response = await apiClient.post<APIKey & { key: string }>('/api/v1/auth/api-keys', {
-        name: newKeyName || 'Default'
-      });
+      const response = await apiClient.post<APIKeyWithSecret>('/api/v1/auth/api-key');
       
-      // Store the newly created key to show it once
-      setNewlyCreatedKey(response.data.key);
-      setShowNewKey(true);
-      setNewKeyName('');
+      // Set the key and reveal it immediately
+      setApiKey(response.data);
+      setRevealedKey(response.data.key);
+      setShowKey(true);
       
-      // Refresh the list
-      await fetchApiKeys();
-      toast.success('API key created! Copy it now - it won\'t be shown again.');
-    } catch (error) {
+      toast.success('API key created!');
+    } catch (error: unknown) {
       console.error('Failed to create API key:', error);
-      toast.error('Failed to create API key');
+      const errorMessage = error instanceof Error ? error.message : 'Failed to create API key';
+      toast.error(errorMessage);
     } finally {
       setCreating(false);
     }
   };
 
-  // Revoke API key
-  const revokeApiKey = async (keyId: string) => {
+  // Reveal API key
+  const revealApiKey = async () => {
+    if (!session?.access_token || revealedKey) {
+      setShowKey(!showKey);
+      return;
+    }
+    
+    try {
+      setRevealing(true);
+      const response = await apiClient.get<APIKeyWithSecret>('/api/v1/auth/api-key/reveal');
+      setRevealedKey(response.data.key);
+      setShowKey(true);
+    } catch (error) {
+      console.error('Failed to reveal API key:', error);
+      toast.error('Failed to reveal API key');
+    } finally {
+      setRevealing(false);
+    }
+  };
+
+  // Delete API key
+  const deleteApiKey = async () => {
     if (!session?.access_token) return;
     
     try {
-      setRevokingId(keyId);
-      await apiClient.delete(`/api/v1/auth/api-keys/${keyId}`);
-      toast.success('API key revoked');
-      await fetchApiKeys();
+      setDeleting(true);
+      await apiClient.delete('/api/v1/auth/api-key');
+      setApiKey(null);
+      setRevealedKey(null);
+      setShowKey(false);
+      toast.success('API key deleted');
     } catch (error) {
-      console.error('Failed to revoke API key:', error);
-      toast.error('Failed to revoke API key');
+      console.error('Failed to delete API key:', error);
+      toast.error('Failed to delete API key');
     } finally {
-      setRevokingId(null);
+      setDeleting(false);
     }
   };
 
@@ -186,135 +209,115 @@ export default function APIDocsPage() {
           </p>
         </div>
 
-        {/* API Key Management Section */}
+        {/* API Key Management Section - Simplified One Key */}
         <Card className="border-primary/20">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Key className="h-5 w-5" />
-              Your API Keys
+              Your API Key
             </CardTitle>
             <CardDescription>
-              Create and manage API keys for programmatic access
+              One API key for all programmatic access
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-6">
-            {/* Create New Key */}
-            <div className="flex gap-3">
-              <Input
-                placeholder="Key name (e.g., 'CLI Tool', 'CI/CD')"
-                value={newKeyName}
-                onChange={(e) => setNewKeyName(e.target.value)}
-                className="max-w-xs"
-                onKeyDown={(e) => e.key === 'Enter' && createApiKey()}
-              />
-              <Button onClick={createApiKey} disabled={creating}>
-                {creating ? (
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                ) : (
-                  <Plus className="h-4 w-4 mr-2" />
-                )}
-                Generate Key
-              </Button>
-            </div>
-
-            {/* Newly Created Key Alert */}
-            {newlyCreatedKey && (
-              <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-4 space-y-3">
-                <div className="flex items-start gap-2">
-                  <AlertCircle className="h-5 w-5 text-green-500 mt-0.5" />
-                  <div className="flex-1">
-                    <p className="text-sm font-medium text-green-600 dark:text-green-400">
-                      New API Key Created
-                    </p>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Copy this key now. For security, it will not be shown again.
-                    </p>
+          <CardContent className="space-y-4">
+            {loading ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+              </div>
+            ) : apiKey ? (
+              /* Has API Key - Show with reveal/delete options */
+              <div className="space-y-4">
+                <div className="flex items-center gap-3 p-4 bg-muted/50 rounded-lg">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Badge variant="secondary" className="bg-green-500/10 text-green-600 dark:text-green-400">
+                        Active
+                      </Badge>
+                      <span className="text-xs text-muted-foreground">
+                        Created {new Date(apiKey.created_at).toLocaleDateString()}
+                      </span>
+                      {apiKey.last_used_at && (
+                        <span className="text-xs text-muted-foreground">
+                          · Last used {new Date(apiKey.last_used_at).toLocaleDateString()}
+                        </span>
+                      )}
+                    </div>
+                    
+                    {/* Key display with reveal toggle */}
+                    <div className="flex items-center gap-2">
+                      <code className="flex-1 bg-zinc-950 text-zinc-100 px-3 py-2 rounded font-mono text-sm overflow-hidden">
+                        {showKey && revealedKey ? revealedKey : apiKey.key_prefix}
+                      </code>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={revealApiKey}
+                        disabled={revealing}
+                        title={showKey ? "Hide key" : "Reveal key"}
+                      >
+                        {revealing ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : showKey ? (
+                          <EyeOff className="h-4 w-4" />
+                        ) : (
+                          <Eye className="h-4 w-4" />
+                        )}
+                      </Button>
+                      {revealedKey && (
+                        <Button
+                          size="sm"
+                          onClick={() => copyToClipboard(revealedKey, 'api-key')}
+                          title="Copy to clipboard"
+                        >
+                          {copied === 'api-key' ? (
+                            <Check className="h-4 w-4 text-green-500" />
+                          ) : (
+                            <Copy className="h-4 w-4" />
+                          )}
+                        </Button>
+                      )}
+                    </div>
                   </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <code className="flex-1 bg-zinc-950 text-zinc-100 px-3 py-2 rounded font-mono text-sm">
-                    {showNewKey ? newlyCreatedKey : '•'.repeat(40)}
-                  </code>
+
+                {/* Delete button */}
+                <div className="flex justify-end">
                   <Button
+                    variant="outline"
                     size="sm"
-                    variant="ghost"
-                    onClick={() => setShowNewKey(!showNewKey)}
+                    className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                    onClick={deleteApiKey}
+                    disabled={deleting}
                   >
-                    {showNewKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                  </Button>
-                  <Button
-                    size="sm"
-                    onClick={() => copyToClipboard(newlyCreatedKey, 'new-key')}
-                  >
-                    {copied === 'new-key' ? (
-                      <Check className="h-4 w-4 text-green-500" />
+                    {deleting ? (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                     ) : (
-                      <Copy className="h-4 w-4" />
+                      <Trash2 className="h-4 w-4 mr-2" />
                     )}
+                    Delete Key
                   </Button>
                 </div>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => setNewlyCreatedKey(null)}
-                  className="mt-2"
-                >
-                  I have copied my key
+              </div>
+            ) : (
+              /* No API Key - Show create button */
+              <div className="text-center py-8 space-y-4">
+                <div>
+                  <Key className="h-12 w-12 mx-auto mb-3 text-muted-foreground/50" />
+                  <p className="text-muted-foreground">
+                    No API key yet. Generate one to access the API programmatically.
+                  </p>
+                </div>
+                <Button onClick={createApiKey} disabled={creating} size="lg">
+                  {creating ? (
+                    <Loader2 className="h-5 w-5 mr-2 animate-spin" />
+                  ) : (
+                    <Plus className="h-5 w-5 mr-2" />
+                  )}
+                  Generate API Key
                 </Button>
               </div>
             )}
-
-            {/* Existing Keys List */}
-            <div className="space-y-2">
-              <h4 className="text-sm font-medium text-muted-foreground">Active Keys</h4>
-              {keysLoading ? (
-                <div className="flex items-center justify-center py-8">
-                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-                </div>
-              ) : apiKeys.length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground">
-                  <Key className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                  <p className="text-sm">No API keys yet. Create one to get started.</p>
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  {apiKeys.filter(k => k.is_active).map((key) => (
-                    <div
-                      key={key.id}
-                      className="flex items-center justify-between p-3 bg-muted/50 rounded-lg"
-                    >
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium text-sm">{key.name}</span>
-                          <Badge variant="outline" className="text-xs">
-                            {key.key_prefix}
-                          </Badge>
-                        </div>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          Created {new Date(key.created_at).toLocaleDateString()}
-                          {key.last_used_at && (
-                            <> · Last used {new Date(key.last_used_at).toLocaleDateString()}</>
-                          )}
-                        </p>
-                      </div>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                        onClick={() => revokeApiKey(key.id)}
-                        disabled={revokingId === key.id}
-                      >
-                        {revokingId === key.id ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                          <Trash2 className="h-4 w-4" />
-                        )}
-                      </Button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
           </CardContent>
         </Card>
 

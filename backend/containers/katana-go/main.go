@@ -11,6 +11,7 @@ import (
 	"katana-go/internal/config"
 	"katana-go/internal/database"
 	"katana-go/internal/scanner"
+	"katana-go/internal/stream"
 )
 
 // Version information
@@ -223,17 +224,82 @@ func runBatchMode(cfg *config.Config) error {
 }
 
 // runStreamingMode executes the scanner in streaming mode
+// Consumes URLs from HTTPx output stream and crawls them in real-time
 func runStreamingMode(cfg *config.Config) error {
 	cfg.Logger.Info("=== Streaming Mode Execution ===")
 	cfg.Logger.Info("Input Stream: %s", cfg.StreamInputKey)
 	cfg.Logger.Info("Consumer Group: %s", cfg.ConsumerGroup)
+	cfg.Logger.Info("Consumer Name: %s", cfg.ConsumerName)
 
-	// TODO: Phase 5 - Implement Redis Streams integration
-	// For MVP, we'll implement Redis Streams in Phase 5
-	// For now, fall back to batch mode
+	// 1. Initialize database client and repository
+	dbClient := database.NewSupabaseClient(cfg.SupabaseURL, cfg.SupabaseKey)
+	repo := database.NewRepository(dbClient, cfg.Logger)
 
-	cfg.Logger.Warn("Streaming mode not yet implemented (Phase 5), falling back to batch mode")
-	return runBatchMode(cfg)
+	// 2. Update scan job status to "running"
+	if err := repo.UpdateScanJobStatus(cfg.ScanJobID, "running", map[string]interface{}{
+		"started_at": time.Now(),
+		"mode":       "streaming",
+	}); err != nil {
+		cfg.Logger.Warn("Failed to update scan job status: %v", err)
+	}
+
+	// 3. Initialize scanner
+	katanaScanner, err := scanner.NewScanner(cfg, cfg.Logger)
+	if err != nil {
+		_ = repo.UpdateScanJobStatus(cfg.ScanJobID, "failed", map[string]interface{}{
+			"error":     err.Error(),
+			"failed_at": time.Now(),
+		})
+		return fmt.Errorf("failed to initialize scanner: %w", err)
+	}
+	defer katanaScanner.Close()
+
+	// 4. Initialize stream consumer
+	consumer, err := stream.NewConsumer(cfg, repo, katanaScanner)
+	if err != nil {
+		_ = repo.UpdateScanJobStatus(cfg.ScanJobID, "failed", map[string]interface{}{
+			"error":     err.Error(),
+			"failed_at": time.Now(),
+		})
+		return fmt.Errorf("failed to initialize stream consumer: %w", err)
+	}
+	defer consumer.Close()
+
+	// 5. Ensure consumer group exists
+	if err := consumer.EnsureConsumerGroup(); err != nil {
+		_ = repo.UpdateScanJobStatus(cfg.ScanJobID, "failed", map[string]interface{}{
+			"error":     err.Error(),
+			"failed_at": time.Now(),
+		})
+		return fmt.Errorf("failed to ensure consumer group: %w", err)
+	}
+
+	// 6. Start consuming URLs from stream
+	cfg.Logger.Info("🌊 Starting stream consumption (waiting for URLs from HTTPx)...")
+	consumeResult, err := consumer.Consume()
+	if err != nil {
+		_ = repo.UpdateScanJobStatus(cfg.ScanJobID, "failed", map[string]interface{}{
+			"error":     err.Error(),
+			"failed_at": time.Now(),
+		})
+		return fmt.Errorf("stream consumption failed: %w", err)
+	}
+
+	// 7. Update scan job status to "completed"
+	if err := repo.UpdateScanJobStatus(cfg.ScanJobID, "completed", map[string]interface{}{
+		"completed_at":     time.Now(),
+		"urls_received":    consumeResult.URLsReceived,
+		"urls_crawled":     consumeResult.URLsCrawled,
+		"endpoints_found":  consumeResult.EndpointsFound,
+		"endpoints_stored": consumeResult.EndpointsStored,
+		"processing_time":  consumeResult.ProcessingTime.String(),
+	}); err != nil {
+		cfg.Logger.Warn("Failed to update scan job status: %v", err)
+	}
+
+	cfg.Logger.Info("✅ Streaming mode completed: %d URLs crawled, %d endpoints stored",
+		consumeResult.URLsCrawled, consumeResult.EndpointsStored)
+	return nil
 }
 
 // setupGracefulShutdown handles interrupt signals

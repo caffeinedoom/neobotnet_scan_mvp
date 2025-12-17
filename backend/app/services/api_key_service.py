@@ -1,19 +1,29 @@
 """
 API Key Service for managing user API keys.
 
+LEAN MVP Simplification:
+- One key per user (enforced)
+- No key names needed
+- Keys can be revealed after creation (encrypted storage)
+
 This service handles:
 - Generating secure API keys
-- Hashing keys for storage (SHA-256)
+- Encrypting keys for storage (Fernet symmetric encryption)
+- Hashing keys for fast lookup (SHA-256)
 - Validating keys during API requests
-- Managing key lifecycle (create, list, revoke)
+- Managing key lifecycle (create, get, delete)
 """
 import secrets
 import hashlib
-from typing import Optional, List
+import base64
+import os
+from typing import Optional
 from datetime import datetime
 from pydantic import BaseModel
+from cryptography.fernet import Fernet
 
 from ..core.supabase_client import supabase_client
+from ..core.config import settings
 
 
 # ============================================================================
@@ -21,29 +31,33 @@ from ..core.supabase_client import supabase_client
 # ============================================================================
 
 class APIKey(BaseModel):
-    """API key response model (never includes the full key after creation)."""
+    """API key response model."""
     id: str
     user_id: str
     key_prefix: str
-    name: str
     created_at: datetime
     last_used_at: Optional[datetime] = None
     is_active: bool
 
 
-class APIKeyCreate(BaseModel):
-    """Request model for creating an API key."""
-    name: str = "Default"
+class APIKeyWithSecret(BaseModel):
+    """API key with the decrypted secret (for reveal)."""
+    id: str
+    user_id: str
+    key: str  # The actual API key
+    key_prefix: str
+    created_at: datetime
+    last_used_at: Optional[datetime] = None
+    is_active: bool
 
 
 class APIKeyCreated(BaseModel):
-    """Response model when a new API key is created (includes full key ONCE)."""
+    """Response model when a new API key is created."""
     id: str
-    key: str  # Full key - only shown once at creation
+    key: str  # Full key
     key_prefix: str
-    name: str
     created_at: datetime
-    message: str = "Store this key securely. It will not be shown again."
+    message: str = "Your API key has been created. You can reveal it anytime from this page."
 
 
 class APIKeyValidation(BaseModel):
@@ -59,14 +73,25 @@ class APIKeyValidation(BaseModel):
 # ============================================================================
 
 class APIKeyService:
-    """Service for managing API keys."""
+    """Service for managing API keys (one per user)."""
     
-    # Key format: nb_live_<32 random chars> = 40 chars total
+    # Key format: nb_live_<32 random chars>
     KEY_PREFIX = "nb_live_"
     KEY_LENGTH = 32  # Random part length
     
     def __init__(self):
-        self.supabase = supabase_client.service_client  # Use service role for DB operations
+        self.supabase = supabase_client.service_client
+        # Derive encryption key from JWT secret (or use dedicated key)
+        self._init_encryption_key()
+    
+    def _init_encryption_key(self):
+        """Initialize Fernet encryption key from settings."""
+        # Use JWT secret as base for encryption key (derive a proper Fernet key)
+        secret = settings.jwt_secret_key or "fallback-secret-key-for-dev"
+        # Create a proper 32-byte key using SHA-256
+        key_bytes = hashlib.sha256(secret.encode()).digest()
+        # Fernet requires URL-safe base64-encoded 32-byte key
+        self.fernet = Fernet(base64.urlsafe_b64encode(key_bytes))
     
     def _generate_key(self) -> str:
         """Generate a new API key."""
@@ -77,32 +102,134 @@ class APIKeyService:
         """Hash an API key using SHA-256."""
         return hashlib.sha256(key.encode()).hexdigest()
     
+    def _encrypt_key(self, key: str) -> str:
+        """Encrypt the API key for storage."""
+        return self.fernet.encrypt(key.encode()).decode()
+    
+    def _decrypt_key(self, encrypted_key: str) -> str:
+        """Decrypt the API key for reveal."""
+        return self.fernet.decrypt(encrypted_key.encode()).decode()
+    
     def _get_key_prefix(self, key: str) -> str:
         """Get the display prefix for a key (first 16 chars)."""
         return key[:16] + "..." if len(key) > 16 else key
     
-    async def create_key(self, user_id: str, name: str = "Default") -> APIKeyCreated:
+    async def get_user_key(self, user_id: str) -> Optional[APIKey]:
+        """
+        Get the user's API key (without revealing the secret).
+        
+        Args:
+            user_id: The user's ID
+            
+        Returns:
+            APIKey if exists, None otherwise
+        """
+        result = self.supabase.table("api_keys").select(
+            "id, user_id, key_prefix, created_at, last_used_at, is_active"
+        ).eq(
+            "user_id", user_id
+        ).eq(
+            "is_active", True
+        ).limit(1).execute()
+        
+        if not result.data:
+            return None
+        
+        return APIKey(**result.data[0])
+    
+    async def get_user_key_revealed(self, user_id: str) -> Optional[APIKeyWithSecret]:
+        """
+        Get the user's API key with the secret revealed.
+        
+        Args:
+            user_id: The user's ID
+            
+        Returns:
+            APIKeyWithSecret if exists, None otherwise
+        """
+        result = self.supabase.table("api_keys").select(
+            "id, user_id, key_prefix, encrypted_key, created_at, last_used_at, is_active"
+        ).eq(
+            "user_id", user_id
+        ).eq(
+            "is_active", True
+        ).limit(1).execute()
+        
+        if not result.data:
+            return None
+        
+        record = result.data[0]
+        
+        # Decrypt the key
+        encrypted_key = record.get("encrypted_key")
+        if not encrypted_key:
+            # Fallback for old keys without encrypted storage
+            return APIKeyWithSecret(
+                id=record["id"],
+                user_id=record["user_id"],
+                key="[Key not recoverable - please regenerate]",
+                key_prefix=record["key_prefix"],
+                created_at=record["created_at"],
+                last_used_at=record.get("last_used_at"),
+                is_active=record["is_active"]
+            )
+        
+        try:
+            decrypted_key = self._decrypt_key(encrypted_key)
+        except Exception:
+            return APIKeyWithSecret(
+                id=record["id"],
+                user_id=record["user_id"],
+                key="[Decryption failed - please regenerate]",
+                key_prefix=record["key_prefix"],
+                created_at=record["created_at"],
+                last_used_at=record.get("last_used_at"),
+                is_active=record["is_active"]
+            )
+        
+        return APIKeyWithSecret(
+            id=record["id"],
+            user_id=record["user_id"],
+            key=decrypted_key,
+            key_prefix=record["key_prefix"],
+            created_at=record["created_at"],
+            last_used_at=record.get("last_used_at"),
+            is_active=record["is_active"]
+        )
+    
+    async def create_key(self, user_id: str) -> APIKeyCreated:
         """
         Create a new API key for a user.
         
+        Enforces one key per user - will fail if user already has a key.
+        
         Args:
             user_id: The user's ID (from Supabase auth)
-            name: Optional name for the key
             
         Returns:
-            APIKeyCreated with the full key (shown only once)
+            APIKeyCreated with the full key
+            
+        Raises:
+            ValueError: If user already has an active key
         """
+        # Check if user already has an active key
+        existing = await self.get_user_key(user_id)
+        if existing:
+            raise ValueError("You already have an API key. Delete it first to create a new one.")
+        
         # Generate new key
         raw_key = self._generate_key()
         key_hash = self._hash_key(raw_key)
         key_prefix = self._get_key_prefix(raw_key)
+        encrypted_key = self._encrypt_key(raw_key)
         
         # Insert into database
         result = self.supabase.table("api_keys").insert({
             "user_id": user_id,
             "key_hash": key_hash,
             "key_prefix": key_prefix,
-            "name": name,
+            "encrypted_key": encrypted_key,
+            "name": "API Key",  # Default name (not shown in UI)
             "is_active": True
         }).execute()
         
@@ -113,9 +240,8 @@ class APIKeyService:
         
         return APIKeyCreated(
             id=record["id"],
-            key=raw_key,  # Return full key ONLY at creation
+            key=raw_key,
             key_prefix=key_prefix,
-            name=record["name"],
             created_at=record["created_at"]
         )
     
@@ -161,14 +287,14 @@ class APIKeyService:
                     error="API key is inactive"
                 )
             
-            # Update last_used_at (fire and forget - don't wait)
+            # Update last_used_at (fire and forget)
             try:
                 self.supabase.rpc(
                     "update_api_key_last_used",
                     {"p_key_hash": key_hash}
                 ).execute()
             except Exception:
-                pass  # Don't fail validation if timestamp update fails
+                pass
             
             return APIKeyValidation(
                 is_valid=True,
@@ -182,85 +308,37 @@ class APIKeyService:
                 error=f"Validation error: {str(e)}"
             )
     
-    async def list_keys(self, user_id: str) -> List[APIKey]:
+    async def delete_key(self, user_id: str) -> bool:
         """
-        List all API keys for a user.
+        Permanently delete the user's API key.
         
         Args:
             user_id: The user's ID
             
         Returns:
-            List of APIKey objects (without the actual key values)
-        """
-        result = self.supabase.table("api_keys").select(
-            "id, user_id, key_prefix, name, created_at, last_used_at, is_active"
-        ).eq(
-            "user_id", user_id
-        ).order(
-            "created_at", desc=True
-        ).execute()
-        
-        return [APIKey(**record) for record in result.data]
-    
-    async def revoke_key(self, user_id: str, key_id: str) -> bool:
-        """
-        Revoke (deactivate) an API key.
-        
-        Args:
-            user_id: The user's ID (for authorization)
-            key_id: The key ID to revoke
-            
-        Returns:
-            True if revoked, False if not found or unauthorized
-        """
-        result = self.supabase.table("api_keys").update({
-            "is_active": False
-        }).eq(
-            "id", key_id
-        ).eq(
-            "user_id", user_id  # Ensure user owns the key
-        ).execute()
-        
-        return len(result.data) > 0
-    
-    async def delete_key(self, user_id: str, key_id: str) -> bool:
-        """
-        Permanently delete an API key.
-        
-        Args:
-            user_id: The user's ID (for authorization)
-            key_id: The key ID to delete
-            
-        Returns:
-            True if deleted, False if not found or unauthorized
+            True if deleted, False if not found
         """
         result = self.supabase.table("api_keys").delete().eq(
-            "id", key_id
+            "user_id", user_id
         ).eq(
-            "user_id", user_id  # Ensure user owns the key
+            "is_active", True
         ).execute()
         
         return len(result.data) > 0
     
-    async def get_key_count(self, user_id: str) -> int:
+    async def has_key(self, user_id: str) -> bool:
         """
-        Get the number of API keys a user has.
+        Check if user has an active API key.
         
         Args:
             user_id: The user's ID
             
         Returns:
-            Number of API keys
+            True if user has an active key
         """
-        result = self.supabase.table("api_keys").select(
-            "id", count="exact"
-        ).eq(
-            "user_id", user_id
-        ).execute()
-        
-        return result.count or 0
+        key = await self.get_user_key(user_id)
+        return key is not None
 
 
 # Global service instance
 api_key_service = APIKeyService()
-

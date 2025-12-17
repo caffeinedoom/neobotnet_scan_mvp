@@ -14,6 +14,7 @@ import (
 // StreamingConfig holds configuration for streaming consumer mode
 type StreamingConfig struct {
 	StreamInputKey    string // Redis Stream to read from (e.g., "scan:{job_id}:subfinder:output")
+	StreamOutputKey   string // Redis Stream to write to for Katana (e.g., "scan:{job_id}:httpx:output")
 	ConsumerGroupName string // Consumer group name (e.g., "httpx-consumers")
 	ConsumerName      string // Unique consumer identifier (e.g., "httpx-{task_id}")
 	BatchSize         int64  // Number of messages to read per XREADGROUP call
@@ -45,9 +46,10 @@ type CompletionMessage struct {
 }
 
 // runStreamingMode runs HTTPx in streaming consumer mode
+// Now also acts as a producer for Katana when STREAM_OUTPUT_KEY is set
 func runStreamingMode() error {
 	log.Println("=" + strings.Repeat("=", 69))
-	log.Println("🌊 HTTPx Streaming Consumer Mode")
+	log.Println("🌊 HTTPx Streaming Consumer + Producer Mode")
 	log.Println("=" + strings.Repeat("=", 69))
 
 	// Load streaming configuration
@@ -79,14 +81,31 @@ func runStreamingMode() error {
 
 	// Start consuming from stream
 	log.Println("\n🔍 Starting to consume subdomains from stream...")
-	if err := consumeStream(redisClient, ctx, config, supabaseClient); err != nil {
+	consumeResult, err := consumeStream(redisClient, ctx, config, supabaseClient)
+	if err != nil {
 		return fmt.Errorf("stream consumption failed: %w", err)
 	}
 
 	log.Println("\n✅ Stream consumption completed successfully")
 
 	// ============================================================
-	// FIX: Update batch_scan_jobs status to completed
+	// NEW: Send completion marker to Katana stream
+	// ============================================================
+	if config.StreamOutputKey != "" {
+		log.Println("\n📤 Sending completion marker to Katana stream...")
+		if err := sendKatanaCompletionMarker(
+			redisClient,
+			ctx,
+			config.StreamOutputKey,
+			config.ScanJobID,
+			consumeResult.URLsPublishedToKatana,
+		); err != nil {
+			log.Printf("⚠️  Warning: Failed to send Katana completion marker: %v", err)
+		}
+	}
+
+	// ============================================================
+	// Update batch_scan_jobs status to completed
 	// ============================================================
 	// This ensures the backend monitoring can detect when HTTPx
 	// has actually finished processing (not just reading from stream)
@@ -95,7 +114,10 @@ func runStreamingMode() error {
 
 	if batchID != "" {
 		if err := supabaseClient.UpdateBatchScanStatus(batchID, "completed", map[string]interface{}{
-			"completed_at": time.Now().UTC().Format(time.RFC3339),
+			"completed_at":             time.Now().UTC().Format(time.RFC3339),
+			"subdomains_processed":     consumeResult.SubdomainsProcessed,
+			"probes_inserted":          consumeResult.ProbesInserted,
+			"urls_published_to_katana": consumeResult.URLsPublishedToKatana,
 		}); err != nil {
 			// Don't fail the entire process if status update fails
 			// The work is done, status update is just for tracking
@@ -114,6 +136,7 @@ func runStreamingMode() error {
 func loadStreamingConfig() (*StreamingConfig, error) {
 	config := &StreamingConfig{
 		StreamInputKey:    os.Getenv("STREAM_INPUT_KEY"),
+		StreamOutputKey:   os.Getenv("STREAM_OUTPUT_KEY"), // Optional: for Katana producer mode
 		ConsumerGroupName: os.Getenv("CONSUMER_GROUP_NAME"),
 		ConsumerName:      os.Getenv("CONSUMER_NAME"),
 		RedisHost:         os.Getenv("REDIS_HOST"),
@@ -156,6 +179,11 @@ func loadStreamingConfig() (*StreamingConfig, error) {
 func printStreamingConfig(config *StreamingConfig) {
 	log.Println("\n📋 Streaming Configuration:")
 	log.Printf("  • Stream Input: %s", config.StreamInputKey)
+	if config.StreamOutputKey != "" {
+		log.Printf("  • Stream Output: %s (Katana producer enabled)", config.StreamOutputKey)
+	} else {
+		log.Printf("  • Stream Output: (disabled)")
+	}
 	log.Printf("  • Consumer Group: %s", config.ConsumerGroupName)
 	log.Printf("  • Consumer Name: %s", config.ConsumerName)
 	log.Printf("  • Redis: %s:%s", config.RedisHost, config.RedisPort)
@@ -208,16 +236,28 @@ func ensureConsumerGroup(client *redis.Client, ctx context.Context, config *Stre
 	return nil
 }
 
-// consumeStream consumes messages from Redis Stream using XREADGROUP
-func consumeStream(client *redis.Client, ctx context.Context, config *StreamingConfig,
-	supabaseClient *SupabaseClient) error {
+// ConsumeStreamResult holds statistics from stream consumption
+type ConsumeStreamResult struct {
+	SubdomainsProcessed int
+	ProbesInserted      int
+	URLsPublishedToKatana int
+	ProcessingTime      time.Duration
+}
 
-	processedCount := 0
+// consumeStream consumes messages from Redis Stream using XREADGROUP
+// Returns statistics including number of URLs published to Katana stream
+func consumeStream(client *redis.Client, ctx context.Context, config *StreamingConfig,
+	supabaseClient *SupabaseClient) (*ConsumeStreamResult, error) {
+
+	result := &ConsumeStreamResult{}
 	completionReceived := false
 	startTime := time.Now()
 
 	log.Printf("\n🔄 Starting stream consumption loop...")
 	log.Printf("  • Reading from: %s", config.StreamInputKey)
+	if config.StreamOutputKey != "" {
+		log.Printf("  • Publishing to: %s (Katana)", config.StreamOutputKey)
+	}
 	log.Printf("  • Consumer: %s in group %s", config.ConsumerName, config.ConsumerGroupName)
 
 	for {
@@ -247,7 +287,7 @@ func consumeStream(client *redis.Client, ctx context.Context, config *StreamingC
 				// No messages available, continue waiting
 				continue
 			}
-			return fmt.Errorf("XREADGROUP failed: %w", err)
+			return result, fmt.Errorf("XREADGROUP failed: %w", err)
 		}
 
 		// Process messages from all streams (should only be one in our case)
@@ -266,8 +306,15 @@ func consumeStream(client *redis.Client, ctx context.Context, config *StreamingC
 					break // Exit inner loop
 				}
 
-				// Process subdomain message (HTTP probing)
-				if err := processSubdomainMessage(message, supabaseClient); err != nil {
+				// Process subdomain message (HTTP probing + Katana publishing)
+				processResult, err := processSubdomainMessage(
+					message,
+					supabaseClient,
+					client,
+					ctx,
+					config.StreamOutputKey,
+				)
+				if err != nil {
 					log.Printf("❌ Error processing message %s: %v", message.ID, err)
 					// Continue processing other messages even if one fails
 					continue
@@ -278,11 +325,15 @@ func consumeStream(client *redis.Client, ctx context.Context, config *StreamingC
 					log.Printf("⚠️  Failed to ACK message %s: %v", message.ID, err)
 				}
 
-				processedCount++
+				// Update statistics
+				result.SubdomainsProcessed++
+				result.ProbesInserted += processResult.ProbesInserted
+				result.URLsPublishedToKatana += processResult.URLsPublished
 
 				// Log progress every 10 messages
-				if processedCount%10 == 0 {
-					log.Printf("📊 Progress: %d subdomains processed", processedCount)
+				if result.SubdomainsProcessed%10 == 0 {
+					log.Printf("📊 Progress: %d subdomains processed, %d URLs published to Katana",
+						result.SubdomainsProcessed, result.URLsPublishedToKatana)
 				}
 			}
 
@@ -292,11 +343,15 @@ func consumeStream(client *redis.Client, ctx context.Context, config *StreamingC
 		}
 	}
 
-	log.Printf("\n📊 Final Statistics:")
-	log.Printf("  • Total subdomains processed: %d", processedCount)
-	log.Printf("  • Processing time: %s", time.Since(startTime).Round(time.Second))
+	result.ProcessingTime = time.Since(startTime)
 
-	return nil
+	log.Printf("\n📊 Final Statistics:")
+	log.Printf("  • Total subdomains processed: %d", result.SubdomainsProcessed)
+	log.Printf("  • Total HTTP probes inserted: %d", result.ProbesInserted)
+	log.Printf("  • URLs published to Katana: %d", result.URLsPublishedToKatana)
+	log.Printf("  • Processing time: %s", result.ProcessingTime.Round(time.Second))
+
+	return result, nil
 }
 
 // isCompletionMarker checks if a message is a completion marker
@@ -305,13 +360,113 @@ func isCompletionMarker(values map[string]interface{}) bool {
 	return ok && msgType == "completion"
 }
 
+// ============================================================
+// Katana Producer Functions (HTTPx → Katana Stream)
+// ============================================================
+
+// isCrawlableProbe checks if a probe should be published to Katana
+// Criteria: HTTP 200 + text/html content type
+func isCrawlableProbe(probe HTTPProbe) bool {
+	// Must have status code 200
+	if probe.StatusCode == nil || *probe.StatusCode != 200 {
+		return false
+	}
+
+	// Must have HTML content type
+	if probe.ContentType == nil {
+		return false
+	}
+
+	contentType := strings.ToLower(*probe.ContentType)
+	return strings.Contains(contentType, "text/html")
+}
+
+// publishToKatanaStream publishes a crawlable URL to the Katana input stream
+func publishToKatanaStream(
+	client *redis.Client,
+	ctx context.Context,
+	streamKey string,
+	probe HTTPProbe,
+) error {
+	// Build title string (handle nil)
+	title := ""
+	if probe.Title != nil {
+		title = *probe.Title
+	}
+
+	// Build content type string
+	contentType := ""
+	if probe.ContentType != nil {
+		contentType = *probe.ContentType
+	}
+
+	// Publish to Katana stream
+	_, err := client.XAdd(ctx, &redis.XAddArgs{
+		Stream: streamKey,
+		Values: map[string]interface{}{
+			"url":          probe.URL,
+			"status_code":  *probe.StatusCode,
+			"content_type": contentType,
+			"title":        title,
+			"asset_id":     probe.AssetID,
+			"scan_job_id":  probe.ScanJobID,
+			"source":       "httpx",
+			"published_at": time.Now().UTC().Format(time.RFC3339),
+		},
+	}).Result()
+
+	if err == nil {
+		log.Printf("    📤 Published to Katana: %s", probe.URL)
+	}
+	return err
+}
+
+// sendKatanaCompletionMarker sends completion marker to Katana stream
+func sendKatanaCompletionMarker(
+	client *redis.Client,
+	ctx context.Context,
+	streamKey string,
+	scanJobID string,
+	totalPublished int,
+) error {
+	_, err := client.XAdd(ctx, &redis.XAddArgs{
+		Stream: streamKey,
+		Values: map[string]interface{}{
+			"type":          "completion",
+			"module":        "httpx",
+			"scan_job_id":   scanJobID,
+			"total_results": totalPublished,
+			"timestamp":     time.Now().UTC().Format(time.RFC3339),
+		},
+	}).Result()
+
+	if err == nil {
+		log.Printf("🏁 Sent completion marker to Katana stream (published %d URLs)", totalPublished)
+	}
+	return err
+}
+
+// ProcessResult holds the result of processing a subdomain message
+type ProcessResult struct {
+	ProbesInserted int // Number of probes inserted to database
+	URLsPublished  int // Number of URLs published to Katana stream
+}
+
 // processSubdomainMessage processes a single subdomain message from the stream
-// Performs HTTP probing and stores results to http_probes table
-func processSubdomainMessage(message redis.XMessage, supabaseClient *SupabaseClient) error {
+// Performs HTTP probing, stores results to http_probes table, and publishes crawlable URLs to Katana stream
+func processSubdomainMessage(
+	message redis.XMessage,
+	supabaseClient *SupabaseClient,
+	redisClient *redis.Client,
+	ctx context.Context,
+	streamOutputKey string,
+) (*ProcessResult, error) {
+	result := &ProcessResult{}
+
 	// Parse subdomain from message
 	subdomain, ok := message.Values["subdomain"].(string)
 	if !ok || subdomain == "" {
-		return fmt.Errorf("invalid or missing subdomain in message")
+		return result, fmt.Errorf("invalid or missing subdomain in message")
 	}
 
 	source, _ := message.Values["source"].(string)
@@ -333,12 +488,12 @@ func processSubdomainMessage(message redis.XMessage, supabaseClient *SupabaseCli
 	probes, err := probeHTTP([]string{subdomain}, scanJobID, assetID)
 	if err != nil {
 		log.Printf("    ⚠️  HTTP probing failed: %v", err)
-		return nil // Don't fail the entire process for one failed probe
+		return result, nil // Don't fail the entire process for one failed probe
 	}
 
 	if len(probes) == 0 {
 		log.Printf("    ℹ️  No HTTP response (subdomain may not have web service)")
-		return nil
+		return result, nil
 	}
 
 	log.Printf("    ✅ Found %d HTTP probe(s)", len(probes))
@@ -351,15 +506,32 @@ func processSubdomainMessage(message redis.XMessage, supabaseClient *SupabaseCli
 	}
 
 	// Store HTTP probes to database
-	result, err := supabaseClient.BulkInsertHTTPProbes(probes)
+	insertResult, err := supabaseClient.BulkInsertHTTPProbes(probes)
 	if err != nil {
-		return fmt.Errorf("failed to store HTTP probes: %w", err)
+		return result, fmt.Errorf("failed to store HTTP probes: %w", err)
 	}
 
+	result.ProbesInserted = insertResult.InsertedCount
 	log.Printf("    💾 HTTP probes: %d inserted, %d skipped, %d errors",
-		result.InsertedCount, result.SkippedCount, result.ErrorCount)
+		insertResult.InsertedCount, insertResult.SkippedCount, insertResult.ErrorCount)
 
-	return nil
+	// ============================================================
+	// NEW: Publish crawlable URLs to Katana stream
+	// ============================================================
+	if streamOutputKey != "" && redisClient != nil {
+		for _, probe := range probes {
+			// Only publish 200 + text/html
+			if isCrawlableProbe(probe) {
+				if err := publishToKatanaStream(redisClient, ctx, streamOutputKey, probe); err != nil {
+					log.Printf("    ⚠️  Failed to publish to Katana: %v", err)
+				} else {
+					result.URLsPublished++
+				}
+			}
+		}
+	}
+
+	return result, nil
 }
 
 // getEnvInt64 returns an int64 environment variable or a default value

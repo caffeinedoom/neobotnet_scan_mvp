@@ -13,7 +13,7 @@
 # ================================================================
 # Stage 1: Builder
 # ================================================================
-FROM golang:1.24-alpine AS builder
+FROM golang:1.23-alpine AS builder
 
 # Install build dependencies
 RUN apk add --no-cache \
@@ -28,7 +28,8 @@ WORKDIR /app
 # Copy go.mod and go.sum for better Docker layer caching
 COPY go.mod go.sum ./
 
-# Download dependencies
+# Download dependencies (GOTOOLCHAIN=auto allows automatic Go version download)
+ENV GOTOOLCHAIN=auto
 RUN go mod download
 
 # Copy source code (including internal packages)

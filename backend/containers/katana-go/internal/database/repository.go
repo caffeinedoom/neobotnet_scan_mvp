@@ -2,11 +2,51 @@ package database
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"katana-go/internal/config"
 	"katana-go/internal/models"
 )
+
+// isPlaceholderUUID checks if a UUID is a placeholder (all same characters)
+// e.g., "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa" or "11111111-1111-1111-1111-111111111111"
+func isPlaceholderUUID(uuid string) bool {
+	if len(uuid) != 36 {
+		return false
+	}
+	// Check if the first segment repeats throughout
+	firstChar := uuid[0]
+	for i, c := range uuid {
+		if c == '-' {
+			continue
+		}
+		if byte(c) != firstChar {
+			return false
+		}
+		_ = i // suppress unused warning
+	}
+	return true
+}
+
+// isValidUUID checks if a string looks like a valid UUID format
+func isValidUUID(uuid string) bool {
+	if len(uuid) != 36 {
+		return false
+	}
+	// Check basic UUID format: 8-4-4-4-12
+	parts := strings.Split(uuid, "-")
+	if len(parts) != 5 {
+		return false
+	}
+	expectedLengths := []int{8, 4, 4, 4, 12}
+	for i, part := range parts {
+		if len(part) != expectedLengths[i] {
+			return false
+		}
+	}
+	return true
+}
 
 // Repository handles database operations for crawled endpoints
 type Repository struct {
@@ -36,7 +76,6 @@ func (r *Repository) UpsertEndpoint(endpoint *models.CrawledEndpoint) error {
 	// Prepare data for upsert
 	data := map[string]interface{}{
 		"asset_id":         endpoint.AssetID,
-		"scan_job_id":      endpoint.ScanJobID,
 		"url":              endpoint.URL,
 		"url_hash":         endpoint.URLHash,
 		"method":           endpoint.Method,
@@ -48,6 +87,12 @@ func (r *Repository) UpsertEndpoint(endpoint *models.CrawledEndpoint) error {
 		"first_seen_at":    endpoint.FirstSeenAt,
 		"last_seen_at":     endpoint.LastSeenAt,
 		"times_discovered": endpoint.TimesDiscovered,
+	}
+
+	// Only include scan_job_id if it's a valid (non-placeholder) UUID
+	// Placeholder UUIDs like "aaaaaaaa-..." are used for simple mode testing
+	if endpoint.ScanJobID != nil && *endpoint.ScanJobID != "" && !isPlaceholderUUID(*endpoint.ScanJobID) {
+		data["scan_job_id"] = endpoint.ScanJobID
 	}
 
 	// Use Supabase upsert (resolution=merge-duplicates)
