@@ -327,6 +327,11 @@ export default function APIDocsPage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              All API requests require authentication. Generate an API key using the form above, 
+              then include it in the <code className="text-primary">X-API-Key</code> header.
+            </p>
+            
             <CodeBlock 
               id="auth-header"
               code={`# Include this header in all requests
