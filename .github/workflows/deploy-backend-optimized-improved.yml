@@ -375,11 +375,13 @@ jobs:
         
         echo "📋 Latest task definition revision: $LATEST_REVISION"
         
-        # Update service with explicit task definition
+        # Update service with explicit task definition and force new deployment
+        # --force-new-deployment ensures ECS pulls the latest image from ECR
         aws ecs update-service \
           --cluster $ECS_CLUSTER \
           --service $ECS_SERVICE \
           --task-definition neobotnet-v2-dev-app-batch:$LATEST_REVISION \
+          --force-new-deployment \
           --region $AWS_REGION
         
         echo "✅ ECS service update initiated with revision $LATEST_REVISION"

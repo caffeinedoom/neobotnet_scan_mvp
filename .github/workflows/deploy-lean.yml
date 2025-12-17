@@ -247,10 +247,12 @@ jobs:
           --task-definition neobotnet-v2-dev-app-batch \
           --query 'taskDefinition.revision' --output text)
         
+        # Force new deployment to pull latest image from ECR
         aws ecs update-service \
           --cluster $ECS_CLUSTER \
           --service neobotnet-v2-dev-service-batch \
-          --task-definition neobotnet-v2-dev-app-batch:$REVISION
+          --task-definition neobotnet-v2-dev-app-batch:$REVISION \
+          --force-new-deployment
         
         echo "⏳ Waiting for service stability..."
         aws ecs wait services-stable \
