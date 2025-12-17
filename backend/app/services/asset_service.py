@@ -797,7 +797,7 @@ class AssetService:
             
             # Collect statistics for response
             stats = {
-                "total_assets": len(user_asset_ids),
+                "total_assets": len(all_asset_ids),
                 "filtered_count": len(subdomains),
                 "load_time_ms": "< 100"  # This method should be much faster
             }

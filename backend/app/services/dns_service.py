@@ -795,7 +795,7 @@ class DNSService:
                     'stats': {
                         'total_subdomains': 0,
                         'total_dns_records': 0,
-                        'total_assets': len(user_asset_ids) if asset_id is None else 1,
+                        'total_assets': len(all_asset_ids) if asset_id is None else 1,
                         'record_type_breakdown': {}
                     }
                 }
@@ -887,7 +887,7 @@ class DNSService:
             stats = {
                 'total_subdomains': total_subdomains,
                 'total_dns_records': total_dns_records,
-                'total_assets': len(user_asset_ids) if asset_id is None else 1,
+                'total_assets': len(all_asset_ids) if asset_id is None else 1,
                 'record_type_breakdown': dict(record_type_breakdown)
             }
             
