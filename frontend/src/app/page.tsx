@@ -156,16 +156,19 @@ const API_EXAMPLES: { id: APITabType; label: string; command: string; output: st
   },
 ];
 
+type ViewMode = 'web' | 'api';
+
 export default function Home() {
   const router = useRouter();
   const { isAuthenticated, isLoading, signInWithGoogle, signInWithTwitter } = useAuth();
+  const [viewMode, setViewMode] = useState<ViewMode>('web');
   const [activeTab, setActiveTab] = useState<TabType>('subdomains');
   const [activeAPITab, setActiveAPITab] = useState<APITabType>('export');
   const [autoToggle, setAutoToggle] = useState(true);
 
-  // Auto-toggle through tabs every 4 seconds (stops when user interacts)
+  // Auto-toggle through data tabs every 4 seconds (only in web mode, stops when user interacts)
   useEffect(() => {
-    if (!autoToggle) return;
+    if (!autoToggle || viewMode !== 'web') return;
     
     const interval = setInterval(() => {
       setActiveTab(current => {
@@ -175,12 +178,20 @@ export default function Home() {
       });
     }, 4000);
     return () => clearInterval(interval);
-  }, [autoToggle]);
+  }, [autoToggle, viewMode]);
 
   // Handle manual tab selection (stops auto-toggle)
   const handleTabClick = (tabId: TabType) => {
     setAutoToggle(false);
     setActiveTab(tabId);
+  };
+
+  // Handle mode switch
+  const handleModeSwitch = (mode: ViewMode) => {
+    setViewMode(mode);
+    if (mode === 'web') {
+      setAutoToggle(true); // Re-enable auto-toggle when switching to web
+    }
   };
 
   useEffect(() => {
@@ -231,22 +242,30 @@ export default function Home() {
               neobotnet
             </h1>
             
-            {/* Centered Sub-Navigation: Web | API */}
-            <div className="flex justify-center items-center gap-8 pt-2">
-              <a 
-                href="#web" 
-                className="flex items-center gap-2 text-base font-mono font-bold text-foreground hover:text-[--terminal-green] transition-colors"
+            {/* Mode Toggle: Web | API */}
+            <div className="flex justify-center items-center gap-1 pt-2">
+              <button 
+                onClick={() => handleModeSwitch('web')}
+                className={`flex items-center gap-2 px-4 py-2 text-base font-mono font-bold rounded-lg transition-all ${
+                  viewMode === 'web' 
+                    ? 'text-[--terminal-green] bg-muted' 
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
               >
                 <Globe className="h-4 w-4" />
                 <span>Web</span>
-              </a>
-              <a 
-                href="#api" 
-                className="flex items-center gap-2 text-base font-mono font-bold text-foreground hover:text-[--terminal-green] transition-colors"
+              </button>
+              <button 
+                onClick={() => handleModeSwitch('api')}
+                className={`flex items-center gap-2 px-4 py-2 text-base font-mono font-bold rounded-lg transition-all ${
+                  viewMode === 'api' 
+                    ? 'text-[--terminal-green] bg-muted' 
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
               >
                 <Code2 className="h-4 w-4" />
                 <span>API</span>
-              </a>
+              </button>
             </div>
             
             {/* Tagline */}
@@ -276,165 +295,145 @@ export default function Home() {
             </div>
           </div>
 
-          {/* Data Wall Section */}
-          <div id="web" className="space-y-4 scroll-mt-20">
-            {/* Tab Navigation */}
-            <div className="flex justify-center">
-              <div className="inline-flex items-center gap-1 p-1 rounded-lg bg-muted/50 border border-border">
-                {tabs.map((tab) => (
-                  <button
-                    key={tab.id}
-                    onClick={() => handleTabClick(tab.id)}
-                    className={`
-                      px-4 py-2 rounded-md text-sm font-mono font-medium transition-all duration-300
-                      ${activeTab === tab.id 
-                        ? 'bg-background text-foreground shadow-sm' 
-                        : 'text-muted-foreground hover:text-foreground'
-                      }
-                    `}
+          {/* Content Area - Switches based on viewMode */}
+          <div className="space-y-4 transition-all duration-300">
+            {viewMode === 'web' ? (
+              <>
+                {/* Web Mode: Data Tabs */}
+                <div className="flex justify-center">
+                  <div className="inline-flex items-center gap-1 p-1 rounded-lg bg-muted/50 border border-border">
+                    {tabs.map((tab) => (
+                      <button
+                        key={tab.id}
+                        onClick={() => handleTabClick(tab.id)}
+                        className={`
+                          px-4 py-2 rounded-md text-sm font-mono font-medium transition-all duration-300
+                          ${activeTab === tab.id 
+                            ? 'bg-background text-foreground shadow-sm' 
+                            : 'text-muted-foreground hover:text-foreground'
+                          }
+                        `}
+                      >
+                        {tab.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Web Mode: Data Preview */}
+                <div className="relative rounded-xl border border-border bg-card overflow-hidden shadow-[0_0_50px_-12px_rgba(0,0,0,0.9)] ring-1 ring-white/5">
+                  <div className="h-[360px] overflow-hidden p-4 font-mono text-sm">
+                    {activeTab === 'subdomains' && MOCK_SUBDOMAINS.map((item, i) => (
+                      <div key={i} className="py-2 hover:bg-muted/20 transition-colors flex">
+                        <span className="text-[--terminal-green]">{item.subdomain}</span>
+                        <span className="text-muted-foreground ml-auto text-xs">{item.discovered}</span>
+                      </div>
+                    ))}
+                    
+                    {activeTab === 'dns' && MOCK_DNS.map((item, i) => (
+                      <div key={i} className="py-2 hover:bg-muted/20 transition-colors flex gap-3">
+                        <span className="text-[--terminal-green] w-56 truncate">{item.subdomain}</span>
+                        <TypeBadge type={item.type} />
+                        <span className="text-muted-foreground truncate flex-1">{item.value}</span>
+                        <span className="text-muted-foreground/60 text-xs">{item.ttl}</span>
+                      </div>
+                    ))}
+                    
+                    {activeTab === 'probes' && MOCK_PROBES.map((item, i) => (
+                      <div key={i} className="py-2 hover:bg-muted/20 transition-colors flex gap-3">
+                        <StatusBadge status={item.status} />
+                        <span className="text-[--terminal-green] truncate flex-1">{item.url}</span>
+                        <span className="text-muted-foreground text-xs">[{item.server}]</span>
+                        <span className="text-muted-foreground/60 text-xs">{item.cdn}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="absolute bottom-0 left-0 right-0 h-24 bg-gradient-to-t from-card via-card/80 to-transparent pointer-events-none" />
+                </div>
+
+                {/* Web Mode: Stats */}
+                <div className="flex justify-center items-center gap-8 py-4 font-mono">
+                  <div className="text-center">
+                    <div className="text-2xl sm:text-3xl font-bold text-[--terminal-green]">
+                      {tabs.find(t => t.id === activeTab)?.count}
+                    </div>
+                    <div className="text-xs text-muted-foreground uppercase tracking-wider mt-1">
+                      {activeTab === 'subdomains' ? 'subdomains' : activeTab === 'dns' ? 'dns records' : 'web servers'}
+                    </div>
+                  </div>
+                  <div className="h-8 w-px bg-border" />
+                  <div className="text-center">
+                    <div className="text-2xl sm:text-3xl font-bold text-foreground">156</div>
+                    <div className="text-xs text-muted-foreground uppercase tracking-wider mt-1">programs</div>
+                  </div>
+                </div>
+
+                {/* Web Mode: CTA */}
+                <div className="text-center">
+                  <Button 
+                    variant="link" 
+                    className="text-[--terminal-green] hover:text-[--terminal-green]/80 font-bold font-mono"
+                    onClick={() => signInWithGoogle()}
                   >
-                    {tab.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Data Preview - Elegant dark frame */}
-            <div className="relative rounded-xl border border-border bg-card overflow-hidden shadow-[0_0_50px_-12px_rgba(0,0,0,0.9)] ring-1 ring-white/5">
-              {/* Data rows - Fixed height */}
-              <div className="h-[400px] overflow-hidden p-4 font-mono text-sm">
-                {activeTab === 'subdomains' && MOCK_SUBDOMAINS.map((item, i) => (
-                  <div key={i} className="py-2 hover:bg-muted/20 transition-colors flex">
-                    <span className="text-[--terminal-green]">{item.subdomain}</span>
-                    <span className="text-muted-foreground ml-auto text-xs">{item.discovered}</span>
+                    Sign in to explore all data →
+                  </Button>
+                </div>
+              </>
+            ) : (
+              <>
+                {/* API Mode: Tabs */}
+                <div className="flex justify-center">
+                  <div className="inline-flex items-center gap-1 p-1 rounded-lg bg-muted/50 border border-border">
+                    {API_EXAMPLES.map((example) => (
+                      <button
+                        key={example.id}
+                        onClick={() => setActiveAPITab(example.id)}
+                        className={`px-4 py-2 rounded-md text-sm font-mono font-medium transition-all duration-300 ${
+                          activeAPITab === example.id
+                            ? 'bg-background text-foreground shadow-sm'
+                            : 'text-muted-foreground hover:text-foreground'
+                        }`}
+                      >
+                        {example.label}
+                      </button>
+                    ))}
                   </div>
-                ))}
-                
-                {activeTab === 'dns' && MOCK_DNS.map((item, i) => (
-                  <div key={i} className="py-2 hover:bg-muted/20 transition-colors flex gap-3">
-                    <span className="text-[--terminal-green] w-56 truncate">{item.subdomain}</span>
-                    <TypeBadge type={item.type} />
-                    <span className="text-muted-foreground truncate flex-1">{item.value}</span>
-                    <span className="text-muted-foreground/60 text-xs">{item.ttl}</span>
+                </div>
+
+                {/* API Mode: Terminal */}
+                <div className="relative rounded-xl border border-border bg-card overflow-hidden shadow-[0_0_50px_-12px_rgba(0,0,0,0.9)] ring-1 ring-white/5">
+                  <div className="px-4 py-3 border-b border-border bg-muted/50 flex items-center gap-2">
+                    <div className="flex gap-1.5">
+                      <div className="w-3 h-3 rounded-full bg-red-500/80" />
+                      <div className="w-3 h-3 rounded-full bg-yellow-500/80" />
+                      <div className="w-3 h-3 rounded-full bg-green-500/80" />
+                    </div>
+                    <span className="text-xs text-muted-foreground font-mono ml-2">terminal</span>
                   </div>
-                ))}
-                
-                {activeTab === 'probes' && MOCK_PROBES.map((item, i) => (
-                  <div key={i} className="py-2 hover:bg-muted/20 transition-colors flex gap-3">
-                    <StatusBadge status={item.status} />
-                    <span className="text-[--terminal-green] truncate flex-1">{item.url}</span>
-                    <span className="text-muted-foreground text-xs">[{item.server}]</span>
-                    <span className="text-muted-foreground/60 text-xs">{item.cdn}</span>
+                  <div className="h-[360px] overflow-hidden p-4 font-mono text-sm">
+                    <div className="text-muted-foreground whitespace-pre-wrap">
+                      <span className="text-[--terminal-green]">$</span> {API_EXAMPLES.find(e => e.id === activeAPITab)?.command}
+                    </div>
+                    <div className="mt-4 text-foreground/80">
+                      {API_EXAMPLES.find(e => e.id === activeAPITab)?.output.map((line, i) => (
+                        <div key={i} className={line === '...' ? 'text-muted-foreground' : ''}>{line}</div>
+                      ))}
+                    </div>
                   </div>
-                ))}
-              </div>
-
-              {/* Gradient fade overlay */}
-              <div className="absolute bottom-0 left-0 right-0 h-24 bg-gradient-to-t from-card via-card/80 to-transparent pointer-events-none" />
-            </div>
-
-            {/* Stats Bar - Standalone prominent display */}
-            <div className="flex justify-center items-center gap-8 py-6 font-mono">
-              <div className="text-center">
-                <div className="text-3xl sm:text-4xl font-bold text-[--terminal-green]">
-                  {tabs.find(t => t.id === activeTab)?.count}
+                  <div className="absolute bottom-0 left-0 right-0 h-24 bg-gradient-to-t from-card via-card/80 to-transparent pointer-events-none" />
                 </div>
-                <div className="text-xs text-muted-foreground uppercase tracking-wider mt-1">
-                  {activeTab === 'subdomains' ? 'subdomains' : activeTab === 'dns' ? 'dns records' : 'web servers'}
-                </div>
-              </div>
-              <div className="h-10 w-px bg-border" />
-              <div className="text-center">
-                <div className="text-3xl sm:text-4xl font-bold text-foreground">156</div>
-                <div className="text-xs text-muted-foreground uppercase tracking-wider mt-1">programs</div>
-              </div>
-            </div>
 
-            {/* CTA */}
-            <div className="text-center">
-              <Button 
-                variant="link" 
-                className="text-[--terminal-green] hover:text-[--terminal-green]/80 font-bold font-mono"
-                onClick={() => signInWithGoogle()}
-              >
-                Sign in to explore all data →
-              </Button>
-            </div>
-          </div>
-
-          {/* Divider */}
-          <div className="relative py-8">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-border/50" />
-            </div>
-            <div className="relative flex justify-center">
-              <span className="bg-background px-4 text-xs text-muted-foreground font-mono uppercase tracking-widest">
-                or integrate directly
-              </span>
-            </div>
-          </div>
-
-          {/* API Section */}
-          <div id="api" className="space-y-6 scroll-mt-20">
-            <div className="text-center">
-              <h2 className="text-3xl font-bold font-mono text-foreground tracking-tight flex items-center justify-center gap-3">
-                <Code2 className="h-8 w-8" />
-                <span>API</span>
-              </h2>
-              <p className="text-sm text-muted-foreground font-mono mt-2">integrate with your workflow</p>
-            </div>
-            
-            {/* API Tabs */}
-            <div className="flex justify-center gap-2">
-              {API_EXAMPLES.map((example) => (
-                <button
-                  key={example.id}
-                  onClick={() => setActiveAPITab(example.id)}
-                  className={`px-4 py-2 text-sm font-mono rounded-lg transition-colors ${
-                    activeAPITab === example.id
-                      ? 'bg-muted text-[--terminal-green]'
-                      : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
-                  }`}
-                >
-                  {example.label}
-                </button>
-              ))}
-            </div>
-
-            {/* API Example Terminal */}
-            <div className="relative rounded-xl border border-border bg-card overflow-hidden shadow-[0_0_50px_-12px_rgba(0,0,0,0.9)] ring-1 ring-white/5">
-              <div className="px-4 py-3 border-b border-border bg-muted/50 flex items-center gap-2">
-                <div className="flex gap-1.5">
-                  <div className="w-3 h-3 rounded-full bg-red-500/80" />
-                  <div className="w-3 h-3 rounded-full bg-yellow-500/80" />
-                  <div className="w-3 h-3 rounded-full bg-green-500/80" />
+                {/* API Mode: CTA */}
+                <div className="text-center pt-4">
+                  <Link 
+                    href="/api-docs" 
+                    className="text-[--terminal-green] hover:text-[--terminal-green]/80 font-bold font-mono transition-colors"
+                  >
+                    view full api documentation →
+                  </Link>
                 </div>
-                <span className="text-xs text-muted-foreground font-mono ml-2">terminal — {API_EXAMPLES.find(e => e.id === activeAPITab)?.label}</span>
-              </div>
-              <div className="p-4 font-mono text-sm overflow-x-auto pb-12">
-                {/* Command */}
-                <div className="text-muted-foreground whitespace-pre-wrap">
-                  <span className="text-[--terminal-green]">$</span> {API_EXAMPLES.find(e => e.id === activeAPITab)?.command}
-                </div>
-                {/* Output */}
-                <div className="mt-3 text-foreground/80">
-                  {API_EXAMPLES.find(e => e.id === activeAPITab)?.output.map((line, i) => (
-                    <div key={i} className={line === '...' ? 'text-muted-foreground' : ''}>{line}</div>
-                  ))}
-                </div>
-              </div>
-              {/* Gradient fade overlay */}
-              <div className="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-card via-card/80 to-transparent pointer-events-none" />
-            </div>
-            
-            <div className="text-center">
-              <Link 
-                href="/api-docs" 
-                className="text-sm text-muted-foreground hover:text-foreground font-mono transition-colors"
-              >
-                view full api documentation →
-              </Link>
-            </div>
+              </>
+            )}
           </div>
         </div>
       </main>
