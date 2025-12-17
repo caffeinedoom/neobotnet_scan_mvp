@@ -220,32 +220,28 @@ export default function Home() {
         />
       </div>
 
-      {/* Top Navigation */}
-      <nav className="py-6">
-        <div className="max-w-4xl mx-auto px-4 flex justify-center">
-          <a 
-            href="#api" 
-            className="flex items-center gap-2 text-sm font-mono font-medium text-muted-foreground hover:text-foreground transition-colors px-4 py-2 rounded-lg hover:bg-muted/50"
-          >
-            <Code2 className="h-4 w-4" />
-            <span>API</span>
-          </a>
-        </div>
-      </nav>
-
       {/* Main Content */}
       <main className="flex-1 flex flex-col items-center justify-center px-4 py-16">
         <div className="w-full max-w-4xl space-y-12">
           
           {/* Hero Section */}
-          <div className="text-center space-y-6">
+          <div className="text-center space-y-4">
             {/* Logo/Title */}
             <h1 className="text-6xl sm:text-7xl lg:text-8xl font-bold tracking-tight font-mono text-foreground">
               neobotnet
             </h1>
             
+            {/* API Nav Link - Right below title */}
+            <a 
+              href="#api" 
+              className="inline-flex items-center gap-2 text-base font-mono font-bold text-foreground hover:text-[--terminal-green] transition-colors"
+            >
+              <Code2 className="h-5 w-5" />
+              <span>API</span>
+            </a>
+            
             {/* Tagline */}
-            <p className="text-xl sm:text-2xl text-foreground font-bold font-mono tracking-wide">
+            <p className="text-xl sm:text-2xl text-foreground font-bold font-mono tracking-wide pt-2">
               Web Reconnaissance. Delivered.
             </p>
 
@@ -294,31 +290,19 @@ export default function Home() {
               </div>
             </div>
 
-            {/* Data Preview - Terminal-style left-aligned output */}
+            {/* Data Preview - Elegant dark frame */}
             <div className="relative rounded-xl border border-border bg-card overflow-hidden shadow-[0_0_50px_-12px_rgba(0,0,0,0.9)] ring-1 ring-white/5">
-              {/* Terminal header */}
-              <div className="px-4 py-3 border-b border-border bg-muted/50 flex items-center gap-2">
-                <div className="flex gap-1.5">
-                  <div className="w-3 h-3 rounded-full bg-red-500/80" />
-                  <div className="w-3 h-3 rounded-full bg-yellow-500/80" />
-                  <div className="w-3 h-3 rounded-full bg-green-500/80" />
-                </div>
-                <span className="text-xs text-muted-foreground font-mono ml-2">
-                  {activeTab === 'subdomains' ? 'subfinder' : activeTab === 'dns' ? 'dnsx' : 'httpx'} — live output
-                </span>
-              </div>
-
-              {/* Data rows - Fixed height, terminal-style left-aligned */}
+              {/* Data rows - Fixed height */}
               <div className="h-[400px] overflow-hidden p-4 font-mono text-sm">
                 {activeTab === 'subdomains' && MOCK_SUBDOMAINS.map((item, i) => (
-                  <div key={i} className="py-1 hover:bg-muted/20 transition-colors flex">
+                  <div key={i} className="py-2 hover:bg-muted/20 transition-colors flex">
                     <span className="text-[--terminal-green]">{item.subdomain}</span>
                     <span className="text-muted-foreground ml-auto text-xs">{item.discovered}</span>
                   </div>
                 ))}
                 
                 {activeTab === 'dns' && MOCK_DNS.map((item, i) => (
-                  <div key={i} className="py-1 hover:bg-muted/20 transition-colors flex gap-3">
+                  <div key={i} className="py-2 hover:bg-muted/20 transition-colors flex gap-3">
                     <span className="text-[--terminal-green] w-56 truncate">{item.subdomain}</span>
                     <TypeBadge type={item.type} />
                     <span className="text-muted-foreground truncate flex-1">{item.value}</span>
@@ -327,7 +311,7 @@ export default function Home() {
                 ))}
                 
                 {activeTab === 'probes' && MOCK_PROBES.map((item, i) => (
-                  <div key={i} className="py-1 hover:bg-muted/20 transition-colors flex gap-3">
+                  <div key={i} className="py-2 hover:bg-muted/20 transition-colors flex gap-3">
                     <StatusBadge status={item.status} />
                     <span className="text-[--terminal-green] truncate flex-1">{item.url}</span>
                     <span className="text-muted-foreground text-xs">[{item.server}]</span>
@@ -384,7 +368,10 @@ export default function Home() {
           {/* API Section */}
           <div id="api" className="space-y-6 scroll-mt-20">
             <div className="text-center">
-              <h2 className="text-3xl font-bold font-mono text-foreground tracking-tight">api</h2>
+              <h2 className="text-3xl font-bold font-mono text-foreground tracking-tight flex items-center justify-center gap-3">
+                <Code2 className="h-8 w-8" />
+                <span>API</span>
+              </h2>
               <p className="text-sm text-muted-foreground font-mono mt-2">integrate with your workflow</p>
             </div>
             
@@ -415,7 +402,7 @@ export default function Home() {
                 </div>
                 <span className="text-xs text-muted-foreground font-mono ml-2">terminal — {API_EXAMPLES.find(e => e.id === activeAPITab)?.label}</span>
               </div>
-              <div className="p-4 font-mono text-sm overflow-x-auto">
+              <div className="p-4 font-mono text-sm overflow-x-auto pb-12">
                 {/* Command */}
                 <div className="text-muted-foreground whitespace-pre-wrap">
                   <span className="text-[--terminal-green]">$</span> {API_EXAMPLES.find(e => e.id === activeAPITab)?.command}
@@ -427,6 +414,8 @@ export default function Home() {
                   ))}
                 </div>
               </div>
+              {/* Gradient fade overlay */}
+              <div className="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-card via-card/80 to-transparent pointer-events-none" />
             </div>
             
             <div className="text-center">
