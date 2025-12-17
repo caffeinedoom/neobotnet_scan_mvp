@@ -12,7 +12,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
-import { Code2 } from 'lucide-react';
+import { Code2, Globe } from 'lucide-react';
 
 // ============================================================================
 // MOCK DATA - Realistic reconnaissance results
@@ -231,14 +231,23 @@ export default function Home() {
               neobotnet
             </h1>
             
-            {/* API Nav Link - Right below title */}
-            <a 
-              href="#api" 
-              className="inline-flex items-center gap-2 text-base font-mono font-bold text-foreground hover:text-[--terminal-green] transition-colors"
-            >
-              <Code2 className="h-5 w-5" />
-              <span>API</span>
-            </a>
+            {/* Centered Sub-Navigation: Web | API */}
+            <div className="flex justify-center items-center gap-8 pt-2">
+              <a 
+                href="#web" 
+                className="flex items-center gap-2 text-base font-mono font-bold text-foreground hover:text-[--terminal-green] transition-colors"
+              >
+                <Globe className="h-4 w-4" />
+                <span>Web</span>
+              </a>
+              <a 
+                href="#api" 
+                className="flex items-center gap-2 text-base font-mono font-bold text-foreground hover:text-[--terminal-green] transition-colors"
+              >
+                <Code2 className="h-4 w-4" />
+                <span>API</span>
+              </a>
+            </div>
             
             {/* Tagline */}
             <p className="text-xl sm:text-2xl text-foreground font-bold font-mono tracking-wide pt-2">
@@ -268,7 +277,7 @@ export default function Home() {
           </div>
 
           {/* Data Wall Section */}
-          <div className="space-y-4">
+          <div id="web" className="space-y-4 scroll-mt-20">
             {/* Tab Navigation */}
             <div className="flex justify-center">
               <div className="inline-flex items-center gap-1 p-1 rounded-lg bg-muted/50 border border-border">
