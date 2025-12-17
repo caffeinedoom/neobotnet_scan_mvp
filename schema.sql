@@ -1050,7 +1050,7 @@ CREATE TABLE IF NOT EXISTS "public"."asset_scan_jobs" (
     "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL,
     "parent_scan_id" "uuid",
     CONSTRAINT "valid_domain_counts" CHECK ((("total_domains" >= 0) AND ("completed_domains" >= 0) AND ("completed_domains" <= "total_domains"))),
-    CONSTRAINT "valid_modules" CHECK (("modules" <@ ARRAY['subfinder'::"text", 'dnsx'::"text", 'httpx'::"text"])),
+    CONSTRAINT "valid_modules" CHECK (("modules" <@ ARRAY['subfinder'::"text", 'dnsx'::"text", 'httpx'::"text", 'katana'::"text"])),
     CONSTRAINT "valid_status" CHECK (("status" = ANY (ARRAY['pending'::"text", 'running'::"text", 'completed'::"text", 'failed'::"text", 'cancelled'::"text"])))
 );
 
@@ -1059,13 +1059,6 @@ ALTER TABLE "public"."asset_scan_jobs" OWNER TO "postgres";
 
 
 COMMENT ON COLUMN "public"."asset_scan_jobs"."parent_scan_id" IS 'Links to parent scan (for multi-asset operations)';
-
-
-
-COMMENT ON CONSTRAINT "valid_modules" ON "public"."asset_scan_jobs" IS 'TEMPORARY CHECK constraint (Phase 2).
-TODO Phase 3: Replace with application-level validation against scan_module_profiles.
-PostgreSQL does not support FK constraints on array elements.
-MANUAL ACTION REQUIRED: Update this constraint when adding new modules.';
 
 
 
@@ -1142,7 +1135,8 @@ CREATE TABLE IF NOT EXISTS "public"."api_keys" (
     "name" "text" DEFAULT 'Default'::"text" NOT NULL,
     "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
     "last_used_at" timestamp with time zone,
-    "is_active" boolean DEFAULT true NOT NULL
+    "is_active" boolean DEFAULT true NOT NULL,
+    "encrypted_key" "text"
 );
 
 
@@ -1851,6 +1845,10 @@ CREATE INDEX "idx_api_keys_key_hash" ON "public"."api_keys" USING "btree" ("key_
 
 
 
+CREATE UNIQUE INDEX "idx_api_keys_one_per_user" ON "public"."api_keys" USING "btree" ("user_id") WHERE ("is_active" = true);
+
+
+
 CREATE INDEX "idx_api_keys_user_id" ON "public"."api_keys" USING "btree" ("user_id");
 
 
@@ -2337,6 +2335,10 @@ COMMENT ON POLICY "Authenticated users can read all assets" ON "public"."assets"
 
 
 CREATE POLICY "Authenticated users can read all batch scans" ON "public"."batch_scan_jobs" FOR SELECT USING ((("auth"."role"() = 'authenticated'::"text") OR ("auth"."role"() = 'service_role'::"text")));
+
+
+
+CREATE POLICY "Authenticated users can read all crawled endpoints" ON "public"."crawled_endpoints" FOR SELECT USING ((("auth"."role"() = 'authenticated'::"text") OR ("auth"."role"() = 'service_role'::"text")));
 
 
 

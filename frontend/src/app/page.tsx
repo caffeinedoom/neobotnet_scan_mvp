@@ -282,12 +282,10 @@ export default function Home() {
           
           {/* Hero Section */}
           <div className="text-center space-y-4">
-            {/* Logo/Title - Typing animation */}
+            {/* Logo/Title - Typing animation with persistent blinking cursor */}
             <h1 className="text-6xl sm:text-7xl lg:text-8xl font-bold tracking-tight font-mono text-foreground">
               {typedTitle}
-              {typingPhase === 'title' && (
-                <span className={`${showCursor ? 'opacity-100' : 'opacity-0'} transition-opacity`}>_</span>
-              )}
+              <span className={`${typingPhase === 'done' ? 'text-[--terminal-green]' : ''} ${showCursor ? 'opacity-100' : 'opacity-0'} transition-opacity`}>_</span>
             </h1>
         
             {/* Mode Toggle: Web | API - Framed for visual clarity */}
@@ -318,19 +316,9 @@ export default function Home() {
               </div>
             </div>
             
-            {/* Tagline - Typing animation */}
+            {/* Tagline - Typing animation (no cursor, cursor stays on title) */}
             <p className="text-xl sm:text-2xl text-foreground font-bold font-mono tracking-wide pt-2 min-h-[2em]">
-              {typingPhase !== 'title' && (
-                <>
-                  {typedTagline}
-                  {typingPhase !== 'done' && (
-                    <span className={`${showCursor ? 'opacity-100' : 'opacity-0'} transition-opacity`}>_</span>
-                  )}
-                  {typingPhase === 'done' && (
-                    <span className={`text-[--terminal-green] ${showCursor ? 'opacity-100' : 'opacity-0'} transition-opacity`}>_</span>
-                  )}
-                </>
-              )}
+              {typingPhase !== 'title' && typedTagline}
             </p>
 
             {/* CTA Buttons - Dark with inverted hover */}
