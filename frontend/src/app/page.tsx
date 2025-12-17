@@ -119,13 +119,47 @@ const TypeBadge = ({ type }: { type: string }) => {
 // ============================================================================
 
 type TabType = 'subdomains' | 'dns' | 'probes';
+type CLITabType = 'export' | 'live' | 'dns' | 'nuclei';
 
 const TAB_ORDER: TabType[] = ['subdomains', 'dns', 'probes'];
+
+// CLI Examples
+const CLI_EXAMPLES: { id: CLITabType; label: string; command: string; output: string[] }[] = [
+  {
+    id: 'export',
+    label: 'Export',
+    command: `curl -s "https://api.neobotnet.com/v1/programs/all/subdomains" \\
+  -H "X-API-Key: YOUR_API_KEY" | jq -r '.[].subdomain' > subs.txt`,
+    output: ['Saved 47,832 subdomains to subs.txt'],
+  },
+  {
+    id: 'live',
+    label: 'Live Hosts',
+    command: `curl -s "https://api.neobotnet.com/v1/http-probes?status_code=200" \\
+  -H "X-API-Key: YOUR_API_KEY" | jq -r '.[].url'`,
+    output: ['https://api.acmecorp.com', 'https://developer.acmecorp.com', 'https://cdn.acmecorp.com', '...'],
+  },
+  {
+    id: 'dns',
+    label: 'DNS',
+    command: `curl -s "https://api.neobotnet.com/v1/dns?record_type=CNAME" \\
+  -H "X-API-Key: YOUR_API_KEY" | jq '.[] | {sub: .subdomain, target: .value}'`,
+    output: ['{"sub": "cdn.acmecorp.com", "target": "d1abc.cloudfront.net"}', '{"sub": "jira.acmecorp.com", "target": "acmecorp.atlassian.net"}', '...'],
+  },
+  {
+    id: 'nuclei',
+    label: 'Nuclei',
+    command: `curl -s "https://api.neobotnet.com/v1/http-probes?status_code=200" \\
+  -H "X-API-Key: YOUR_API_KEY" | jq -r '.[].url' | nuclei -t cves/`,
+    output: ['[CVE-2024-XXXX] https://api.acmecorp.com', '[info] Scanning 1,247 targets...', '...'],
+  },
+];
 
 export default function Home() {
   const router = useRouter();
   const { isAuthenticated, isLoading, signInWithGoogle, signInWithTwitter } = useAuth();
   const [activeTab, setActiveTab] = useState<TabType>('subdomains');
+  const [activeCLITab, setActiveCLITab] = useState<CLITabType>('export');
   const [autoToggle, setAutoToggle] = useState(true);
 
   // Auto-toggle through tabs every 4 seconds (stops when user interacts)
@@ -184,6 +218,18 @@ export default function Home() {
           }}
         />
       </div>
+
+      {/* Mini Navigation */}
+      <nav className="fixed top-0 left-0 right-0 z-50 py-4">
+        <div className="max-w-4xl mx-auto px-4 flex justify-center">
+          <a 
+            href="#cli" 
+            className="text-sm font-mono text-muted-foreground hover:text-foreground transition-colors px-4 py-2 rounded-lg hover:bg-muted/50"
+          >
+            cli ↓
+          </a>
+        </div>
+      </nav>
 
       {/* Main Content */}
       <main className="flex-1 flex flex-col items-center justify-center px-4 py-16">
@@ -345,11 +391,28 @@ export default function Home() {
           </div>
 
           {/* CLI Section */}
-          <div className="space-y-4 pt-8">
+          <div id="cli" className="space-y-4 pt-16 scroll-mt-20">
             <div className="text-center">
               <p className="text-sm text-muted-foreground font-mono uppercase tracking-wider">cli</p>
             </div>
             
+            {/* CLI Tabs */}
+            <div className="flex justify-center gap-2 mb-4">
+              {CLI_EXAMPLES.map((example) => (
+                <button
+                  key={example.id}
+                  onClick={() => setActiveCLITab(example.id)}
+                  className={`px-4 py-2 text-sm font-mono rounded-lg transition-colors ${
+                    activeCLITab === example.id
+                      ? 'bg-muted text-[--terminal-green]'
+                      : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+                  }`}
+                >
+                  {example.label}
+                </button>
+              ))}
+            </div>
+
             {/* CLI Example */}
             <div className="relative rounded-xl border border-border bg-card overflow-hidden shadow-[0_0_50px_-12px_rgba(0,0,0,0.9)] ring-1 ring-white/5">
               <div className="px-4 py-3 border-b border-border bg-muted/50 flex items-center gap-2">
@@ -358,20 +421,18 @@ export default function Home() {
                   <div className="w-3 h-3 rounded-full bg-yellow-500/80" />
                   <div className="w-3 h-3 rounded-full bg-green-500/80" />
                 </div>
-                <span className="text-xs text-muted-foreground font-mono ml-2">terminal</span>
+                <span className="text-xs text-muted-foreground font-mono ml-2">terminal — {CLI_EXAMPLES.find(e => e.id === activeCLITab)?.label}</span>
               </div>
               <div className="p-4 font-mono text-sm overflow-x-auto">
-                <div className="text-muted-foreground">
-                  <span className="text-[--terminal-green]">$</span> curl -s &quot;https://api.neobotnet.com/v1/programs/all/subdomains&quot; \
+                {/* Command */}
+                <div className="text-muted-foreground whitespace-pre-wrap">
+                  <span className="text-[--terminal-green]">$</span> {CLI_EXAMPLES.find(e => e.id === activeCLITab)?.command}
                 </div>
-                <div className="text-muted-foreground pl-4">
-                  -H &quot;X-API-Key: YOUR_API_KEY&quot; | jq -r &apos;.[].subdomain&apos;
-                </div>
+                {/* Output */}
                 <div className="mt-3 text-foreground/80">
-                  <div>api.acmecorp.com</div>
-                  <div>staging.acmecorp.com</div>
-                  <div>developer.acmecorp.com</div>
-                  <div className="text-muted-foreground">...</div>
+                  {CLI_EXAMPLES.find(e => e.id === activeCLITab)?.output.map((line, i) => (
+                    <div key={i} className={line === '...' ? 'text-muted-foreground' : ''}>{line}</div>
+                  ))}
                 </div>
               </div>
             </div>
