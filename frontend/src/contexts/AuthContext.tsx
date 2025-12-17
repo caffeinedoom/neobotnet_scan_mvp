@@ -10,7 +10,7 @@
  * Note: Email/password auth has been removed for the LEAN refactor.
  */
 
-import React, { createContext, useContext, useEffect, useReducer, ReactNode, useCallback } from 'react';
+import React, { createContext, useContext, useEffect, useReducer, ReactNode, useCallback, useRef } from 'react';
 import { toast } from 'sonner';
 import { supabase, signInWithGoogle, signInWithTwitter, signOut as supabaseSignOut, getSession } from '@/lib/supabase';
 import { apiClient } from '@/lib/api/client';
@@ -97,6 +97,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [state, dispatch] = useReducer(authReducer, initialState);
+  const hasShownSignInToast = useRef(false);
 
   // Create backend session (sets httpOnly cookie)
   const createBackendSession = useCallback(async (accessToken: string) => {
@@ -136,9 +137,20 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
               session: session,
             },
           });
-          // Only show toast for actual sign-in, not for session restore
-          if (event === 'SIGNED_IN') {
-            toast.success('Signed in successfully!');
+          // Only show toast for actual sign-in, not for session restore or page reload
+          // Use ref to prevent duplicate toasts across re-renders and sessionStorage for new tabs
+          if (event === 'SIGNED_IN' && !hasShownSignInToast.current) {
+            const toastKey = 'neobotnet_signin_toast_shown';
+            const lastShown = sessionStorage.getItem(toastKey);
+            const now = Date.now();
+            
+            // Only show toast if we haven't shown it in the last 5 seconds
+            // This handles OAuth redirects that fire SIGNED_IN on return
+            if (!lastShown || (now - parseInt(lastShown, 10)) > 5000) {
+              toast.success('Signed in successfully!');
+              sessionStorage.setItem(toastKey, now.toString());
+            }
+            hasShownSignInToast.current = true;
           }
         } else if (event === 'SIGNED_OUT') {
           dispatch({ type: 'SIGN_OUT' });
