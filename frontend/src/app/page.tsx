@@ -120,10 +120,24 @@ const TypeBadge = ({ type }: { type: string }) => {
 
 type TabType = 'subdomains' | 'dns' | 'probes';
 
+const TAB_ORDER: TabType[] = ['subdomains', 'dns', 'probes'];
+
 export default function Home() {
   const router = useRouter();
   const { isAuthenticated, isLoading, signInWithGoogle, signInWithTwitter } = useAuth();
   const [activeTab, setActiveTab] = useState<TabType>('subdomains');
+
+  // Auto-toggle through tabs every 4 seconds
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setActiveTab(current => {
+        const currentIndex = TAB_ORDER.indexOf(current);
+        const nextIndex = (currentIndex + 1) % TAB_ORDER.length;
+        return TAB_ORDER[nextIndex];
+      });
+    }, 4000);
+    return () => clearInterval(interval);
+  }, []);
 
   useEffect(() => {
     if (isAuthenticated && !isLoading) {
@@ -146,7 +160,7 @@ export default function Home() {
   const tabs: { id: TabType; label: string; count: string }[] = [
     { id: 'subdomains', label: 'Subdomains', count: '47,832' },
     { id: 'dns', label: 'DNS Records', count: '124,567' },
-    { id: 'probes', label: 'HTTP Probes', count: '38,291' },
+    { id: 'probes', label: 'Web Servers', count: '38,291' },
   ];
 
   return (
@@ -169,12 +183,12 @@ export default function Home() {
           {/* Hero Section */}
           <div className="text-center space-y-6">
             {/* Logo/Title */}
-            <h1 className="text-6xl sm:text-7xl lg:text-8xl font-bold tracking-tight font-[family-name:var(--font-heading)] text-foreground">
+            <h1 className="text-6xl sm:text-7xl lg:text-8xl font-bold tracking-tight font-mono text-foreground">
               neobotnet
             </h1>
             
             {/* Tagline */}
-            <p className="text-xl sm:text-2xl text-muted-foreground font-light tracking-wide">
+            <p className="text-xl sm:text-2xl text-foreground font-bold font-mono tracking-wide">
               Web Reconnaissance. Delivered.
             </p>
 
@@ -183,7 +197,7 @@ export default function Home() {
               <Button 
                 size="lg" 
                 onClick={() => signInWithGoogle()}
-                className="h-12 px-6 text-base font-medium bg-foreground text-background hover:bg-foreground/90"
+                className="h-12 px-6 text-base font-mono font-medium bg-foreground text-background hover:bg-foreground/90"
               >
                 <GoogleIcon />
                 <span className="ml-2">Sign in with Google</span>
@@ -192,7 +206,7 @@ export default function Home() {
                 size="lg" 
                 variant="outline"
                 onClick={() => signInWithTwitter()}
-                className="h-12 px-6 text-base font-medium border-border/50 hover:bg-muted"
+                className="h-12 px-6 text-base font-mono font-medium border-border hover:bg-muted"
               >
                 <XIcon />
                 <span className="ml-2">Sign in with X</span>
@@ -204,13 +218,13 @@ export default function Home() {
           <div className="space-y-4">
             {/* Tab Navigation */}
             <div className="flex justify-center">
-              <div className="inline-flex items-center gap-1 p-1 rounded-lg bg-muted/50 border border-border/50">
+              <div className="inline-flex items-center gap-1 p-1 rounded-lg bg-muted/50 border border-border">
                 {tabs.map((tab) => (
                   <button
                     key={tab.id}
                     onClick={() => setActiveTab(tab.id)}
                     className={`
-                      px-4 py-2 rounded-md text-sm font-medium transition-all duration-200
+                      px-4 py-2 rounded-md text-sm font-mono font-medium transition-all duration-300
                       ${activeTab === tab.id 
                         ? 'bg-background text-foreground shadow-sm' 
                         : 'text-muted-foreground hover:text-foreground'
@@ -223,10 +237,10 @@ export default function Home() {
               </div>
             </div>
 
-            {/* Data Preview */}
-            <div className="relative rounded-xl border border-border/50 bg-card/50 backdrop-blur-sm overflow-hidden">
+            {/* Data Preview - Elegant dark frame with depth */}
+            <div className="relative rounded-xl border border-border bg-card overflow-hidden shadow-[0_0_50px_-12px_rgba(0,0,0,0.9)] ring-1 ring-white/5">
               {/* Header row */}
-              <div className="px-4 py-3 border-b border-border/30 bg-muted/30">
+              <div className="px-4 py-3 border-b border-border bg-muted/50">
                 <div className="flex items-center justify-between text-xs text-muted-foreground font-mono uppercase tracking-wider">
                   {activeTab === 'subdomains' && (
                     <>
@@ -303,17 +317,17 @@ export default function Home() {
             </div>
 
             {/* Stats & CTA */}
-            <div className="text-center space-y-4 pt-2">
+            <div className="text-center space-y-4 pt-2 font-mono">
               <p className="text-muted-foreground">
-                <span className="text-[--terminal-green] font-semibold font-mono">
+                <span className="text-[--terminal-green] font-bold text-lg">
                   {tabs.find(t => t.id === activeTab)?.count}
                 </span>
-                {' '}{activeTab === 'subdomains' ? 'subdomains' : activeTab === 'dns' ? 'DNS records' : 'HTTP probes'}{' '}
+                {' '}{activeTab === 'subdomains' ? 'subdomains' : activeTab === 'dns' ? 'DNS records' : 'web servers'}{' '}
                 across <span className="text-foreground font-medium">156 programs</span>
               </p>
               <Button 
                 variant="link" 
-                className="text-[--terminal-green] hover:text-[--terminal-green]/80 font-medium"
+                className="text-[--terminal-green] hover:text-[--terminal-green]/80 font-bold font-mono"
                 onClick={() => signInWithGoogle()}
               >
                 Sign in to explore all data →
@@ -324,7 +338,7 @@ export default function Home() {
       </main>
 
       {/* Footer */}
-      <footer className="py-6 text-center">
+      <footer className="py-6 text-center font-mono">
         <p className="text-sm text-muted-foreground">
           Free for security researchers · API access included
         </p>

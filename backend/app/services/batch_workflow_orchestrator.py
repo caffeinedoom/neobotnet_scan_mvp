@@ -1328,7 +1328,8 @@ class BatchWorkflowOrchestrator:
         streaming_vars = [
             {"name": "STREAMING_MODE", "value": "true"},
             {"name": "STREAM_INPUT_KEY", "value": stream_key},
-            {"name": "CONSUMER_GROUP", "value": consumer_group_name},  # Note: Katana uses CONSUMER_GROUP
+            {"name": "CONSUMER_GROUP", "value": consumer_group_name},  # For Katana
+            {"name": "CONSUMER_GROUP_NAME", "value": consumer_group_name},  # For DNSx/HTTPx
             {"name": "CONSUMER_NAME", "value": consumer_name},
             {"name": "MODULE_ROLE", "value": "consumer"},
             {"name": "BATCH_SIZE", "value": "50"},  # Messages per XREADGROUP
