@@ -227,7 +227,7 @@ export default function APIDocsPage() {
                       New API Key Created
                     </p>
                     <p className="text-xs text-muted-foreground mt-1">
-                      Copy this key now. For security, it won't be shown again.
+                      Copy this key now. For security, it will not be shown again.
                     </p>
                   </div>
                 </div>
@@ -259,7 +259,7 @@ export default function APIDocsPage() {
                   onClick={() => setNewlyCreatedKey(null)}
                   className="mt-2"
                 >
-                  I've copied my key
+                  I have copied my key
                 </Button>
               </div>
             )}

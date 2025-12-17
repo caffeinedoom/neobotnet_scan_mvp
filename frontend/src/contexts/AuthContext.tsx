@@ -13,7 +13,6 @@
 import React, { createContext, useContext, useEffect, useReducer, ReactNode, useCallback, useRef } from 'react';
 import { toast } from 'sonner';
 import { supabase, signInWithGoogle, signInWithTwitter, signOut as supabaseSignOut, getSession } from '@/lib/supabase';
-import { apiClient } from '@/lib/api/client';
 import { API_BASE_URL } from '@/lib/api/config';
 import type { Session, User } from '@supabase/supabase-js';
 
@@ -189,7 +188,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       subscription.unsubscribe();
       clearTimeout(timeoutId);
     };
-  }, []);
+  }, [createBackendSession]);
 
   // Sign in with Google
   const handleSignInWithGoogle = useCallback(async () => {

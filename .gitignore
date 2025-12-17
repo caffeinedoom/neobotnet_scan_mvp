@@ -217,3 +217,4 @@ Thumbs.db
 *.env
 backend/containers/dnsx-go/dnsx-scanner
 cookies.txt
+.pnpm-store/
