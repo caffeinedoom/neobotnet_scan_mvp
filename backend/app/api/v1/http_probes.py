@@ -46,10 +46,10 @@ async def get_http_probes(
     LEAN Architecture: All authenticated users see ALL data.
     """
     try:
-        supabase = supabase_client.client
+        # Use service_client to bypass RLS - LEAN architecture allows all authenticated users
+        supabase = supabase_client.service_client
         
         # Start building the query
-        # Join with asset_scan_jobs to enforce RLS (users can only see their own probes)
         query = supabase.table("http_probes").select(
             "id, scan_job_id, asset_id, status_code, url, title, webserver, "
             "content_length, final_url, ip, technologies, cdn_name, content_type, "
@@ -121,7 +121,8 @@ async def get_http_probe_by_id(
         404: If probe not found or user doesn't have access
     """
     try:
-        supabase = supabase_client.client
+        # Use service_client to bypass RLS - LEAN architecture allows all authenticated users
+        supabase = supabase_client.service_client
         
         # Get the probe
         response = supabase.table("http_probes").select("*").eq("id", probe_id).execute()
@@ -167,10 +168,8 @@ async def get_http_probe_stats(
     Can be filtered by asset_id or scan_job_id to get statistics for specific scans.
     """
     try:
-        supabase = supabase_client.client
-        
-        # LEAN Architecture: All authenticated users see ALL data
-        # No per-user filtering - authentication is sufficient for access
+        # Use service_client to bypass RLS - LEAN architecture allows all authenticated users
+        supabase = supabase_client.service_client
         
         # Build query with filters
         query = supabase.table("http_probes").select("*")
