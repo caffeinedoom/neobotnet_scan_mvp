@@ -159,6 +159,10 @@ const API_EXAMPLES: { id: APITabType; label: string; command: string; output: st
 
 type ViewMode = 'web' | 'api';
 
+// Typing animation text
+const TITLE_TEXT = 'neobotnet';
+const TAGLINE_TEXT = 'Web Reconnaissance. Delivered.';
+
 export default function Home() {
   const router = useRouter();
   const { isAuthenticated, isLoading, signInWithGoogle, signInWithTwitter } = useAuth();
@@ -166,6 +170,45 @@ export default function Home() {
   const [activeTab, setActiveTab] = useState<TabType>('probes'); // Start with Web Servers
   const [activeAPITab, setActiveAPITab] = useState<APITabType>('export');
   const [autoToggle, setAutoToggle] = useState(true);
+  
+  // Typing animation state
+  const [typedTitle, setTypedTitle] = useState('');
+  const [typedTagline, setTypedTagline] = useState('');
+  const [showCursor, setShowCursor] = useState(true);
+  const [typingPhase, setTypingPhase] = useState<'title' | 'tagline' | 'done'>('title');
+
+  // Typing animation effect
+  useEffect(() => {
+    if (typingPhase === 'title') {
+      if (typedTitle.length < TITLE_TEXT.length) {
+        const timeout = setTimeout(() => {
+          setTypedTitle(TITLE_TEXT.slice(0, typedTitle.length + 1));
+        }, 80); // Speed of typing
+        return () => clearTimeout(timeout);
+      } else {
+        // Pause before starting tagline
+        const timeout = setTimeout(() => setTypingPhase('tagline'), 300);
+        return () => clearTimeout(timeout);
+      }
+    } else if (typingPhase === 'tagline') {
+      if (typedTagline.length < TAGLINE_TEXT.length) {
+        const timeout = setTimeout(() => {
+          setTypedTagline(TAGLINE_TEXT.slice(0, typedTagline.length + 1));
+        }, 50); // Slightly faster for tagline
+        return () => clearTimeout(timeout);
+      } else {
+        setTypingPhase('done');
+      }
+    }
+  }, [typedTitle, typedTagline, typingPhase]);
+
+  // Blinking cursor effect
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setShowCursor(prev => !prev);
+    }, 530); // Blink speed
+    return () => clearInterval(interval);
+  }, []);
 
   // Auto-toggle through data tabs every 4 seconds (only in web mode, stops when user interacts)
   useEffect(() => {
@@ -239,10 +282,13 @@ export default function Home() {
           
           {/* Hero Section */}
           <div className="text-center space-y-4">
-            {/* Logo/Title */}
+            {/* Logo/Title - Typing animation */}
             <h1 className="text-6xl sm:text-7xl lg:text-8xl font-bold tracking-tight font-mono text-foreground">
-              neobotnet
-        </h1>
+              {typedTitle}
+              {typingPhase === 'title' && (
+                <span className={`${showCursor ? 'opacity-100' : 'opacity-0'} transition-opacity`}>_</span>
+              )}
+            </h1>
         
             {/* Mode Toggle: Web | API - Framed for visual clarity */}
             <div className="flex justify-center pt-2">
@@ -272,31 +318,40 @@ export default function Home() {
               </div>
             </div>
             
-            {/* Tagline */}
-            <p className="text-xl sm:text-2xl text-foreground font-bold font-mono tracking-wide pt-2">
-              Web Reconnaissance. Delivered.
+            {/* Tagline - Typing animation */}
+            <p className="text-xl sm:text-2xl text-foreground font-bold font-mono tracking-wide pt-2 min-h-[2em]">
+              {typingPhase !== 'title' && (
+                <>
+                  {typedTagline}
+                  {typingPhase !== 'done' && (
+                    <span className={`${showCursor ? 'opacity-100' : 'opacity-0'} transition-opacity`}>_</span>
+                  )}
+                  {typingPhase === 'done' && (
+                    <span className={`text-[--terminal-green] ${showCursor ? 'opacity-100' : 'opacity-0'} transition-opacity`}>_</span>
+                  )}
+                </>
+              )}
             </p>
 
-            {/* CTA Buttons */}
+            {/* CTA Buttons - Dark with inverted hover */}
             <div className="flex flex-col sm:flex-row gap-3 justify-center pt-4">
               <Button 
                 size="lg" 
                 onClick={() => signInWithGoogle()}
-                className="h-12 px-6 text-base font-mono font-medium bg-foreground text-background hover:bg-foreground/90"
+                className="h-12 px-6 text-base font-mono font-medium bg-card text-foreground border border-border hover:bg-foreground hover:text-background hover:border-foreground transition-all"
               >
                 <GoogleIcon />
                 <span className="ml-2">Sign in with Google</span>
-          </Button>
+              </Button>
               <Button 
                 size="lg" 
-                variant="outline"
                 onClick={() => signInWithTwitter()}
-                className="h-12 px-6 text-base font-mono font-medium border-border hover:bg-muted"
+                className="h-12 px-6 text-base font-mono font-medium bg-card text-foreground border border-border hover:bg-foreground hover:text-background hover:border-foreground transition-all"
               >
                 <XIcon />
                 <span className="ml-2">Sign in with X</span>
-          </Button>
-        </div>
+              </Button>
+            </div>
       </div>
 
           {/* Content Area - Switches based on viewMode */}
