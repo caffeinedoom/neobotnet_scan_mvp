@@ -83,6 +83,7 @@ class ScanPipeline:
         "subfinder": 600,  # 10 minutes
         "dnsx": 1800,      # 30 minutes (increased for large assets with 400+ subdomains)
         "httpx": 900,      # 15 minutes
+        "katana": 1800,    # 30 minutes (web crawling can be slow)
         "nuclei": 1800,    # 30 minutes
     }
     
@@ -819,10 +820,35 @@ class ScanPipeline:
         self.logger.info(f"   Consumers: {len(consumer_modules)} ({', '.join(consumer_modules)})")
         
         # ============================================================
-        # STEP 4: Launch Streaming Pipeline (Producer + All Consumers in Parallel)
+        # STEP 4: Launch Streaming Pipeline (Multi-Stage Architecture)
+        # ============================================================
+        # 
+        # Stage 1: Subfinder → Stream A → DNSx + HTTPx (parallel)
+        # Stage 2: HTTPx → Stream B → Katana (chained)
+        #
+        # Katana is special: it consumes from HTTPx output, not Subfinder output.
+        # HTTPx acts as both consumer (from Subfinder) and producer (to Katana).
         # ============================================================
         
-        self.logger.info(f"🚀 Launching streaming pipeline: 1 producer + {len(consumer_modules)} parallel consumers...")
+        # Separate Stage 1 consumers (subfinder stream) from Stage 2 (httpx stream)
+        stage1_consumers = [m for m in consumer_modules if m != "katana"]
+        stage2_consumers = [m for m in consumer_modules if m == "katana"]
+        
+        # Generate HTTPx → Katana stream key if Katana is requested
+        httpx_to_katana_stream_key = None
+        if "katana" in consumer_modules and "httpx" in consumer_modules:
+            httpx_to_katana_stream_key = stream_coordinator.generate_stream_key(
+                scan_job_id=str(producer_job.id),
+                producer_module="httpx"
+            )
+            self.logger.info(f"📋 Katana stream configuration:")
+            self.logger.info(f"   HTTPx → Katana stream: {httpx_to_katana_stream_key}")
+        
+        total_consumers = len(stage1_consumers) + len(stage2_consumers)
+        self.logger.info(f"🚀 Launching streaming pipeline: 1 producer + {total_consumers} consumers...")
+        self.logger.info(f"   Stage 1 consumers: {stage1_consumers}")
+        if stage2_consumers:
+            self.logger.info(f"   Stage 2 consumers: {stage2_consumers} (chained from HTTPx)")
         
         # Launch producer (Subfinder)
         self.logger.info("   📤 Launching producer (subfinder)...")
@@ -833,18 +859,43 @@ class ScanPipeline:
         producer_task_arn = producer_launch["task_arn"]
         self.logger.info(f"      ✅ Task: {producer_task_arn}")
         
-        # Launch all consumers in parallel (each reads from same stream)
+        # Launch Stage 1 consumers (read from Subfinder stream)
         consumer_task_arns = {}
-        for module in consumer_modules:
+        for module in stage1_consumers:
             consumer_group_name = stream_coordinator.generate_consumer_group_name(module)
             consumer_name = stream_coordinator.generate_consumer_name(module, str(consumer_jobs[module].id)[:8])
             
-            self.logger.info(f"   📥 Launching consumer ({module})...")
+            self.logger.info(f"   📥 Launching Stage 1 consumer ({module})...")
             self.logger.info(f"      Group: {consumer_group_name}")
+            
+            # HTTPx gets output stream key for Katana if Katana is in the pipeline
+            stream_output_key = None
+            if module == "httpx" and httpx_to_katana_stream_key:
+                stream_output_key = httpx_to_katana_stream_key
+                self.logger.info(f"      Output: {stream_output_key} (→ Katana)")
             
             consumer_launch = await batch_workflow_orchestrator.launch_streaming_consumer(
                 consumer_job=consumer_jobs[module],
                 stream_key=stream_key,
+                consumer_group_name=consumer_group_name,
+                consumer_name=consumer_name,
+                stream_output_key=stream_output_key
+            )
+            consumer_task_arns[module] = consumer_launch["task_arn"]
+            self.logger.info(f"      ✅ Task: {consumer_launch['task_arn']}")
+        
+        # Launch Stage 2 consumers (read from HTTPx stream - chained)
+        for module in stage2_consumers:
+            consumer_group_name = stream_coordinator.generate_consumer_group_name(module)
+            consumer_name = stream_coordinator.generate_consumer_name(module, str(consumer_jobs[module].id)[:8])
+            
+            self.logger.info(f"   📥 Launching Stage 2 consumer ({module})...")
+            self.logger.info(f"      Input: {httpx_to_katana_stream_key} (from HTTPx)")
+            self.logger.info(f"      Group: {consumer_group_name}")
+            
+            consumer_launch = await batch_workflow_orchestrator.launch_streaming_consumer(
+                consumer_job=consumer_jobs[module],
+                stream_key=httpx_to_katana_stream_key,  # Katana reads from HTTPx output!
                 consumer_group_name=consumer_group_name,
                 consumer_name=consumer_name
             )
@@ -853,7 +904,9 @@ class ScanPipeline:
         
         self.logger.info(f"✅ All tasks launched successfully!")
         self.logger.info(f"   Producer: subfinder")
-        self.logger.info(f"   Consumers: {', '.join(consumer_modules)} (running in parallel)")
+        self.logger.info(f"   Stage 1: {', '.join(stage1_consumers)} (from Subfinder)")
+        if stage2_consumers:
+            self.logger.info(f"   Stage 2: {', '.join(stage2_consumers)} (from HTTPx)")
         
         # ============================================================
         # STEP 5: Monitor Job Completion (NEW: Polling batch_scan_jobs)

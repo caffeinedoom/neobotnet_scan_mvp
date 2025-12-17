@@ -1,32 +1,129 @@
 'use client';
 
 /**
- * Landing Page - NeoBot-Net LEAN
+ * Landing Page - Neobotnet
  * 
- * Simple landing page showcasing free recon data access.
+ * Minimal, data-first landing page showcasing reconnaissance results.
+ * "Web Reconnaissance. Delivered."
  */
 
-import { useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/contexts/AuthContext';
-import { 
-  Globe, 
-  Database, 
-  Wifi, 
-  Code2, 
-  Key, 
-  Zap,
-  Search,
-  ArrowRight
-} from 'lucide-react';
+
+// ============================================================================
+// MOCK DATA - Realistic reconnaissance results
+// ============================================================================
+
+const MOCK_SUBDOMAINS = [
+  { subdomain: 'api.acmecorp.com', discovered: 'Dec 17, 2025' },
+  { subdomain: 'staging.acmecorp.com', discovered: 'Dec 17, 2025' },
+  { subdomain: 'developer.acmecorp.com', discovered: 'Dec 17, 2025' },
+  { subdomain: 'partners-api.acmecorp.com', discovered: 'Dec 16, 2025' },
+  { subdomain: 'internal-tools.acmecorp.com', discovered: 'Dec 16, 2025' },
+  { subdomain: 'cdn-assets.acmecorp.com', discovered: 'Dec 16, 2025' },
+  { subdomain: 'mail.acmecorp.com', discovered: 'Dec 15, 2025' },
+  { subdomain: 'vpn.acmecorp.com', discovered: 'Dec 15, 2025' },
+  { subdomain: 'jira.acmecorp.com', discovered: 'Dec 15, 2025' },
+  { subdomain: 'confluence.acmecorp.com', discovered: 'Dec 14, 2025' },
+];
+
+const MOCK_DNS = [
+  { subdomain: 'api.acmecorp.com', type: 'A', value: '104.18.20.35', ttl: '300s' },
+  { subdomain: 'mail.acmecorp.com', type: 'MX', value: 'aspmx.google.com', ttl: '3600s' },
+  { subdomain: 'cdn.acmecorp.com', type: 'CNAME', value: 'd1abc.cloudfront.net', ttl: '86400s' },
+  { subdomain: 'staging.acmecorp.com', type: 'A', value: '52.14.123.89', ttl: '300s' },
+  { subdomain: 'api.acmecorp.com', type: 'AAAA', value: '2606:4700::6812:1423', ttl: '300s' },
+  { subdomain: 'developer.acmecorp.com', type: 'CNAME', value: 'docs.acmecorp.com', ttl: '3600s' },
+  { subdomain: 'vpn.acmecorp.com', type: 'A', value: '203.0.113.50', ttl: '600s' },
+  { subdomain: 'jira.acmecorp.com', type: 'CNAME', value: 'acmecorp.atlassian.net', ttl: '3600s' },
+];
+
+const MOCK_PROBES = [
+  { url: 'https://api.acmecorp.com', status: 200, server: 'nginx/1.24', cdn: 'Cloudflare' },
+  { url: 'https://staging.acmecorp.com', status: 403, server: 'nginx', cdn: 'AWS' },
+  { url: 'https://developer.acmecorp.com', status: 200, server: 'nginx', cdn: 'Fastly' },
+  { url: 'https://partners-api.acmecorp.com', status: 200, server: 'gunicorn', cdn: '—' },
+  { url: 'https://internal-tools.acmecorp.com', status: 401, server: 'Apache/2.4', cdn: '—' },
+  { url: 'https://cdn-assets.acmecorp.com', status: 200, server: 'CloudFront', cdn: 'AWS' },
+  { url: 'https://mail.acmecorp.com', status: 301, server: 'gws', cdn: 'Google' },
+  { url: 'https://jira.acmecorp.com', status: 200, server: 'Atlassian', cdn: 'Cloudflare' },
+];
+
+// ============================================================================
+// COMPONENTS
+// ============================================================================
+
+// Google Icon SVG
+const GoogleIcon = () => (
+  <svg className="h-5 w-5" viewBox="0 0 24 24">
+    <path
+      fill="currentColor"
+      d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+    />
+    <path
+      fill="currentColor"
+      d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+    />
+    <path
+      fill="currentColor"
+      d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
+    />
+    <path
+      fill="currentColor"
+      d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
+    />
+  </svg>
+);
+
+// X (Twitter) Icon SVG
+const XIcon = () => (
+  <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
+    <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+  </svg>
+);
+
+// Status code badge with color coding
+const StatusBadge = ({ status }: { status: number }) => {
+  const getColor = () => {
+    if (status >= 200 && status < 300) return 'text-emerald-400';
+    if (status >= 300 && status < 400) return 'text-blue-400';
+    if (status >= 400 && status < 500) return 'text-amber-400';
+    return 'text-red-400';
+  };
+  
+  return <span className={`font-mono font-semibold ${getColor()}`}>{status}</span>;
+};
+
+// DNS Type badge
+const TypeBadge = ({ type }: { type: string }) => {
+  const colors: Record<string, string> = {
+    'A': 'text-cyan-400',
+    'AAAA': 'text-purple-400',
+    'CNAME': 'text-emerald-400',
+    'MX': 'text-amber-400',
+    'TXT': 'text-pink-400',
+  };
+  
+  return (
+    <span className={`font-mono text-xs font-semibold ${colors[type] || 'text-muted-foreground'}`}>
+      {type.padEnd(5)}
+    </span>
+  );
+};
+
+// ============================================================================
+// MAIN COMPONENT
+// ============================================================================
+
+type TabType = 'subdomains' | 'dns' | 'probes';
 
 export default function Home() {
   const router = useRouter();
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, signInWithGoogle, signInWithTwitter } = useAuth();
+  const [activeTab, setActiveTab] = useState<TabType>('subdomains');
 
   useEffect(() => {
     if (isAuthenticated && !isLoading) {
@@ -43,255 +140,200 @@ export default function Home() {
   }
 
   if (isAuthenticated) {
-    return null; // Will redirect to programs
+    return null;
   }
 
-  return (
-    <div className="min-h-screen">
-      {/* Hero Section */}
-      <section className="relative overflow-hidden">
-        {/* Background gradient */}
-        <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-background to-background" />
-        
-        <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-24 sm:py-32">
-      <div className="text-center space-y-8">
-            {/* Badge */}
-            <Badge variant="secondary" className="px-4 py-2 text-sm">
-              🚀 Free for Bug Bounty Researchers
-            </Badge>
+  const tabs: { id: TabType; label: string; count: string }[] = [
+    { id: 'subdomains', label: 'Subdomains', count: '47,832' },
+    { id: 'dns', label: 'DNS Records', count: '124,567' },
+    { id: 'probes', label: 'HTTP Probes', count: '38,291' },
+  ];
 
-            {/* Title */}
-            <h1 className="text-5xl sm:text-6xl lg:text-7xl font-bold tracking-tight">
-              <span className="bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
-                NeoBot-Net
+  return (
+    <div className="min-h-screen flex flex-col">
+      {/* Background pattern */}
+      <div className="fixed inset-0 -z-10">
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-primary/5 via-background to-background" />
+        <div 
+          className="absolute inset-0 opacity-[0.015]"
+          style={{
+            backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%2306b6d4' fill-opacity='1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
+          }}
+        />
+      </div>
+
+      {/* Main Content */}
+      <main className="flex-1 flex flex-col items-center justify-center px-4 py-16">
+        <div className="w-full max-w-4xl space-y-12">
+          
+          {/* Hero Section */}
+          <div className="text-center space-y-6">
+            {/* Logo/Title */}
+            <h1 className="text-6xl sm:text-7xl lg:text-8xl font-bold tracking-tight font-[family-name:var(--font-heading)]">
+              <span className="bg-gradient-to-r from-foreground via-foreground to-primary bg-clip-text text-transparent">
+                Neobotnet
               </span>
-        </h1>
-        
-            {/* Subtitle */}
-            <p className="max-w-2xl mx-auto text-xl text-muted-foreground">
-              Free reconnaissance data for bug bounty programs. 
-              Access subdomains, DNS records, and HTTP probes via a simple API or UI.
+            </h1>
+            
+            {/* Tagline */}
+            <p className="text-xl sm:text-2xl text-muted-foreground font-light tracking-wide">
+              Web Reconnaissance. Delivered.
             </p>
 
             {/* CTA Buttons */}
-        <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Button size="lg" asChild className="text-lg px-8">
-                <Link href="/auth/login">
-                  Get Started Free
-                  <ArrowRight className="ml-2 h-5 w-5" />
-            </Link>
-          </Button>
-              <Button variant="outline" size="lg" asChild className="text-lg px-8">
-                <Link href="/api-docs">
-                  <Code2 className="mr-2 h-5 w-5" />
-                  View API Docs
-            </Link>
-          </Button>
-        </div>
-      </div>
-        </div>
-      </section>
-
-      {/* Features Grid */}
-      <section className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-16">
-        <div className="text-center mb-12">
-          <h2 className="text-3xl font-bold">What You Get</h2>
-          <p className="text-muted-foreground mt-2">
-            Everything you need for bug bounty reconnaissance
-          </p>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {/* Subdomains */}
-          <Card className="border-2 hover:border-primary/30 transition-colors">
-            <CardHeader>
-              <Globe className="h-10 w-10 text-blue-500 mb-2" />
-              <CardTitle>Subdomains</CardTitle>
-              <CardDescription>
-                Comprehensive subdomain enumeration using Subfinder
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <ul className="text-sm text-muted-foreground space-y-1">
-                <li>• Multiple data sources</li>
-                <li>• Daily updates</li>
-                <li>• Export to file</li>
-              </ul>
-            </CardContent>
-          </Card>
-
-          {/* DNS Records */}
-          <Card className="border-2 hover:border-primary/30 transition-colors">
-            <CardHeader>
-              <Database className="h-10 w-10 text-green-500 mb-2" />
-              <CardTitle>DNS Records</CardTitle>
-              <CardDescription>
-                A, AAAA, CNAME, and more from DNSx scans
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <ul className="text-sm text-muted-foreground space-y-1">
-                <li>• All record types</li>
-                <li>• IP resolution</li>
-                <li>• CNAME chains</li>
-              </ul>
-            </CardContent>
-          </Card>
-
-          {/* HTTP Probes */}
-          <Card className="border-2 hover:border-primary/30 transition-colors">
-            <CardHeader>
-              <Wifi className="h-10 w-10 text-orange-500 mb-2" />
-              <CardTitle>HTTP Probes</CardTitle>
-              <CardDescription>
-                Live host detection and technology fingerprinting
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <ul className="text-sm text-muted-foreground space-y-1">
-                <li>• Status codes</li>
-                <li>• Title extraction</li>
-                <li>• Tech detection</li>
-              </ul>
-            </CardContent>
-          </Card>
-
-          {/* API Access */}
-          <Card className="border-2 hover:border-primary/30 transition-colors">
-            <CardHeader>
-              <Code2 className="h-10 w-10 text-purple-500 mb-2" />
-              <CardTitle>REST API</CardTitle>
-              <CardDescription>
-                Programmatic access to all reconnaissance data
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <ul className="text-sm text-muted-foreground space-y-1">
-                <li>• JSON responses</li>
-                <li>• Pagination</li>
-                <li>• Filter & search</li>
-              </ul>
-            </CardContent>
-          </Card>
-
-          {/* API Keys */}
-          <Card className="border-2 hover:border-primary/30 transition-colors">
-            <CardHeader>
-              <Key className="h-10 w-10 text-yellow-500 mb-2" />
-              <CardTitle>API Keys</CardTitle>
-              <CardDescription>
-                Generate personal API keys for programmatic access
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <ul className="text-sm text-muted-foreground space-y-1">
-                <li>• Instant generation</li>
-                <li>• Multiple keys</li>
-                <li>• Easy revocation</li>
-              </ul>
-            </CardContent>
-          </Card>
-
-          {/* Fast Updates */}
-          <Card className="border-2 hover:border-primary/30 transition-colors">
-            <CardHeader>
-              <Zap className="h-10 w-10 text-cyan-500 mb-2" />
-              <CardTitle>Regular Scans</CardTitle>
-              <CardDescription>
-                Programs are scanned regularly for fresh data
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <ul className="text-sm text-muted-foreground space-y-1">
-                <li>• Streaming pipeline</li>
-                <li>• Last scan dates</li>
-                <li>• Growing coverage</li>
-              </ul>
-            </CardContent>
-          </Card>
-        </div>
-      </section>
-
-      {/* How It Works */}
-      <section className="bg-muted/30 py-16">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl font-bold">How It Works</h2>
-            <p className="text-muted-foreground mt-2">
-              Get started in 3 simple steps
-            </p>
+            <div className="flex flex-col sm:flex-row gap-3 justify-center pt-4">
+              <Button 
+                size="lg" 
+                onClick={() => signInWithGoogle()}
+                className="h-12 px-6 text-base font-medium bg-foreground text-background hover:bg-foreground/90"
+              >
+                <GoogleIcon />
+                <span className="ml-2">Sign in with Google</span>
+              </Button>
+              <Button 
+                size="lg" 
+                variant="outline"
+                onClick={() => signInWithTwitter()}
+                className="h-12 px-6 text-base font-medium border-border/50 hover:bg-muted"
+              >
+                <XIcon />
+                <span className="ml-2">Sign in with X</span>
+              </Button>
+            </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            <div className="text-center">
-              <div className="w-12 h-12 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xl font-bold mx-auto mb-4">
-                1
+          {/* Data Wall Section */}
+          <div className="space-y-4">
+            {/* Tab Navigation */}
+            <div className="flex justify-center">
+              <div className="inline-flex items-center gap-1 p-1 rounded-lg bg-muted/50 border border-border/50">
+                {tabs.map((tab) => (
+                  <button
+                    key={tab.id}
+                    onClick={() => setActiveTab(tab.id)}
+                    className={`
+                      px-4 py-2 rounded-md text-sm font-medium transition-all duration-200
+                      ${activeTab === tab.id 
+                        ? 'bg-background text-foreground shadow-sm' 
+                        : 'text-muted-foreground hover:text-foreground'
+                      }
+                    `}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
               </div>
-              <h3 className="text-lg font-semibold mb-2">Sign In</h3>
-              <p className="text-sm text-muted-foreground">
-                Use Google or X to sign in instantly. No email verification needed.
-              </p>
             </div>
 
-            <div className="text-center">
-              <div className="w-12 h-12 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xl font-bold mx-auto mb-4">
-                2
+            {/* Data Preview */}
+            <div className="relative rounded-xl border border-border/50 bg-card/50 backdrop-blur-sm overflow-hidden">
+              {/* Header row */}
+              <div className="px-4 py-3 border-b border-border/30 bg-muted/30">
+                <div className="flex items-center justify-between text-xs text-muted-foreground font-mono uppercase tracking-wider">
+                  {activeTab === 'subdomains' && (
+                    <>
+                      <span>Subdomain</span>
+                      <span>Discovered</span>
+                    </>
+                  )}
+                  {activeTab === 'dns' && (
+                    <>
+                      <span>Subdomain</span>
+                      <div className="flex gap-8">
+                        <span>Type</span>
+                        <span>Value</span>
+                        <span>TTL</span>
+                      </div>
+                    </>
+                  )}
+                  {activeTab === 'probes' && (
+                    <>
+                      <span>URL</span>
+                      <div className="flex gap-6">
+                        <span>Status</span>
+                        <span>Server</span>
+                        <span>CDN</span>
+                      </div>
+                    </>
+                  )}
+                </div>
               </div>
-              <h3 className="text-lg font-semibold mb-2">Get API Key</h3>
-              <p className="text-sm text-muted-foreground">
-                Generate your personal API key from the dashboard for programmatic access.
-              </p>
+
+              {/* Data rows */}
+              <div className="divide-y divide-border/20">
+                {activeTab === 'subdomains' && MOCK_SUBDOMAINS.map((item, i) => (
+                  <div 
+                    key={i} 
+                    className="px-4 py-3 flex items-center justify-between hover:bg-muted/20 transition-colors"
+                  >
+                    <span className="font-mono text-sm text-foreground">{item.subdomain}</span>
+                    <span className="text-sm text-muted-foreground">{item.discovered}</span>
+                  </div>
+                ))}
+                
+                {activeTab === 'dns' && MOCK_DNS.map((item, i) => (
+                  <div 
+                    key={i} 
+                    className="px-4 py-3 flex items-center justify-between hover:bg-muted/20 transition-colors"
+                  >
+                    <span className="font-mono text-sm text-foreground">{item.subdomain}</span>
+                    <div className="flex items-center gap-4 text-sm">
+                      <TypeBadge type={item.type} />
+                      <span className="font-mono text-muted-foreground w-48 truncate text-right">{item.value}</span>
+                      <span className="text-muted-foreground w-16 text-right">{item.ttl}</span>
+                    </div>
+                  </div>
+                ))}
+                
+                {activeTab === 'probes' && MOCK_PROBES.map((item, i) => (
+                  <div 
+                    key={i} 
+                    className="px-4 py-3 flex items-center justify-between hover:bg-muted/20 transition-colors"
+                  >
+                    <span className="font-mono text-sm text-foreground truncate max-w-md">{item.url}</span>
+                    <div className="flex items-center gap-6 text-sm">
+                      <StatusBadge status={item.status} />
+                      <span className="font-mono text-muted-foreground w-24 truncate">{item.server}</span>
+                      <span className="text-muted-foreground w-20 text-right">{item.cdn}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Gradient fade overlay */}
+              <div className="absolute bottom-0 left-0 right-0 h-24 bg-gradient-to-t from-card via-card/80 to-transparent pointer-events-none" />
             </div>
 
-            <div className="text-center">
-              <div className="w-12 h-12 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xl font-bold mx-auto mb-4">
-                3
-              </div>
-              <h3 className="text-lg font-semibold mb-2">Access Data</h3>
-              <p className="text-sm text-muted-foreground">
-                Browse programs in the UI or query the API for bulk data access.
+            {/* Stats & CTA */}
+            <div className="text-center space-y-4 pt-2">
+              <p className="text-muted-foreground">
+                <span className="text-primary font-semibold font-mono">
+                  {tabs.find(t => t.id === activeTab)?.count}
+                </span>
+                {' '}{activeTab === 'subdomains' ? 'subdomains' : activeTab === 'dns' ? 'DNS records' : 'HTTP probes'}{' '}
+                across <span className="text-foreground font-medium">156 programs</span>
               </p>
+              <Button 
+                variant="link" 
+                className="text-primary hover:text-primary/80 font-medium"
+                onClick={() => signInWithGoogle()}
+              >
+                Sign in to explore all data →
+              </Button>
             </div>
           </div>
         </div>
-      </section>
-
-      {/* CTA Section */}
-      <section className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-16">
-        <Card className="bg-gradient-to-r from-primary/10 to-primary/5 border-primary/20">
-          <CardContent className="py-12 text-center">
-            <Search className="h-12 w-12 mx-auto mb-4 text-primary" />
-            <h2 className="text-2xl font-bold mb-2">Ready to Start Hunting?</h2>
-            <p className="text-muted-foreground mb-6 max-w-xl mx-auto">
-              Join security researchers using NeoBot-Net for bug bounty reconnaissance.
-              Free access to all programs and data.
-            </p>
-            <Button size="lg" asChild>
-              <Link href="/auth/login">
-                Sign In Now
-                <ArrowRight className="ml-2 h-5 w-5" />
-              </Link>
-            </Button>
-          </CardContent>
-        </Card>
-      </section>
+      </main>
 
       {/* Footer */}
-      <footer className="border-t py-8">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
-            <p className="text-sm text-muted-foreground">
-              © 2025 NeoBot-Net. Built for bug bounty researchers.
-            </p>
-            <div className="flex gap-4">
-              <Link href="/api-docs" className="text-sm text-muted-foreground hover:text-foreground">
-                API Docs
-              </Link>
-              <Link href="/auth/login" className="text-sm text-muted-foreground hover:text-foreground">
-                Sign In
-              </Link>
-            </div>
-          </div>
+      <footer className="py-6 text-center">
+        <p className="text-sm text-muted-foreground">
+          Free for security researchers · API access included
+        </p>
+        <div className="mt-2 flex justify-center gap-4">
+          <Link href="/api-docs" className="text-xs text-muted-foreground hover:text-foreground transition-colors">
+            API Docs
+          </Link>
         </div>
       </footer>
     </div>

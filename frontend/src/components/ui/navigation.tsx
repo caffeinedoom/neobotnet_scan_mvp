@@ -1,12 +1,14 @@
 'use client';
 
 /**
- * Navigation Component for NeoBot-Net LEAN
+ * Navigation Component for Neobotnet
  * 
  * Simplified navigation with:
- * - Dashboard (API keys, user info)
- * - Data browsers (subdomains, DNS, probes)
- * - Google SSO authentication
+ * - Data browsers (Programs, Subdomains, DNS, Probes)
+ * - API documentation
+ * - Google/X SSO authentication
+ * 
+ * Hidden on landing page for unauthenticated users for clean UX.
  */
 
 import { useAuth } from '@/contexts/AuthContext';
@@ -19,14 +21,20 @@ export const Navigation: React.FC = () => {
   const { user, isAuthenticated, signOut, isLoading } = useAuth();
   const pathname = usePathname();
 
+  // Hide navigation on landing page for unauthenticated users
+  // The landing page has its own minimal UI
+  if (!isAuthenticated && !isLoading && pathname === '/') {
+    return null;
+  }
+
   if (isLoading) {
     return (
-      <nav className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+      <nav className="border-b border-border/50 bg-background/80 backdrop-blur-xl supports-[backdrop-filter]:bg-background/60">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="flex h-14 items-center justify-between">
             <div className="flex items-center">
               <Link href="/" className="flex items-center space-x-2">
-                <span className="font-bold text-lg">NeoBot-Net</span>
+                <span className="font-bold text-lg font-[family-name:var(--font-heading)] tracking-tight">Neobotnet</span>
               </Link>
             </div>
             <div className="flex items-center space-x-4">
@@ -77,12 +85,12 @@ export const Navigation: React.FC = () => {
   ];
 
   return (
-    <nav className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+    <nav className="border-b border-border/50 bg-background/80 backdrop-blur-xl supports-[backdrop-filter]:bg-background/60">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="flex h-14 items-center justify-between">
           <div className="flex items-center space-x-8">
             <Link href="/" className="flex items-center space-x-2">
-              <span className="font-bold text-lg">NeoBot-Net</span>
+              <span className="font-bold text-lg font-[family-name:var(--font-heading)] tracking-tight bg-gradient-to-r from-foreground to-primary bg-clip-text text-transparent">Neobotnet</span>
             </Link>
             
             {/* Navigation Links - Only show when authenticated */}

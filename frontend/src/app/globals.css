@@ -6,8 +6,9 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-mono);
+  --font-heading: var(--font-heading);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -79,38 +80,38 @@
 }
 
 .dark {
-  /* Tinted Black (#222222) Gray Scale Theme for Reconnaissance Tool */
-  --background: oklch(0.17 0 0);              /* Tinted black base (#222222) */
-  --foreground: oklch(0.95 0 0);              /* Soft white text */
-  --card: oklch(0.22 0 0);                    /* Slightly lighter gray cards */
-  --card-foreground: oklch(0.92 0 0);         /* Soft white card text */
-  --popover: oklch(0.19 0 0);                 /* Dark popover */
-  --popover-foreground: oklch(0.92 0 0);      /* Soft white popover text */
-  --primary: oklch(0.85 0 0);                 /* Light gray primary */
-  --primary-foreground: oklch(0.17 0 0);      /* Dark primary text */
-  --secondary: oklch(0.28 0 0);               /* Medium gray */
-  --secondary-foreground: oklch(0.88 0 0);    /* Light gray text */
-  --muted: oklch(0.25 0 0);                   /* Muted gray */
-  --muted-foreground: oklch(0.65 0 0);        /* Muted light gray */
-  --accent: oklch(0.30 0 0);                  /* Accent gray */
-  --accent-foreground: oklch(0.88 0 0);       /* Accent light text */
-  --destructive: oklch(0.55 0.2 0);           /* Red for destructive actions */
-  --border: oklch(0.35 0 0);                  /* Lighter gray borders */
-  --input: oklch(0.25 0 0);                   /* Input backgrounds */
-  --ring: oklch(0.50 0 0);                    /* Gray focus rings */
-  --chart-1: oklch(0.70 0 0);                 /* Chart colors in grayscale */
-  --chart-2: oklch(0.60 0 0);
-  --chart-3: oklch(0.50 0 0);
-  --chart-4: oklch(0.40 0 0);
-  --chart-5: oklch(0.30 0 0);
-  --sidebar: oklch(0.19 0 0);                 /* Dark sidebar */
-  --sidebar-foreground: oklch(0.88 0 0);      /* Light sidebar text */
-  --sidebar-primary: oklch(0.75 0 0);         /* Sidebar primary */
-  --sidebar-primary-foreground: oklch(0.17 0 0); /* Sidebar primary text */
-  --sidebar-accent: oklch(0.28 0 0);          /* Sidebar accent */
-  --sidebar-accent-foreground: oklch(0.85 0 0); /* Sidebar accent text */
-  --sidebar-border: oklch(0.30 0 0);          /* Sidebar borders */
-  --sidebar-ring: oklch(0.50 0 0);            /* Sidebar rings */
+  /* Neobotnet Dark Theme - Inspired by blackshark.ai with Cyan Accent */
+  --background: oklch(0.11 0.015 270);        /* Rich dark with subtle blue undertone */
+  --foreground: oklch(0.95 0.01 250);         /* Off-white with cool tint */
+  --card: oklch(0.14 0.015 270);              /* Elevated surface */
+  --card-foreground: oklch(0.93 0.01 250);    /* Card text */
+  --popover: oklch(0.13 0.015 270);           /* Popover bg */
+  --popover-foreground: oklch(0.93 0.01 250); /* Popover text */
+  --primary: oklch(0.75 0.15 195);            /* Cyan primary */
+  --primary-foreground: oklch(0.12 0.02 270); /* Dark text on primary */
+  --secondary: oklch(0.20 0.015 270);         /* Secondary surface */
+  --secondary-foreground: oklch(0.88 0.01 250); /* Secondary text */
+  --muted: oklch(0.18 0.01 270);              /* Muted surface */
+  --muted-foreground: oklch(0.55 0.02 250);   /* Muted text */
+  --accent: oklch(0.65 0.12 195);             /* Cyan accent */
+  --accent-foreground: oklch(0.12 0.02 270);  /* Accent text */
+  --destructive: oklch(0.55 0.2 25);          /* Red for destructive */
+  --border: oklch(0.25 0.02 270);             /* Borders */
+  --input: oklch(0.16 0.015 270);             /* Input bg */
+  --ring: oklch(0.70 0.15 195);               /* Cyan focus ring */
+  --chart-1: oklch(0.75 0.15 195);            /* Cyan */
+  --chart-2: oklch(0.70 0.12 280);            /* Purple */
+  --chart-3: oklch(0.65 0.10 220);            /* Blue */
+  --chart-4: oklch(0.60 0.08 195);            /* Teal */
+  --chart-5: oklch(0.55 0.06 250);            /* Slate */
+  --sidebar: oklch(0.12 0.015 270);           /* Sidebar bg */
+  --sidebar-foreground: oklch(0.88 0.01 250); /* Sidebar text */
+  --sidebar-primary: oklch(0.75 0.15 195);    /* Sidebar primary (cyan) */
+  --sidebar-primary-foreground: oklch(0.12 0.02 270);
+  --sidebar-accent: oklch(0.20 0.015 270);    /* Sidebar accent */
+  --sidebar-accent-foreground: oklch(0.88 0.01 250);
+  --sidebar-border: oklch(0.22 0.02 270);     /* Sidebar borders */
+  --sidebar-ring: oklch(0.70 0.15 195);       /* Cyan ring */
 }
 
 @layer base {

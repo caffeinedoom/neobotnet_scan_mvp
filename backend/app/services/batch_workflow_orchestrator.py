@@ -1114,19 +1114,24 @@ class BatchWorkflowOrchestrator:
         consumer_job: BatchScanJob,
         stream_key: str,
         consumer_group_name: str,
-        consumer_name: str
+        consumer_name: str,
+        stream_output_key: str = None  # Optional: For consumers that also produce (e.g., HTTPx → Katana)
     ) -> Dict[str, Any]:
         """
-        Launch a streaming consumer task (e.g., DNSx, HTTPx).
+        Launch a streaming consumer task (e.g., DNSx, HTTPx, Katana).
         
         The consumer reads from Redis Stream and processes messages in real-time.
         Multiple consumers can read from the same stream in parallel using different groups.
+        
+        For modules that also produce output (like HTTPx → Katana), pass stream_output_key
+        to enable producer capability.
         
         Args:
             consumer_job: BatchScanJob for consumer module
             stream_key: Redis Stream key to consume from
             consumer_group_name: Consumer group name (e.g., "dnsx-consumers")
             consumer_name: Unique consumer identifier
+            stream_output_key: Optional Redis Stream key to produce to (for chained consumers)
             
         Returns:
             Dictionary with task ARN and launch info
@@ -1134,8 +1139,10 @@ class BatchWorkflowOrchestrator:
         from app.services.stream_coordinator import stream_coordinator
         
         logger.info(f"📥 Launching streaming consumer: {consumer_job.module}")
-        logger.info(f"   Stream: {stream_key}")
+        logger.info(f"   Input Stream: {stream_key}")
         logger.info(f"   Group: {consumer_group_name}")
+        if stream_output_key:
+            logger.info(f"   Output Stream: {stream_output_key} (producer mode enabled)")
         
         # Create consumer group (idempotent - safe to call multiple times)
         await stream_coordinator.create_consumer_group(stream_key, consumer_group_name)
@@ -1145,7 +1152,8 @@ class BatchWorkflowOrchestrator:
             consumer_job,
             stream_key,
             consumer_group_name,
-            consumer_name
+            consumer_name,
+            stream_output_key=stream_output_key
         )
         
         # Launch consumer task
@@ -1162,7 +1170,8 @@ class BatchWorkflowOrchestrator:
             "batch_id": str(consumer_job.id),
             "module": consumer_job.module,
             "role": "consumer",
-            "consumer_group": consumer_group_name
+            "consumer_group": consumer_group_name,
+            "stream_output_key": stream_output_key
         }
     
     async def launch_streaming_pipeline(
@@ -1286,10 +1295,11 @@ class BatchWorkflowOrchestrator:
         batch_job: BatchScanJob,
         stream_key: str,
         consumer_group_name: str,
-        consumer_name: str
+        consumer_name: str,
+        stream_output_key: str = None  # Optional: For consumers that also produce
     ) -> List[Dict[str, str]]:
         """
-        Build environment variables for streaming consumer (e.g., DNSx).
+        Build environment variables for streaming consumer (e.g., DNSx, HTTPx, Katana).
         
         Adds streaming-specific variables:
         - STREAMING_MODE=true
@@ -1299,12 +1309,14 @@ class BatchWorkflowOrchestrator:
         - BATCH_SIZE=50 (default)
         - BLOCK_MILLISECONDS=5000 (default)
         - MAX_PROCESSING_TIME=3600 (default)
+        - STREAM_OUTPUT_KEY={stream_output_key} (optional, enables producer mode)
         
         Args:
             batch_job: Consumer BatchScanJob
             stream_key: Redis Stream key to read from
             consumer_group_name: Consumer group name
             consumer_name: Unique consumer identifier
+            stream_output_key: Optional Redis Stream key to produce to
             
         Returns:
             List of environment variable dictionaries
@@ -1316,13 +1328,18 @@ class BatchWorkflowOrchestrator:
         streaming_vars = [
             {"name": "STREAMING_MODE", "value": "true"},
             {"name": "STREAM_INPUT_KEY", "value": stream_key},
-            {"name": "CONSUMER_GROUP_NAME", "value": consumer_group_name},
+            {"name": "CONSUMER_GROUP", "value": consumer_group_name},  # Note: Katana uses CONSUMER_GROUP
             {"name": "CONSUMER_NAME", "value": consumer_name},
             {"name": "MODULE_ROLE", "value": "consumer"},
             {"name": "BATCH_SIZE", "value": "50"},  # Messages per XREADGROUP
             {"name": "BLOCK_MILLISECONDS", "value": "5000"},  # 5 seconds blocking
             {"name": "MAX_PROCESSING_TIME", "value": "3600"},  # 1 hour timeout
         ]
+        
+        # Add output stream key if provided (enables consumer+producer mode)
+        if stream_output_key:
+            streaming_vars.append({"name": "STREAM_OUTPUT_KEY", "value": stream_output_key})
+            logger.debug(f"📤 Consumer {batch_job.module} will produce to: {stream_output_key}")
         
         environment.extend(streaming_vars)
         

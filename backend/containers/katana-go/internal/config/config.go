@@ -62,11 +62,13 @@ type Config struct {
 // LoadConfig loads configuration from environment variables
 func LoadConfig() (*Config, error) {
 	// Determine execution mode
+	// Priority: STREAMING_MODE > BATCH_MODE > simple (default)
+	// STREAMING_MODE takes precedence since it's more explicit
 	mode := ModeSimple
-	if os.Getenv("BATCH_MODE") == "true" {
-		mode = ModeBatch
-	} else if os.Getenv("STREAMING_MODE") == "true" {
+	if os.Getenv("STREAMING_MODE") == "true" {
 		mode = ModeStreaming
+	} else if os.Getenv("BATCH_MODE") == "true" {
+		mode = ModeBatch
 	}
 
 	// Common required variables
@@ -89,8 +91,10 @@ func LoadConfig() (*Config, error) {
 		SupabaseKey: supabaseKey,
 
 		// Katana defaults (can be overridden)
+		// NOTE: HeadlessMode defaults to false for Fargate compatibility
+		// (headless Chrome requires namespace permissions not available in Fargate)
 		CrawlDepth:   getEnvInt("CRAWL_DEPTH", 1),
-		HeadlessMode: getEnvBool("HEADLESS_MODE", true),
+		HeadlessMode: getEnvBool("HEADLESS_MODE", false),
 		RateLimit:    getEnvInt("RATE_LIMIT", 150),
 		Concurrency:  getEnvInt("CONCURRENCY", 10),
 		Parallelism:  getEnvInt("PARALLELISM", 10),

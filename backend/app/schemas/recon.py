@@ -19,10 +19,14 @@ class ReconModule(str, Enum):
     
     UPDATE (2025-11-14):
     - Added HTTPX for HTTP probing of discovered subdomains
+    
+    UPDATE (2025-12-17):
+    - Added KATANA for web crawling discovered HTTP endpoints
     """
     SUBFINDER = "subfinder"
     DNSX = "dnsx"  # DNS resolution for discovered subdomains
     HTTPX = "httpx"  # HTTP probing for discovered subdomains
+    KATANA = "katana"  # Web crawling for discovered HTTP endpoints
     
     # Future modules (uncomment when implemented):
     # DNS_BRUTEFORCE = "dns_bruteforce"

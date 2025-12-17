@@ -12,7 +12,7 @@ FROM ${ECR_REGISTRY}/neobotnet-backend:latest
 WORKDIR /app
 
 # Copy orchestrator script
-COPY main.py /app/orchestrator/main.py
+COPY cli/orchestrator/main.py /app/orchestrator/main.py
 
 # Set Python path to include backend
 ENV PYTHONPATH=/app

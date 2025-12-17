@@ -1,10 +1,9 @@
 'use client';
 
 /**
- * Login Form for NeoBot-Net LEAN
+ * Login Form for Neobotnet
  * 
  * Uses Google and X (Twitter) SSO via Supabase Auth.
- * Email/password auth has been removed for the LEAN refactor.
  */
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -60,8 +59,8 @@ export const LoginForm: React.FC<LoginFormProps> = () => {
   return (
     <Card className="w-full max-w-md mx-auto">
       <CardHeader className="space-y-1">
-        <CardTitle className="text-2xl font-bold text-center">
-          Welcome to NeoBot-Net
+        <CardTitle className="text-2xl font-bold text-center font-[family-name:var(--font-heading)]">
+          Welcome to Neobotnet
         </CardTitle>
         <CardDescription className="text-center">
           Sign in to access free reconnaissance data
