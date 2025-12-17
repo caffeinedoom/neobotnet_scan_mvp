@@ -664,7 +664,8 @@ class ScanPipeline:
         modules: List[str],
         scan_request: EnhancedAssetScanRequest,
         user_id: str,
-        scan_job_id: str = None
+        scan_job_id: str = None,
+        scale_factor: int = 1
     ) -> Dict[str, Any]:
         """
         Execute modules using Redis Streams for parallel real-time processing.
@@ -681,6 +682,7 @@ class ScanPipeline:
             scan_request: Original scan request
             user_id: User UUID
             scan_job_id: Optional scan job ID for progress tracking (parent scan ID from scans table)
+            scale_factor: Number of parallel tasks per consumer module (1-10, default 1)
             
         Returns:
             Dict with pipeline results in same format as execute_pipeline
@@ -695,6 +697,8 @@ class ScanPipeline:
         
         self.logger.info(f"🌊 Starting STREAMING pipeline for asset {asset_id}")
         self.logger.info(f"   Modules: {modules}")
+        if scale_factor > 1:
+            self.logger.info(f"   📈 Scale: {scale_factor}x parallel tasks per consumer")
         
         # Phase 4 Fix: Auto-include DNSx when Subfinder is present
         # Rationale: DNSx is the canonical persistence layer for subfinder's discoveries
@@ -844,11 +848,11 @@ class ScanPipeline:
             self.logger.info(f"📋 Katana stream configuration:")
             self.logger.info(f"   HTTPx → Katana stream: {httpx_to_katana_stream_key}")
         
-        total_consumers = len(stage1_consumers) + len(stage2_consumers)
-        self.logger.info(f"🚀 Launching streaming pipeline: 1 producer + {total_consumers} consumers...")
-        self.logger.info(f"   Stage 1 consumers: {stage1_consumers}")
+        total_consumer_tasks = (len(stage1_consumers) + len(stage2_consumers)) * scale_factor
+        self.logger.info(f"🚀 Launching streaming pipeline: 1 producer + {total_consumer_tasks} consumer tasks...")
+        self.logger.info(f"   Stage 1 consumers: {stage1_consumers} ({scale_factor}x each)")
         if stage2_consumers:
-            self.logger.info(f"   Stage 2 consumers: {stage2_consumers} (chained from HTTPx)")
+            self.logger.info(f"   Stage 2 consumers: {stage2_consumers} ({scale_factor}x each, chained from HTTPx)")
         
         # Launch producer (Subfinder)
         self.logger.info("   📤 Launching producer (subfinder)...")
@@ -860,12 +864,12 @@ class ScanPipeline:
         self.logger.info(f"      ✅ Task: {producer_task_arn}")
         
         # Launch Stage 1 consumers (read from Subfinder stream)
+        # With scale_factor > 1, launch multiple tasks per module (same consumer group)
         consumer_task_arns = {}
         for module in stage1_consumers:
             consumer_group_name = stream_coordinator.generate_consumer_group_name(module)
-            consumer_name = stream_coordinator.generate_consumer_name(module, str(consumer_jobs[module].id)[:8])
             
-            self.logger.info(f"   📥 Launching Stage 1 consumer ({module})...")
+            self.logger.info(f"   📥 Launching Stage 1 consumer ({module}) - {scale_factor} task(s)...")
             self.logger.info(f"      Group: {consumer_group_name}")
             
             # HTTPx gets output stream key for Katana if Katana is in the pipeline
@@ -874,39 +878,70 @@ class ScanPipeline:
                 stream_output_key = httpx_to_katana_stream_key
                 self.logger.info(f"      Output: {stream_output_key} (→ Katana)")
             
-            consumer_launch = await batch_workflow_orchestrator.launch_streaming_consumer(
-                consumer_job=consumer_jobs[module],
-                stream_key=stream_key,
-                consumer_group_name=consumer_group_name,
-                consumer_name=consumer_name,
-                stream_output_key=stream_output_key
-            )
-            consumer_task_arns[module] = consumer_launch["task_arn"]
-            self.logger.info(f"      ✅ Task: {consumer_launch['task_arn']}")
+            # Launch scale_factor tasks for this module (all share the same consumer group)
+            module_task_arns = []
+            for i in range(scale_factor):
+                # Each task gets a unique consumer name (e.g., dnsx-worker-1, dnsx-worker-2)
+                consumer_name = stream_coordinator.generate_consumer_name(
+                    module, 
+                    f"{str(consumer_jobs[module].id)[:8]}-{i+1}"
+                )
+                
+                consumer_launch = await batch_workflow_orchestrator.launch_streaming_consumer(
+                    consumer_job=consumer_jobs[module],
+                    stream_key=stream_key,
+                    consumer_group_name=consumer_group_name,
+                    consumer_name=consumer_name,
+                    stream_output_key=stream_output_key
+                )
+                module_task_arns.append(consumer_launch["task_arn"])
+                if scale_factor > 1:
+                    self.logger.info(f"      ✅ Task {i+1}/{scale_factor}: {consumer_launch['task_arn']}")
+                else:
+                    self.logger.info(f"      ✅ Task: {consumer_launch['task_arn']}")
+            
+            # Store all task ARNs for this module
+            consumer_task_arns[module] = module_task_arns
         
         # Launch Stage 2 consumers (read from HTTPx stream - chained)
+        # With scale_factor > 1, launch multiple tasks per module (same consumer group)
         for module in stage2_consumers:
             consumer_group_name = stream_coordinator.generate_consumer_group_name(module)
-            consumer_name = stream_coordinator.generate_consumer_name(module, str(consumer_jobs[module].id)[:8])
             
-            self.logger.info(f"   📥 Launching Stage 2 consumer ({module})...")
+            self.logger.info(f"   📥 Launching Stage 2 consumer ({module}) - {scale_factor} task(s)...")
             self.logger.info(f"      Input: {httpx_to_katana_stream_key} (from HTTPx)")
             self.logger.info(f"      Group: {consumer_group_name}")
             
-            consumer_launch = await batch_workflow_orchestrator.launch_streaming_consumer(
-                consumer_job=consumer_jobs[module],
-                stream_key=httpx_to_katana_stream_key,  # Katana reads from HTTPx output!
-                consumer_group_name=consumer_group_name,
-                consumer_name=consumer_name
-            )
-            consumer_task_arns[module] = consumer_launch["task_arn"]
-            self.logger.info(f"      ✅ Task: {consumer_launch['task_arn']}")
+            # Launch scale_factor tasks for this module (all share the same consumer group)
+            module_task_arns = []
+            for i in range(scale_factor):
+                consumer_name = stream_coordinator.generate_consumer_name(
+                    module,
+                    f"{str(consumer_jobs[module].id)[:8]}-{i+1}"
+                )
+                
+                consumer_launch = await batch_workflow_orchestrator.launch_streaming_consumer(
+                    consumer_job=consumer_jobs[module],
+                    stream_key=httpx_to_katana_stream_key,  # Katana reads from HTTPx output!
+                    consumer_group_name=consumer_group_name,
+                    consumer_name=consumer_name
+                )
+                module_task_arns.append(consumer_launch["task_arn"])
+                if scale_factor > 1:
+                    self.logger.info(f"      ✅ Task {i+1}/{scale_factor}: {consumer_launch['task_arn']}")
+                else:
+                    self.logger.info(f"      ✅ Task: {consumer_launch['task_arn']}")
+            
+            # Store all task ARNs for this module
+            consumer_task_arns[module] = module_task_arns
         
-        self.logger.info(f"✅ All tasks launched successfully!")
-        self.logger.info(f"   Producer: subfinder")
-        self.logger.info(f"   Stage 1: {', '.join(stage1_consumers)} (from Subfinder)")
+        self.logger.info(f"✅ All {1 + total_consumer_tasks} tasks launched successfully!")
+        self.logger.info(f"   Producer: subfinder (1 task)")
+        stage1_summary = ", ".join([f"{m} ({scale_factor}x)" for m in stage1_consumers])
+        self.logger.info(f"   Stage 1: {stage1_summary} (from Subfinder)")
         if stage2_consumers:
-            self.logger.info(f"   Stage 2: {', '.join(stage2_consumers)} (from HTTPx)")
+            stage2_summary = ", ".join([f"{m} ({scale_factor}x)" for m in stage2_consumers])
+            self.logger.info(f"   Stage 2: {stage2_summary} (from HTTPx)")
         
         # ============================================================
         # STEP 5: Monitor Job Completion (NEW: Polling batch_scan_jobs)

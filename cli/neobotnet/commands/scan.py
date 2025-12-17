@@ -51,6 +51,11 @@ def run_scan(
         ",".join(DEFAULT_MODULES), "--modules", "-m",
         help="Scan modules to run (comma-separated)"
     ),
+    scale: int = typer.Option(
+        1, "--scale", "-s",
+        help="Number of parallel tasks per consumer module (1-10)",
+        min=1, max=10
+    ),
     wait: bool = typer.Option(
         False, "--wait", "-w",
         help="Wait for scan to complete"
@@ -92,6 +97,8 @@ def run_scan(
     console.print(f"   Program: {program}")
     console.print(f"   Domains: {len(domain_list) if domain_list else '(use existing)'}")
     console.print(f"   Modules: {', '.join(module_list)}")
+    if scale > 1:
+        console.print(f"   Scale: {scale}x parallel tasks per module")
     console.print()
     
     try:
@@ -111,7 +118,8 @@ def run_scan(
                         {"name": "PROGRAM_NAME", "value": program},
                         {"name": "DOMAINS", "value": ",".join(domain_list)},
                         {"name": "MODULES", "value": ",".join(module_list)},
-                        {"name": "OPERATOR_USER_ID", "value": operator_user_id}
+                        {"name": "OPERATOR_USER_ID", "value": operator_user_id},
+                        {"name": "SCALE_FACTOR", "value": str(scale)}
                     ]
                 }
             ]

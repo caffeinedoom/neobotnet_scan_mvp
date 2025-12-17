@@ -134,7 +134,8 @@ async def add_domains_to_program(
 async def run_scan_pipeline(
     asset_id: str,
     modules: List[str],
-    user_id: str
+    user_id: str,
+    scale_factor: int = 1
 ) -> dict:
     """
     Execute the scan pipeline using existing backend code.
@@ -143,6 +144,7 @@ async def run_scan_pipeline(
         asset_id: UUID of the asset to scan
         modules: List of module names
         user_id: User ID for the scan
+        scale_factor: Number of parallel tasks per consumer module (1-10)
         
     Returns:
         Pipeline result dictionary
@@ -170,7 +172,8 @@ async def run_scan_pipeline(
         asset_id=asset_id,
         modules=modules,
         scan_request=scan_request,
-        user_id=user_id
+        user_id=user_id,
+        scale_factor=scale_factor
     )
     
     return result
@@ -187,10 +190,14 @@ async def main():
     program_name = os.environ.get('PROGRAM_NAME')
     domains_str = os.environ.get('DOMAINS', '')
     modules_str = os.environ.get('MODULES', 'subfinder,dnsx,httpx')
+    scale_factor = int(os.environ.get('SCALE_FACTOR', '1'))
     
     if not program_name:
         logger.error("❌ PROGRAM_NAME environment variable is required")
         sys.exit(1)
+    
+    # Validate scale factor
+    scale_factor = max(1, min(10, scale_factor))
     
     # Parse domains and modules
     domains = [d.strip() for d in domains_str.split(',') if d.strip()]
@@ -199,6 +206,8 @@ async def main():
     logger.info(f"📋 Program: {program_name}")
     logger.info(f"🌐 Domains: {domains if domains else '(use existing)'}")
     logger.info(f"🔧 Modules: {modules}")
+    if scale_factor > 1:
+        logger.info(f"📈 Scale: {scale_factor}x parallel tasks per consumer")
     
     # Initialize Supabase client directly (avoid backend's Settings which requires more env vars)
     from supabase import create_client
@@ -228,7 +237,8 @@ async def main():
         result = await run_scan_pipeline(
             asset_id=asset_id,
             modules=modules,
-            user_id=user_id
+            user_id=user_id,
+            scale_factor=scale_factor
         )
         
         duration = (datetime.utcnow() - start_time).total_seconds()

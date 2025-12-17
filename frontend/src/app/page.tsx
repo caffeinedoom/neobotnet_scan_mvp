@@ -12,6 +12,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
+import { Code2 } from 'lucide-react';
 
 // ============================================================================
 // MOCK DATA - Realistic reconnaissance results
@@ -224,9 +225,10 @@ export default function Home() {
         <div className="max-w-4xl mx-auto px-4 flex justify-center">
           <a 
             href="#api" 
-            className="text-base font-mono font-bold text-foreground hover:text-[--terminal-green] transition-colors px-6 py-3"
+            className="flex items-center gap-2 text-sm font-mono font-medium text-muted-foreground hover:text-foreground transition-colors px-4 py-2 rounded-lg hover:bg-muted/50"
           >
-            api ↓
+            <Code2 className="h-4 w-4" />
+            <span>API</span>
           </a>
         </div>
       </nav>
