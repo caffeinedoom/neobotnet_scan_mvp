@@ -294,77 +294,44 @@ export default function Home() {
               </div>
             </div>
 
-            {/* Data Preview - Elegant dark frame with depth */}
+            {/* Data Preview - Terminal-style left-aligned output */}
             <div className="relative rounded-xl border border-border bg-card overflow-hidden shadow-[0_0_50px_-12px_rgba(0,0,0,0.9)] ring-1 ring-white/5">
-              {/* Header row */}
-              <div className="px-4 py-3 border-b border-border bg-muted/50">
-                <div className="flex items-center justify-between text-xs text-muted-foreground font-mono uppercase tracking-wider">
-                  {activeTab === 'subdomains' && (
-                    <>
-                      <span>Subdomain</span>
-                      <span>Discovered</span>
-                    </>
-                  )}
-                  {activeTab === 'dns' && (
-                    <>
-                      <span>Subdomain</span>
-                      <div className="flex gap-8">
-                        <span>Type</span>
-                        <span>Value</span>
-                        <span>TTL</span>
-                      </div>
-                    </>
-                  )}
-                  {activeTab === 'probes' && (
-                    <>
-                      <span>URL</span>
-                      <div className="flex gap-6">
-                        <span>Status</span>
-                        <span>Server</span>
-                        <span>CDN</span>
-                      </div>
-                    </>
-                  )}
+              {/* Terminal header */}
+              <div className="px-4 py-3 border-b border-border bg-muted/50 flex items-center gap-2">
+                <div className="flex gap-1.5">
+                  <div className="w-3 h-3 rounded-full bg-red-500/80" />
+                  <div className="w-3 h-3 rounded-full bg-yellow-500/80" />
+                  <div className="w-3 h-3 rounded-full bg-green-500/80" />
                 </div>
+                <span className="text-xs text-muted-foreground font-mono ml-2">
+                  {activeTab === 'subdomains' ? 'subfinder' : activeTab === 'dns' ? 'dnsx' : 'httpx'} — live output
+                </span>
               </div>
 
-              {/* Data rows - Fixed height to prevent bouncing */}
-              <div className="divide-y divide-border/20 h-[400px] overflow-hidden">
+              {/* Data rows - Fixed height, terminal-style left-aligned */}
+              <div className="h-[400px] overflow-hidden p-4 font-mono text-sm">
                 {activeTab === 'subdomains' && MOCK_SUBDOMAINS.map((item, i) => (
-                  <div 
-                    key={i} 
-                    className="px-4 py-3 flex items-center justify-between hover:bg-muted/20 transition-colors"
-                  >
-                    <span className="font-mono text-sm text-foreground">{item.subdomain}</span>
-                    <span className="text-sm text-muted-foreground">{item.discovered}</span>
+                  <div key={i} className="py-1 hover:bg-muted/20 transition-colors flex">
+                    <span className="text-[--terminal-green]">{item.subdomain}</span>
+                    <span className="text-muted-foreground ml-auto text-xs">{item.discovered}</span>
                   </div>
                 ))}
                 
                 {activeTab === 'dns' && MOCK_DNS.map((item, i) => (
-                  <div 
-                    key={i} 
-                    className="px-4 py-3 flex items-center justify-between hover:bg-muted/20 transition-colors"
-                  >
-                    <span className="font-mono text-sm text-foreground">{item.subdomain}</span>
-                    <div className="flex items-center gap-4 text-sm">
-                      <TypeBadge type={item.type} />
-                      <span className="font-mono text-muted-foreground w-48 truncate text-right">{item.value}</span>
-                      <span className="text-muted-foreground w-16 text-right">{item.ttl}</span>
-                    </div>
+                  <div key={i} className="py-1 hover:bg-muted/20 transition-colors flex gap-3">
+                    <span className="text-[--terminal-green] w-56 truncate">{item.subdomain}</span>
+                    <TypeBadge type={item.type} />
+                    <span className="text-muted-foreground truncate flex-1">{item.value}</span>
+                    <span className="text-muted-foreground/60 text-xs">{item.ttl}</span>
                   </div>
                 ))}
                 
                 {activeTab === 'probes' && MOCK_PROBES.map((item, i) => (
-                  <div 
-                    key={i} 
-                    className="px-4 py-3 flex items-center justify-between hover:bg-muted/20 transition-colors"
-                  >
-                    <span className="font-mono text-sm text-foreground truncate max-w-md">{item.url}</span>
-                    <div className="flex items-center gap-6 text-sm">
-                      <StatusBadge status={item.status} />
-                      <span className="font-mono text-muted-foreground w-24 truncate">{item.server}</span>
-                      <span className="text-muted-foreground w-20 text-right">{item.cdn}</span>
-                    </div>
+                  <div key={i} className="py-1 hover:bg-muted/20 transition-colors flex gap-3">
+                    <StatusBadge status={item.status} />
+                    <span className="text-[--terminal-green] truncate flex-1">{item.url}</span>
+                    <span className="text-muted-foreground text-xs">[{item.server}]</span>
+                    <span className="text-muted-foreground/60 text-xs">{item.cdn}</span>
                   </div>
                 ))}
               </div>
@@ -373,15 +340,25 @@ export default function Home() {
               <div className="absolute bottom-0 left-0 right-0 h-24 bg-gradient-to-t from-card via-card/80 to-transparent pointer-events-none" />
             </div>
 
-            {/* Stats & CTA */}
-            <div className="text-center space-y-4 pt-2 font-mono">
-              <p className="text-muted-foreground">
-                <span className="text-[--terminal-green] font-bold text-lg">
+            {/* Stats Bar - Standalone prominent display */}
+            <div className="flex justify-center items-center gap-8 py-6 font-mono">
+              <div className="text-center">
+                <div className="text-3xl sm:text-4xl font-bold text-[--terminal-green]">
                   {tabs.find(t => t.id === activeTab)?.count}
-                </span>
-                {' '}{activeTab === 'subdomains' ? 'subdomains' : activeTab === 'dns' ? 'DNS records' : 'web servers'}{' '}
-                across <span className="text-foreground font-medium">156 programs</span>
-              </p>
+                </div>
+                <div className="text-xs text-muted-foreground uppercase tracking-wider mt-1">
+                  {activeTab === 'subdomains' ? 'subdomains' : activeTab === 'dns' ? 'dns records' : 'web servers'}
+                </div>
+              </div>
+              <div className="h-10 w-px bg-border" />
+              <div className="text-center">
+                <div className="text-3xl sm:text-4xl font-bold text-foreground">156</div>
+                <div className="text-xs text-muted-foreground uppercase tracking-wider mt-1">programs</div>
+              </div>
+            </div>
+
+            {/* CTA */}
+            <div className="text-center">
               <Button 
                 variant="link" 
                 className="text-[--terminal-green] hover:text-[--terminal-green]/80 font-bold font-mono"
@@ -392,8 +369,20 @@ export default function Home() {
             </div>
           </div>
 
+          {/* Divider */}
+          <div className="relative py-8">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-border/50" />
+            </div>
+            <div className="relative flex justify-center">
+              <span className="bg-background px-4 text-xs text-muted-foreground font-mono uppercase tracking-widest">
+                or integrate directly
+              </span>
+            </div>
+          </div>
+
           {/* API Section */}
-          <div id="api" className="space-y-6 pt-16 scroll-mt-20">
+          <div id="api" className="space-y-6 scroll-mt-20">
             <div className="text-center">
               <h2 className="text-3xl font-bold font-mono text-foreground tracking-tight">api</h2>
               <p className="text-sm text-muted-foreground font-mono mt-2">integrate with your workflow</p>
@@ -453,15 +442,10 @@ export default function Home() {
       </main>
 
       {/* Footer */}
-      <footer className="py-6 text-center font-mono">
-        <p className="text-sm text-muted-foreground">
+      <footer className="py-8 text-center font-mono">
+        <p className="text-xs text-muted-foreground">
           Free for security researchers · API access included
         </p>
-        <div className="mt-2 flex justify-center gap-4">
-          <Link href="/api-docs" className="text-xs text-muted-foreground hover:text-foreground transition-colors">
-            API Docs
-          </Link>
-        </div>
       </footer>
     </div>
   );
