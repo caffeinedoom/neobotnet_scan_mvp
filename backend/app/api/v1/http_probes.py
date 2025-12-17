@@ -101,53 +101,8 @@ async def get_http_probes(
         )
 
 
-@router.get("/{probe_id}", response_model=HTTPProbeResponse)
-async def get_http_probe_by_id(
-    probe_id: str,
-    current_user: UserResponse = Depends(get_current_user)
-):
-    """
-    Get a specific HTTP probe by ID.
-    
-    Returns detailed information for a single HTTP probe record.
-    
-    Args:
-        probe_id: UUID of the HTTP probe
-        
-    Returns:
-        HTTPProbeResponse: Full probe details
-        
-    Raises:
-        404: If probe not found or user doesn't have access
-    """
-    try:
-        # Use service_client to bypass RLS - LEAN architecture allows all authenticated users
-        supabase = supabase_client.service_client
-        
-        # Get the probe
-        response = supabase.table("http_probes").select("*").eq("id", probe_id).execute()
-        
-        if not response.data or len(response.data) == 0:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="HTTP probe not found"
-            )
-        
-        probe = response.data[0]
-        
-        # LEAN Architecture: All authenticated users see ALL data
-        # No per-user filtering - authentication is sufficient for access
-        return probe
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to fetch HTTP probe: {str(e)}"
-        )
-
-
+# NOTE: Static routes like /stats/summary MUST be defined BEFORE dynamic routes like /{probe_id}
+# FastAPI matches routes in order of definition
 @router.get("/stats/summary", response_model=HTTPProbeStatsResponse)
 async def get_http_probe_stats(
     asset_id: Optional[str] = Query(None, description="Filter stats by asset ID"),
@@ -246,4 +201,51 @@ async def get_http_probe_stats(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to calculate HTTP probe statistics: {str(e)}"
+        )
+
+
+# Dynamic route MUST be after static routes
+@router.get("/{probe_id}", response_model=HTTPProbeResponse)
+async def get_http_probe_by_id(
+    probe_id: str,
+    current_user: UserResponse = Depends(get_current_user)
+):
+    """
+    Get a specific HTTP probe by ID.
+    
+    Returns detailed information for a single HTTP probe record.
+    
+    Args:
+        probe_id: UUID of the HTTP probe
+        
+    Returns:
+        HTTPProbeResponse: Full probe details
+        
+    Raises:
+        404: If probe not found
+    """
+    try:
+        # Use service_client to bypass RLS - LEAN architecture allows all authenticated users
+        supabase = supabase_client.service_client
+        
+        # Get the probe
+        response = supabase.table("http_probes").select("*").eq("id", probe_id).execute()
+        
+        if not response.data or len(response.data) == 0:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="HTTP probe not found"
+            )
+        
+        probe = response.data[0]
+        
+        # LEAN Architecture: All authenticated users see ALL data
+        return probe
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to fetch HTTP probe: {str(e)}"
         )
