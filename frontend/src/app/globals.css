@@ -80,38 +80,41 @@
 }
 
 .dark {
-  /* Neobotnet Dark Theme - Inspired by blackshark.ai with Cyan Accent */
-  --background: oklch(0.11 0.015 270);        /* Rich dark with subtle blue undertone */
-  --foreground: oklch(0.95 0.01 250);         /* Off-white with cool tint */
-  --card: oklch(0.14 0.015 270);              /* Elevated surface */
-  --card-foreground: oklch(0.93 0.01 250);    /* Card text */
-  --popover: oklch(0.13 0.015 270);           /* Popover bg */
-  --popover-foreground: oklch(0.93 0.01 250); /* Popover text */
-  --primary: oklch(0.75 0.15 195);            /* Cyan primary */
-  --primary-foreground: oklch(0.12 0.02 270); /* Dark text on primary */
-  --secondary: oklch(0.20 0.015 270);         /* Secondary surface */
-  --secondary-foreground: oklch(0.88 0.01 250); /* Secondary text */
-  --muted: oklch(0.18 0.01 270);              /* Muted surface */
-  --muted-foreground: oklch(0.55 0.02 250);   /* Muted text */
-  --accent: oklch(0.65 0.12 195);             /* Cyan accent */
-  --accent-foreground: oklch(0.12 0.02 270);  /* Accent text */
+  /* neobotnet dark theme - clean monochrome with terminal green accents */
+  --background: oklch(0.10 0 0);              /* Pure dark */
+  --foreground: oklch(0.93 0 0);              /* Off-white */
+  --card: oklch(0.13 0 0);                    /* Elevated surface */
+  --card-foreground: oklch(0.90 0 0);         /* Card text */
+  --popover: oklch(0.12 0 0);                 /* Popover bg */
+  --popover-foreground: oklch(0.90 0 0);      /* Popover text */
+  --primary: oklch(0.88 0 0);                 /* White primary (buttons) */
+  --primary-foreground: oklch(0.10 0 0);      /* Dark text on primary */
+  --secondary: oklch(0.18 0 0);               /* Secondary surface */
+  --secondary-foreground: oklch(0.85 0 0);    /* Secondary text */
+  --muted: oklch(0.16 0 0);                   /* Muted surface */
+  --muted-foreground: oklch(0.50 0 0);        /* Muted text */
+  --accent: oklch(0.20 0 0);                  /* Accent surface */
+  --accent-foreground: oklch(0.85 0 0);       /* Accent text */
   --destructive: oklch(0.55 0.2 25);          /* Red for destructive */
-  --border: oklch(0.25 0.02 270);             /* Borders */
-  --input: oklch(0.16 0.015 270);             /* Input bg */
-  --ring: oklch(0.70 0.15 195);               /* Cyan focus ring */
-  --chart-1: oklch(0.75 0.15 195);            /* Cyan */
-  --chart-2: oklch(0.70 0.12 280);            /* Purple */
-  --chart-3: oklch(0.65 0.10 220);            /* Blue */
-  --chart-4: oklch(0.60 0.08 195);            /* Teal */
-  --chart-5: oklch(0.55 0.06 250);            /* Slate */
-  --sidebar: oklch(0.12 0.015 270);           /* Sidebar bg */
-  --sidebar-foreground: oklch(0.88 0.01 250); /* Sidebar text */
-  --sidebar-primary: oklch(0.75 0.15 195);    /* Sidebar primary (cyan) */
-  --sidebar-primary-foreground: oklch(0.12 0.02 270);
-  --sidebar-accent: oklch(0.20 0.015 270);    /* Sidebar accent */
-  --sidebar-accent-foreground: oklch(0.88 0.01 250);
-  --sidebar-border: oklch(0.22 0.02 270);     /* Sidebar borders */
-  --sidebar-ring: oklch(0.70 0.15 195);       /* Cyan ring */
+  --border: oklch(0.22 0 0);                  /* Borders */
+  --input: oklch(0.15 0 0);                   /* Input bg */
+  --ring: oklch(0.40 0 0);                    /* Gray focus ring */
+  --chart-1: oklch(0.70 0 0);                 /* Gray scale charts */
+  --chart-2: oklch(0.60 0 0);
+  --chart-3: oklch(0.50 0 0);
+  --chart-4: oklch(0.40 0 0);
+  --chart-5: oklch(0.30 0 0);
+  --sidebar: oklch(0.11 0 0);                 /* Sidebar bg */
+  --sidebar-foreground: oklch(0.85 0 0);      /* Sidebar text */
+  --sidebar-primary: oklch(0.88 0 0);         /* Sidebar primary */
+  --sidebar-primary-foreground: oklch(0.10 0 0);
+  --sidebar-accent: oklch(0.18 0 0);          /* Sidebar accent */
+  --sidebar-accent-foreground: oklch(0.85 0 0);
+  --sidebar-border: oklch(0.20 0 0);          /* Sidebar borders */
+  --sidebar-ring: oklch(0.40 0 0);            /* Gray ring */
+  
+  /* Terminal Green for data highlights */
+  --terminal-green: oklch(0.72 0.19 142);     /* Classic terminal green */
 }
 
 @layer base {

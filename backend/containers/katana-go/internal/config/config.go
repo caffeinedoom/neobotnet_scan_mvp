@@ -91,10 +91,10 @@ func LoadConfig() (*Config, error) {
 		SupabaseKey: supabaseKey,
 
 		// Katana defaults (can be overridden)
-		// NOTE: HeadlessMode defaults to false for Fargate compatibility
-		// (headless Chrome requires namespace permissions not available in Fargate)
+		// HeadlessMode enables Chrome-based crawling for JavaScript rendering
+		// Uses --no-sandbox for Fargate/Docker compatibility
 		CrawlDepth:   getEnvInt("CRAWL_DEPTH", 1),
-		HeadlessMode: getEnvBool("HEADLESS_MODE", false),
+		HeadlessMode: getEnvBool("HEADLESS_MODE", true),
 		RateLimit:    getEnvInt("RATE_LIMIT", 150),
 		Concurrency:  getEnvInt("CONCURRENCY", 10),
 		Parallelism:  getEnvInt("PARALLELISM", 10),

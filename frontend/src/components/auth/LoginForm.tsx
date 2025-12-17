@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * Login Form for Neobotnet
+ * Login Form for neobotnet
  * 
  * Uses Google and X (Twitter) SSO via Supabase Auth.
  */
@@ -60,7 +60,7 @@ export const LoginForm: React.FC<LoginFormProps> = () => {
     <Card className="w-full max-w-md mx-auto">
       <CardHeader className="space-y-1">
         <CardTitle className="text-2xl font-bold text-center font-[family-name:var(--font-heading)]">
-          Welcome to Neobotnet
+          welcome to neobotnet
         </CardTitle>
         <CardDescription className="text-center">
           Sign in to access free reconnaissance data

@@ -42,19 +42,21 @@ func NewScanner(cfg *config.Config, logger *config.Logger) (*Scanner, error) {
 
 	// Initialize Katana options with result callback
 	options := &types.Options{
-		MaxDepth:         cfg.CrawlDepth,
-		RateLimit:        cfg.RateLimit,
-		Concurrency:      cfg.Concurrency,
-		Parallelism:      cfg.Parallelism,
-		Timeout:          cfg.Timeout,
-		Headless:         cfg.HeadlessMode,
-		SystemChromePath: "/usr/bin/chromium-browser", // CRITICAL: Use system Chromium instead of auto-download
-		Strategy:         cfg.Strategy,
-		DisplayOutScope:  false, // Don't display out-of-scope URLs
-		FieldScope:       "rdn",  // Restrict to registered domain name
-		NoScope:          false,  // Enable scope restrictions
-		Silent:           true,   // Suppress Katana's built-in output
-		Verbose:          false,
+		MaxDepth:           cfg.CrawlDepth,
+		RateLimit:          cfg.RateLimit,
+		Concurrency:        cfg.Concurrency,
+		Parallelism:        cfg.Parallelism,
+		Timeout:            cfg.Timeout,
+		Headless:           cfg.HeadlessMode,
+		HeadlessNoSandbox:  true, // CRITICAL: Required for Fargate/Docker (no namespace permissions)
+		UseInstalledChrome: true, // Use system Chromium instead of auto-download
+		SystemChromePath:   "/usr/bin/chromium-browser",
+		Strategy:           cfg.Strategy,
+		DisplayOutScope:    false, // Don't display out-of-scope URLs
+		FieldScope:         "rdn",  // Restrict to registered domain name
+		NoScope:            false,  // Enable scope restrictions
+		Silent:             true,   // Suppress Katana's built-in output
+		Verbose:            false,
 		
 		// Callback to collect results
 		OnResult: func(result output.Result) {

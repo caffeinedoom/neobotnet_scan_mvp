@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * Navigation Component for Neobotnet
+ * Navigation Component for neobotnet
  * 
  * Simplified navigation with:
  * - Data browsers (Programs, Subdomains, DNS, Probes)
@@ -34,7 +34,7 @@ export const Navigation: React.FC = () => {
           <div className="flex h-14 items-center justify-between">
             <div className="flex items-center">
               <Link href="/" className="flex items-center space-x-2">
-                <span className="font-bold text-lg font-[family-name:var(--font-heading)] tracking-tight">Neobotnet</span>
+                <span className="font-bold text-lg font-[family-name:var(--font-heading)] tracking-tight">neobotnet</span>
               </Link>
             </div>
             <div className="flex items-center space-x-4">
@@ -90,7 +90,7 @@ export const Navigation: React.FC = () => {
         <div className="flex h-14 items-center justify-between">
           <div className="flex items-center space-x-8">
             <Link href="/" className="flex items-center space-x-2">
-              <span className="font-bold text-lg font-[family-name:var(--font-heading)] tracking-tight bg-gradient-to-r from-foreground to-primary bg-clip-text text-transparent">Neobotnet</span>
+              <span className="font-bold text-lg font-[family-name:var(--font-heading)] tracking-tight text-foreground">neobotnet</span>
             </Link>
             
             {/* Navigation Links - Only show when authenticated */}

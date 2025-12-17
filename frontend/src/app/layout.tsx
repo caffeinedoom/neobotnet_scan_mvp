@@ -22,7 +22,7 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Neobotnet — Web Reconnaissance. Delivered.",
+  title: "neobotnet — web reconnaissance. delivered.",
   description: "Free reconnaissance data for bug bounty researchers. Subdomains, DNS records, and HTTP probes via API or UI.",
 };
 
