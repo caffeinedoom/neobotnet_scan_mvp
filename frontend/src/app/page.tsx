@@ -43,14 +43,14 @@ const MOCK_DNS = [
 ];
 
 const MOCK_PROBES = [
-  { url: 'https://api.acmecorp.com', status: 200, server: 'nginx/1.24', cdn: 'Cloudflare' },
-  { url: 'https://staging.acmecorp.com', status: 403, server: 'nginx', cdn: 'AWS' },
-  { url: 'https://developer.acmecorp.com', status: 200, server: 'nginx', cdn: 'Fastly' },
-  { url: 'https://partners-api.acmecorp.com', status: 200, server: 'gunicorn', cdn: '—' },
-  { url: 'https://internal-tools.acmecorp.com', status: 401, server: 'Apache/2.4', cdn: '—' },
-  { url: 'https://cdn-assets.acmecorp.com', status: 200, server: 'CloudFront', cdn: 'AWS' },
-  { url: 'https://mail.acmecorp.com', status: 301, server: 'gws', cdn: 'Google' },
-  { url: 'https://jira.acmecorp.com', status: 200, server: 'Atlassian', cdn: 'Cloudflare' },
+  { url: 'https://api.acmecorp.com', status: 200, title: 'API Gateway', length: '2.4kb', server: 'nginx/1.24', cdn: 'Cloudflare' },
+  { url: 'https://staging.acmecorp.com', status: 403, title: 'Forbidden', length: '512b', server: 'nginx', cdn: 'AWS' },
+  { url: 'https://developer.acmecorp.com', status: 200, title: 'Developer Portal', length: '45kb', server: 'nginx', cdn: 'Fastly' },
+  { url: 'https://partners-api.acmecorp.com', status: 200, title: 'Partner API', length: '1.8kb', server: 'gunicorn', cdn: '—' },
+  { url: 'https://internal-tools.acmecorp.com', status: 401, title: 'Unauthorized', length: '256b', server: 'Apache/2.4', cdn: '—' },
+  { url: 'https://cdn-assets.acmecorp.com', status: 200, title: 'CDN Assets', length: '128b', server: 'CloudFront', cdn: 'AWS' },
+  { url: 'https://mail.acmecorp.com', status: 301, title: 'Redirect', length: '0b', server: 'gws', cdn: 'Google' },
+  { url: 'https://jira.acmecorp.com', status: 200, title: 'Jira Software', length: '89kb', server: 'Atlassian', cdn: 'Cloudflare' },
 ];
 
 // ============================================================================
@@ -122,7 +122,8 @@ const TypeBadge = ({ type }: { type: string }) => {
 type TabType = 'subdomains' | 'dns' | 'probes';
 type APITabType = 'export' | 'live' | 'dns' | 'nuclei';
 
-const TAB_ORDER: TabType[] = ['subdomains', 'dns', 'probes'];
+// Tab order: Web Servers first, then DNS, then Subdomains
+const TAB_ORDER: TabType[] = ['probes', 'dns', 'subdomains'];
 
 // API Examples
 const API_EXAMPLES: { id: APITabType; label: string; command: string; output: string[] }[] = [
@@ -162,7 +163,7 @@ export default function Home() {
   const router = useRouter();
   const { isAuthenticated, isLoading, signInWithGoogle, signInWithTwitter } = useAuth();
   const [viewMode, setViewMode] = useState<ViewMode>('web');
-  const [activeTab, setActiveTab] = useState<TabType>('subdomains');
+  const [activeTab, setActiveTab] = useState<TabType>('probes'); // Start with Web Servers
   const [activeAPITab, setActiveAPITab] = useState<APITabType>('export');
   const [autoToggle, setAutoToggle] = useState(true);
 
@@ -212,10 +213,11 @@ export default function Home() {
     return null;
   }
 
+  // Tab order: Web Servers, DNS Records, Subdomains
   const tabs: { id: TabType; label: string; count: string }[] = [
-    { id: 'subdomains', label: 'Subdomains', count: '47,832' },
-    { id: 'dns', label: 'DNS Records', count: '124,567' },
     { id: 'probes', label: 'Web Servers', count: '38,291' },
+    { id: 'dns', label: 'DNS Records', count: '124,567' },
+    { id: 'subdomains', label: 'Subdomains', count: '47,832' },
   ];
 
   return (
@@ -240,32 +242,34 @@ export default function Home() {
             {/* Logo/Title */}
             <h1 className="text-6xl sm:text-7xl lg:text-8xl font-bold tracking-tight font-mono text-foreground">
               neobotnet
-            </h1>
-            
-            {/* Mode Toggle: Web | API */}
-            <div className="flex justify-center items-center gap-1 pt-2">
-              <button 
-                onClick={() => handleModeSwitch('web')}
-                className={`flex items-center gap-2 px-4 py-2 text-base font-mono font-bold rounded-lg transition-all ${
-                  viewMode === 'web' 
-                    ? 'text-[--terminal-green] bg-muted' 
-                    : 'text-muted-foreground hover:text-foreground'
-                }`}
-              >
-                <Globe className="h-4 w-4" />
-                <span>Web</span>
-              </button>
-              <button 
-                onClick={() => handleModeSwitch('api')}
-                className={`flex items-center gap-2 px-4 py-2 text-base font-mono font-bold rounded-lg transition-all ${
-                  viewMode === 'api' 
-                    ? 'text-[--terminal-green] bg-muted' 
-                    : 'text-muted-foreground hover:text-foreground'
-                }`}
-              >
-                <Code2 className="h-4 w-4" />
-                <span>API</span>
-              </button>
+        </h1>
+        
+            {/* Mode Toggle: Web | API - Framed for visual clarity */}
+            <div className="flex justify-center pt-2">
+              <div className="inline-flex items-center gap-1 p-1 rounded-lg bg-muted/50 border border-border">
+                <button 
+                  onClick={() => handleModeSwitch('web')}
+                  className={`flex items-center gap-2 px-4 py-2 text-sm font-mono font-bold rounded-md transition-all ${
+                    viewMode === 'web' 
+                      ? 'text-[--terminal-green] bg-background shadow-sm' 
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  <Globe className="h-4 w-4" />
+                  <span>Web</span>
+                </button>
+                <button 
+                  onClick={() => handleModeSwitch('api')}
+                  className={`flex items-center gap-2 px-4 py-2 text-sm font-mono font-bold rounded-md transition-all ${
+                    viewMode === 'api' 
+                      ? 'text-[--terminal-green] bg-background shadow-sm' 
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  <Code2 className="h-4 w-4" />
+                  <span>API</span>
+                </button>
+              </div>
             </div>
             
             {/* Tagline */}
@@ -282,7 +286,7 @@ export default function Home() {
               >
                 <GoogleIcon />
                 <span className="ml-2">Sign in with Google</span>
-              </Button>
+          </Button>
               <Button 
                 size="lg" 
                 variant="outline"
@@ -291,9 +295,9 @@ export default function Home() {
               >
                 <XIcon />
                 <span className="ml-2">Sign in with X</span>
-              </Button>
-            </div>
-          </div>
+          </Button>
+        </div>
+      </div>
 
           {/* Content Area - Switches based on viewMode */}
           <div className="space-y-4 transition-all duration-300">
@@ -317,38 +321,39 @@ export default function Home() {
                         {tab.label}
                       </button>
                     ))}
-                  </div>
-                </div>
+        </div>
+        </div>
 
-                {/* Web Mode: Data Preview */}
+                {/* Web Mode: Data Preview - Reduced height */}
                 <div className="relative rounded-xl border border-border bg-card overflow-hidden shadow-[0_0_50px_-12px_rgba(0,0,0,0.9)] ring-1 ring-white/5">
-                  <div className="h-[360px] overflow-hidden p-4 font-mono text-sm">
-                    {activeTab === 'subdomains' && MOCK_SUBDOMAINS.map((item, i) => (
-                      <div key={i} className="py-2 hover:bg-muted/20 transition-colors flex">
+                  <div className="h-[280px] overflow-hidden p-4 font-mono text-sm">
+                    {activeTab === 'subdomains' && MOCK_SUBDOMAINS.slice(0, 8).map((item, i) => (
+                      <div key={i} className="py-1.5 hover:bg-muted/20 transition-colors flex">
                         <span className="text-[--terminal-green]">{item.subdomain}</span>
                         <span className="text-muted-foreground ml-auto text-xs">{item.discovered}</span>
                       </div>
                     ))}
                     
-                    {activeTab === 'dns' && MOCK_DNS.map((item, i) => (
-                      <div key={i} className="py-2 hover:bg-muted/20 transition-colors flex gap-3">
-                        <span className="text-[--terminal-green] w-56 truncate">{item.subdomain}</span>
+                    {activeTab === 'dns' && MOCK_DNS.slice(0, 8).map((item, i) => (
+                      <div key={i} className="py-1.5 hover:bg-muted/20 transition-colors flex gap-3">
+                        <span className="text-[--terminal-green] w-48 truncate">{item.subdomain}</span>
                         <TypeBadge type={item.type} />
                         <span className="text-muted-foreground truncate flex-1">{item.value}</span>
                         <span className="text-muted-foreground/60 text-xs">{item.ttl}</span>
                       </div>
                     ))}
                     
-                    {activeTab === 'probes' && MOCK_PROBES.map((item, i) => (
-                      <div key={i} className="py-2 hover:bg-muted/20 transition-colors flex gap-3">
+                    {activeTab === 'probes' && MOCK_PROBES.slice(0, 8).map((item, i) => (
+                      <div key={i} className="py-1.5 hover:bg-muted/20 transition-colors flex gap-2">
                         <StatusBadge status={item.status} />
-                        <span className="text-[--terminal-green] truncate flex-1">{item.url}</span>
-                        <span className="text-muted-foreground text-xs">[{item.server}]</span>
-                        <span className="text-muted-foreground/60 text-xs">{item.cdn}</span>
+                        <span className="text-[--terminal-green] w-52 truncate">{item.url}</span>
+                        <span className="text-muted-foreground truncate flex-1 text-xs">{item.title}</span>
+                        <span className="text-cyan-400 text-xs w-12 text-right">{item.length}</span>
+                        <span className="text-muted-foreground/60 text-xs w-20 text-right">[{item.server}]</span>
                       </div>
                     ))}
                   </div>
-                  <div className="absolute bottom-0 left-0 right-0 h-24 bg-gradient-to-t from-card via-card/80 to-transparent pointer-events-none" />
+                  <div className="absolute bottom-0 left-0 right-0 h-20 bg-gradient-to-t from-card via-card/80 to-transparent pointer-events-none" />
                 </div>
 
                 {/* Web Mode: Stats */}
@@ -362,14 +367,14 @@ export default function Home() {
                     </div>
                   </div>
                   <div className="h-8 w-px bg-border" />
-                  <div className="text-center">
+            <div className="text-center">
                     <div className="text-2xl sm:text-3xl font-bold text-foreground">156</div>
                     <div className="text-xs text-muted-foreground uppercase tracking-wider mt-1">programs</div>
-                  </div>
-                </div>
+              </div>
+            </div>
 
                 {/* Web Mode: CTA */}
-                <div className="text-center">
+            <div className="text-center">
                   <Button 
                     variant="link" 
                     className="text-[--terminal-green] hover:text-[--terminal-green]/80 font-bold font-mono"
@@ -397,30 +402,30 @@ export default function Home() {
                         {example.label}
                       </button>
                     ))}
-                  </div>
-                </div>
+              </div>
+            </div>
 
-                {/* API Mode: Terminal */}
+                {/* API Mode: Terminal - Same height as Web mode */}
                 <div className="relative rounded-xl border border-border bg-card overflow-hidden shadow-[0_0_50px_-12px_rgba(0,0,0,0.9)] ring-1 ring-white/5">
-                  <div className="px-4 py-3 border-b border-border bg-muted/50 flex items-center gap-2">
+                  <div className="px-4 py-2 border-b border-border bg-muted/50 flex items-center gap-2">
                     <div className="flex gap-1.5">
-                      <div className="w-3 h-3 rounded-full bg-red-500/80" />
-                      <div className="w-3 h-3 rounded-full bg-yellow-500/80" />
-                      <div className="w-3 h-3 rounded-full bg-green-500/80" />
+                      <div className="w-2.5 h-2.5 rounded-full bg-red-500/80" />
+                      <div className="w-2.5 h-2.5 rounded-full bg-yellow-500/80" />
+                      <div className="w-2.5 h-2.5 rounded-full bg-green-500/80" />
                     </div>
                     <span className="text-xs text-muted-foreground font-mono ml-2">terminal</span>
                   </div>
-                  <div className="h-[360px] overflow-hidden p-4 font-mono text-sm">
+                  <div className="h-[248px] overflow-hidden p-4 font-mono text-sm">
                     <div className="text-muted-foreground whitespace-pre-wrap">
                       <span className="text-[--terminal-green]">$</span> {API_EXAMPLES.find(e => e.id === activeAPITab)?.command}
                     </div>
-                    <div className="mt-4 text-foreground/80">
+                    <div className="mt-3 text-foreground/80">
                       {API_EXAMPLES.find(e => e.id === activeAPITab)?.output.map((line, i) => (
                         <div key={i} className={line === '...' ? 'text-muted-foreground' : ''}>{line}</div>
                       ))}
                     </div>
                   </div>
-                  <div className="absolute bottom-0 left-0 right-0 h-24 bg-gradient-to-t from-card via-card/80 to-transparent pointer-events-none" />
+                  <div className="absolute bottom-0 left-0 right-0 h-20 bg-gradient-to-t from-card via-card/80 to-transparent pointer-events-none" />
                 </div>
 
                 {/* API Mode: CTA */}
@@ -431,7 +436,7 @@ export default function Home() {
                   >
                     view full api documentation →
                   </Link>
-                </div>
+            </div>
               </>
             )}
           </div>
