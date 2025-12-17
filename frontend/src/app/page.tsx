@@ -126,9 +126,12 @@ export default function Home() {
   const router = useRouter();
   const { isAuthenticated, isLoading, signInWithGoogle, signInWithTwitter } = useAuth();
   const [activeTab, setActiveTab] = useState<TabType>('subdomains');
+  const [autoToggle, setAutoToggle] = useState(true);
 
-  // Auto-toggle through tabs every 4 seconds
+  // Auto-toggle through tabs every 4 seconds (stops when user interacts)
   useEffect(() => {
+    if (!autoToggle) return;
+    
     const interval = setInterval(() => {
       setActiveTab(current => {
         const currentIndex = TAB_ORDER.indexOf(current);
@@ -137,7 +140,13 @@ export default function Home() {
       });
     }, 4000);
     return () => clearInterval(interval);
-  }, []);
+  }, [autoToggle]);
+
+  // Handle manual tab selection (stops auto-toggle)
+  const handleTabClick = (tabId: TabType) => {
+    setAutoToggle(false);
+    setActiveTab(tabId);
+  };
 
   useEffect(() => {
     if (isAuthenticated && !isLoading) {
@@ -222,7 +231,7 @@ export default function Home() {
                 {tabs.map((tab) => (
                   <button
                     key={tab.id}
-                    onClick={() => setActiveTab(tab.id)}
+                    onClick={() => handleTabClick(tab.id)}
                     className={`
                       px-4 py-2 rounded-md text-sm font-mono font-medium transition-all duration-300
                       ${activeTab === tab.id 
@@ -332,6 +341,48 @@ export default function Home() {
               >
                 Sign in to explore all data →
               </Button>
+            </div>
+          </div>
+
+          {/* CLI Section */}
+          <div className="space-y-4 pt-8">
+            <div className="text-center">
+              <p className="text-sm text-muted-foreground font-mono uppercase tracking-wider">cli</p>
+            </div>
+            
+            {/* CLI Example */}
+            <div className="relative rounded-xl border border-border bg-card overflow-hidden shadow-[0_0_50px_-12px_rgba(0,0,0,0.9)] ring-1 ring-white/5">
+              <div className="px-4 py-3 border-b border-border bg-muted/50 flex items-center gap-2">
+                <div className="flex gap-1.5">
+                  <div className="w-3 h-3 rounded-full bg-red-500/80" />
+                  <div className="w-3 h-3 rounded-full bg-yellow-500/80" />
+                  <div className="w-3 h-3 rounded-full bg-green-500/80" />
+                </div>
+                <span className="text-xs text-muted-foreground font-mono ml-2">terminal</span>
+              </div>
+              <div className="p-4 font-mono text-sm overflow-x-auto">
+                <div className="text-muted-foreground">
+                  <span className="text-[--terminal-green]">$</span> curl -s &quot;https://api.neobotnet.com/v1/programs/all/subdomains&quot; \
+                </div>
+                <div className="text-muted-foreground pl-4">
+                  -H &quot;X-API-Key: YOUR_API_KEY&quot; | jq -r &apos;.[].subdomain&apos;
+                </div>
+                <div className="mt-3 text-foreground/80">
+                  <div>api.acmecorp.com</div>
+                  <div>staging.acmecorp.com</div>
+                  <div>developer.acmecorp.com</div>
+                  <div className="text-muted-foreground">...</div>
+                </div>
+              </div>
+            </div>
+            
+            <div className="text-center">
+              <Link 
+                href="/api-docs" 
+                className="text-sm text-muted-foreground hover:text-foreground font-mono transition-colors"
+              >
+                view full api documentation →
+              </Link>
             </div>
           </div>
         </div>
