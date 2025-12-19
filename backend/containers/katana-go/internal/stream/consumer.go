@@ -8,6 +8,7 @@ import (
 
 	"katana-go/internal/config"
 	"katana-go/internal/database"
+	"katana-go/internal/models"
 	"katana-go/internal/scanner"
 
 	"github.com/go-redis/redis/v8"
@@ -31,6 +32,7 @@ type ConsumerResult struct {
 	URLsCrawled       int
 	EndpointsFound    int
 	EndpointsStored   int
+	URLsPublished     int // URLs published to URL Resolver stream
 	ProcessingTime    time.Duration
 }
 
@@ -174,6 +176,7 @@ func (c *Consumer) Consume() (*ConsumerResult, error) {
 					result.URLsCrawled++
 					result.EndpointsFound += crawlResult.EndpointsFound
 					result.EndpointsStored += crawlResult.EndpointsStored
+					result.URLsPublished += crawlResult.EndpointsPublished
 				}
 
 				// ACK the message after processing
@@ -196,11 +199,17 @@ func (c *Consumer) Consume() (*ConsumerResult, error) {
 
 	result.ProcessingTime = time.Since(startTime)
 
+	// Send completion marker to URL Resolver stream
+	if err := c.sendURLCompletionMarker(result.URLsPublished); err != nil {
+		c.logger.Warn("Failed to send completion marker to URL stream: %v", err)
+	}
+
 	c.logger.Info("📊 Final Statistics:")
 	c.logger.Info("  • URLs received: %d", result.URLsReceived)
 	c.logger.Info("  • URLs crawled: %d", result.URLsCrawled)
 	c.logger.Info("  • Endpoints found: %d", result.EndpointsFound)
 	c.logger.Info("  • Endpoints stored: %d", result.EndpointsStored)
+	c.logger.Info("  • URLs published: %d", result.URLsPublished)
 	c.logger.Info("  • Processing time: %s", result.ProcessingTime.Round(time.Second))
 
 	return result, nil
@@ -208,8 +217,9 @@ func (c *Consumer) Consume() (*ConsumerResult, error) {
 
 // CrawlResult holds the result of crawling a single URL
 type CrawlResult struct {
-	EndpointsFound  int
-	EndpointsStored int
+	EndpointsFound    int
+	EndpointsStored   int
+	EndpointsPublished int
 }
 
 // processURLMessage processes a single URL message from the stream
@@ -252,6 +262,13 @@ func (c *Consumer) processURLMessage(message redis.XMessage) (*CrawlResult, erro
 		}
 		result.EndpointsStored = len(endpoints)
 		c.logger.Debug("   💾 Stored %d endpoints", len(endpoints))
+
+		// Publish endpoints to URL Resolver stream (producer)
+		published, err := c.publishToURLStream(endpoints)
+		if err != nil {
+			c.logger.Warn("Failed to publish endpoints to URL stream: %v", err)
+		}
+		result.EndpointsPublished = published
 	}
 
 	return result, nil
@@ -268,6 +285,86 @@ func (c *Consumer) Close() error {
 	if c.redisClient != nil {
 		return c.redisClient.Close()
 	}
+	return nil
+}
+
+// publishToURLStream publishes discovered endpoints to the URL Resolver stream
+// This acts as a producer for the url-resolver consumer
+func (c *Consumer) publishToURLStream(endpoints []*models.CrawledEndpoint) (int, error) {
+	if c.cfg.StreamOutputKey == "" {
+		// No output stream configured, skip publishing
+		return 0, nil
+	}
+
+	published := 0
+	for _, ep := range endpoints {
+		// Build scan_job_id value
+		scanJobID := ""
+		if ep.ScanJobID != nil {
+			scanJobID = *ep.ScanJobID
+		}
+
+		values := map[string]interface{}{
+			"url":           ep.URL,
+			"asset_id":      ep.AssetID,
+			"scan_job_id":   scanJobID,
+			"source":        "katana",
+			"published_at":  time.Now().UTC().Format(time.RFC3339),
+		}
+
+		// Add optional fields if present
+		if ep.Method != "" {
+			values["method"] = ep.Method
+		}
+		if ep.ContentType != nil && *ep.ContentType != "" {
+			values["content_type"] = *ep.ContentType
+		}
+
+		err := c.redisClient.XAdd(c.ctx, &redis.XAddArgs{
+			Stream: c.cfg.StreamOutputKey,
+			Values: values,
+		}).Err()
+
+		if err != nil {
+			c.logger.Warn("Failed to publish URL to stream: %s - %v", ep.URL, err)
+			continue
+		}
+		published++
+	}
+
+	if published > 0 {
+		c.logger.Debug("   📤 Published %d URLs to %s", published, c.cfg.StreamOutputKey)
+	}
+
+	return published, nil
+}
+
+// sendURLCompletionMarker sends a completion marker to the URL Resolver stream
+func (c *Consumer) sendURLCompletionMarker(totalURLs int) error {
+	if c.cfg.StreamOutputKey == "" {
+		// No output stream configured, skip
+		return nil
+	}
+
+	values := map[string]interface{}{
+		"type":          "completion",
+		"source":        "katana",
+		"scan_job_id":   c.cfg.ScanJobID,
+		"asset_id":      c.cfg.AssetID,
+		"total_results": totalURLs,
+		"completed_at":  time.Now().UTC().Format(time.RFC3339),
+	}
+
+	err := c.redisClient.XAdd(c.ctx, &redis.XAddArgs{
+		Stream: c.cfg.StreamOutputKey,
+		Values: values,
+	}).Err()
+
+	if err != nil {
+		return fmt.Errorf("failed to send completion marker: %w", err)
+	}
+
+	c.logger.Info("🏁 Completion marker sent to %s (total: %d URLs)", c.cfg.StreamOutputKey, totalURLs)
 	return nil
 }
 
