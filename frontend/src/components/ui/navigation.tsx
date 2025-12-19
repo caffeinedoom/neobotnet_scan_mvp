@@ -4,22 +4,32 @@
  * Navigation Component for neobotnet
  * 
  * Simplified navigation with:
- * - Data browsers (Programs, Subdomains, DNS, Probes)
+ * - Data browsers (Programs, Subdomains, DNS, Servers)
  * - API documentation
  * - Google/X SSO authentication
  * 
  * Hidden on landing page for unauthenticated users for clean UX.
  */
 
+import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
-import { LogOut, User, Globe, Database, Wifi, Building2, Code2, Terminal } from 'lucide-react';
+import { LogOut, User, Globe, Database, Server, Building2, Code2 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
 export const Navigation: React.FC = () => {
   const { user, isAuthenticated, signOut, isLoading } = useAuth();
   const pathname = usePathname();
+  const [showCursor, setShowCursor] = useState(true);
+
+  // Blinking cursor effect
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setShowCursor(s => !s);
+    }, 530);
+    return () => clearInterval(interval);
+  }, []);
 
   // Hide navigation on landing page for unauthenticated users
   // The landing page has its own minimal UI
@@ -34,7 +44,7 @@ export const Navigation: React.FC = () => {
           <div className="flex h-14 items-center justify-between">
             <div className="flex items-center">
               <Link href="/" className="flex items-center space-x-2">
-                <span className="font-bold text-lg font-[family-name:var(--font-heading)] tracking-tight">neobotnet</span>
+                <span className="font-bold text-lg font-mono tracking-tight">neobotnet</span>
               </Link>
             </div>
             <div className="flex items-center space-x-4">
@@ -72,8 +82,8 @@ export const Navigation: React.FC = () => {
     },
     {
       href: '/probes',
-      label: 'Probes',
-      icon: Wifi,
+      label: 'Servers',
+      icon: Server,
       active: pathname.startsWith('/probes')
     },
     {
@@ -81,12 +91,6 @@ export const Navigation: React.FC = () => {
       label: 'API',
       icon: Code2,
       active: pathname.startsWith('/api-docs')
-    },
-    {
-      href: '/api-docs#cli',
-      label: 'CLI',
-      icon: Terminal,
-      active: false
     }
   ];
 
@@ -95,8 +99,9 @@ export const Navigation: React.FC = () => {
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="flex h-14 items-center justify-between">
           <div className="flex items-center space-x-8">
-            <Link href="/" className="flex items-center space-x-2">
-              <span className="font-bold text-lg font-[family-name:var(--font-heading)] tracking-tight text-foreground">neobotnet</span>
+            <Link href="/" className="flex items-center">
+              <span className="font-bold text-lg font-mono tracking-tight text-foreground">neobotnet</span>
+              <span className={`font-bold text-lg font-mono text-[--terminal-green] ${showCursor ? 'opacity-100' : 'opacity-0'} transition-opacity`}>_</span>
             </Link>
             
             {/* Navigation Links - Only show when authenticated */}
