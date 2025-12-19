@@ -489,7 +489,7 @@ export default function Home() {
       {/* Footer */}
       <footer className="py-8 text-center font-mono">
         <p className="text-xs text-muted-foreground">
-          Free for security researchers · API access included
+          neobotnet 2025
         </p>
       </footer>
     </div>
