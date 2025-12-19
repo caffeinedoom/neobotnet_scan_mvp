@@ -80,11 +80,12 @@ class ScanPipeline:
     
     # Timeout per module (seconds)
     MODULE_TIMEOUTS = {
-        "subfinder": 600,  # 10 minutes
-        "dnsx": 1800,      # 30 minutes (increased for large assets with 400+ subdomains)
-        "httpx": 900,      # 15 minutes
-        "katana": 1800,    # 30 minutes (web crawling can be slow)
-        "nuclei": 1800,    # 30 minutes
+        "subfinder": 600,       # 10 minutes
+        "dnsx": 1800,           # 30 minutes (increased for large assets with 400+ subdomains)
+        "httpx": 900,           # 15 minutes
+        "katana": 1800,         # 30 minutes (web crawling can be slow)
+        "url-resolver": 3600,   # 1 hour (URL probing at scale)
+        "nuclei": 1800,         # 30 minutes
     }
     
     # Polling interval for checking scan completion (seconds)
@@ -834,9 +835,13 @@ class ScanPipeline:
         # HTTPx acts as both consumer (from Subfinder) and producer (to Katana).
         # ============================================================
         
-        # Separate Stage 1 consumers (subfinder stream) from Stage 2 (httpx stream)
-        stage1_consumers = [m for m in consumer_modules if m != "katana"]
+        # Separate consumers by stage:
+        # Stage 1: DNSx, HTTPx (consume from Subfinder stream)
+        # Stage 2: Katana (consumes from HTTPx stream)
+        # Stage 3: url-resolver (consumes from Katana stream)
+        stage1_consumers = [m for m in consumer_modules if m not in ["katana", "url-resolver"]]
         stage2_consumers = [m for m in consumer_modules if m == "katana"]
+        stage3_consumers = [m for m in consumer_modules if m == "url-resolver"]
         
         # Generate HTTPx → Katana stream key if Katana is requested
         httpx_to_katana_stream_key = None
@@ -848,11 +853,23 @@ class ScanPipeline:
             self.logger.info(f"📋 Katana stream configuration:")
             self.logger.info(f"   HTTPx → Katana stream: {httpx_to_katana_stream_key}")
         
-        total_consumer_tasks = (len(stage1_consumers) + len(stage2_consumers)) * scale_factor
+        # Generate Katana → url-resolver stream key if url-resolver is requested
+        katana_to_resolver_stream_key = None
+        if "url-resolver" in consumer_modules and "katana" in consumer_modules:
+            katana_to_resolver_stream_key = stream_coordinator.generate_stream_key(
+                scan_job_id=str(producer_job.id),
+                producer_module="katana"
+            )
+            self.logger.info(f"📋 URL Resolver stream configuration:")
+            self.logger.info(f"   Katana → url-resolver stream: {katana_to_resolver_stream_key}")
+        
+        total_consumer_tasks = (len(stage1_consumers) + len(stage2_consumers) + len(stage3_consumers)) * scale_factor
         self.logger.info(f"🚀 Launching streaming pipeline: 1 producer + {total_consumer_tasks} consumer tasks...")
         self.logger.info(f"   Stage 1 consumers: {stage1_consumers} ({scale_factor}x each)")
         if stage2_consumers:
             self.logger.info(f"   Stage 2 consumers: {stage2_consumers} ({scale_factor}x each, chained from HTTPx)")
+        if stage3_consumers:
+            self.logger.info(f"   Stage 3 consumers: {stage3_consumers} ({scale_factor}x each, chained from Katana)")
         
         # Launch producer (Subfinder)
         self.logger.info("   📤 Launching producer (subfinder)...")
@@ -886,7 +903,7 @@ class ScanPipeline:
                     module, 
                     f"{str(consumer_jobs[module].id)[:8]}-{i+1}"
                 )
-                
+            
                 consumer_launch = await batch_workflow_orchestrator.launch_streaming_consumer(
                     consumer_job=consumer_jobs[module],
                     stream_key=stream_key,
@@ -912,6 +929,12 @@ class ScanPipeline:
             self.logger.info(f"      Input: {httpx_to_katana_stream_key} (from HTTPx)")
             self.logger.info(f"      Group: {consumer_group_name}")
             
+            # Katana gets output stream key for url-resolver if url-resolver is in the pipeline
+            stream_output_key = None
+            if module == "katana" and katana_to_resolver_stream_key:
+                stream_output_key = katana_to_resolver_stream_key
+                self.logger.info(f"      Output: {stream_output_key} (→ url-resolver)")
+            
             # Launch scale_factor tasks for this module (all share the same consumer group)
             module_task_arns = []
             for i in range(scale_factor):
@@ -923,6 +946,39 @@ class ScanPipeline:
                 consumer_launch = await batch_workflow_orchestrator.launch_streaming_consumer(
                     consumer_job=consumer_jobs[module],
                     stream_key=httpx_to_katana_stream_key,  # Katana reads from HTTPx output!
+                    consumer_group_name=consumer_group_name,
+                    consumer_name=consumer_name,
+                    stream_output_key=stream_output_key
+                )
+                module_task_arns.append(consumer_launch["task_arn"])
+                if scale_factor > 1:
+                    self.logger.info(f"      ✅ Task {i+1}/{scale_factor}: {consumer_launch['task_arn']}")
+                else:
+                    self.logger.info(f"      ✅ Task: {consumer_launch['task_arn']}")
+            
+            # Store all task ARNs for this module
+            consumer_task_arns[module] = module_task_arns
+        
+        # Launch Stage 3 consumers (read from Katana stream - chained)
+        # url-resolver consumes URLs discovered by Katana for probing and enrichment
+        for module in stage3_consumers:
+            consumer_group_name = stream_coordinator.generate_consumer_group_name(module)
+            
+            self.logger.info(f"   📥 Launching Stage 3 consumer ({module}) - {scale_factor} task(s)...")
+            self.logger.info(f"      Input: {katana_to_resolver_stream_key} (from Katana)")
+            self.logger.info(f"      Group: {consumer_group_name}")
+            
+            # Launch scale_factor tasks for this module (all share the same consumer group)
+            module_task_arns = []
+            for i in range(scale_factor):
+                consumer_name = stream_coordinator.generate_consumer_name(
+                    module,
+                    f"{str(consumer_jobs[module].id)[:8]}-{i+1}"
+                )
+                
+                consumer_launch = await batch_workflow_orchestrator.launch_streaming_consumer(
+                    consumer_job=consumer_jobs[module],
+                    stream_key=katana_to_resolver_stream_key,  # url-resolver reads from Katana output!
                     consumer_group_name=consumer_group_name,
                     consumer_name=consumer_name
                 )
@@ -942,6 +998,9 @@ class ScanPipeline:
         if stage2_consumers:
             stage2_summary = ", ".join([f"{m} ({scale_factor}x)" for m in stage2_consumers])
             self.logger.info(f"   Stage 2: {stage2_summary} (from HTTPx)")
+        if stage3_consumers:
+            stage3_summary = ", ".join([f"{m} ({scale_factor}x)" for m in stage3_consumers])
+            self.logger.info(f"   Stage 3: {stage3_summary} (from Katana)")
         
         # ============================================================
         # STEP 5: Monitor Job Completion (NEW: Polling batch_scan_jobs)
