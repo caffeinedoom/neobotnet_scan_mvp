@@ -1,8 +1,16 @@
 # URL Resolver Implementation Plan
 
 **Created**: December 19, 2025  
-**Status**: Planning  
+**Status**: ✅ Phases 1-5 Complete  
 **Estimated Effort**: ~2 days (12-14 hours)
+
+### Progress
+- ✅ Phase 1: Database Schema (Completed)
+- ✅ Phase 2: Create url-resolver Go container (Completed)
+- ✅ Phase 3: Modify Katana to publish URLs to stream (Completed)
+- ✅ Phase 4: Update orchestrator to integrate url-resolver (Completed)
+- ✅ Phase 5: Frontend 'URLs' Tab (Completed)
+- ⏳ Phase 6: Testing & Documentation (Pending)
 
 ---
 
