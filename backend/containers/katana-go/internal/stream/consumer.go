@@ -28,29 +28,29 @@ type URLMessage struct {
 
 // ConsumerResult holds statistics from stream consumption
 type ConsumerResult struct {
-	URLsReceived      int
-	URLsCrawled       int
-	EndpointsFound    int
-	EndpointsStored   int
-	URLsPublished     int // URLs published to URL Resolver stream
-	ProcessingTime    time.Duration
+	URLsReceived    int
+	URLsCrawled     int
+	EndpointsFound  int
+	EndpointsStored int
+	URLsPublished   int // URLs published to URL Resolver stream
+	ProcessingTime  time.Duration
 }
 
 // Consumer handles Redis stream consumption for Katana
 type Consumer struct {
-	cfg          *config.Config
-	redisClient  *redis.Client
-	ctx          context.Context
-	repo         *database.Repository
-	scanner      *scanner.Scanner
-	logger       *config.Logger
+	cfg         *config.Config
+	redisClient *redis.Client
+	ctx         context.Context
+	repo        *database.Repository
+	scanner     *scanner.Scanner
+	logger      *config.Logger
 }
 
 // NewConsumer creates a new stream consumer
 func NewConsumer(cfg *config.Config, repo *database.Repository, scanner *scanner.Scanner) (*Consumer, error) {
 	// Initialize Redis client
 	redisAddr := fmt.Sprintf("%s:%s", cfg.RedisHost, cfg.RedisPort)
-	
+
 	redisClient := redis.NewClient(&redis.Options{
 		Addr:         redisAddr,
 		Password:     cfg.RedisPassword,
@@ -106,9 +106,9 @@ func (c *Consumer) Consume() (*ConsumerResult, error) {
 	startTime := time.Now()
 
 	// Configurable values
-	batchSize := int64(10)                           // URLs per batch read
-	blockTimeout := 5 * time.Second                  // Block timeout for XREADGROUP
-	maxProcessingTime := 3600 * time.Second          // 1 hour max
+	batchSize := int64(10)                  // URLs per batch read
+	blockTimeout := 5 * time.Second         // Block timeout for XREADGROUP
+	maxProcessingTime := 3600 * time.Second // 1 hour max
 
 	c.logger.Info("Starting stream consumption loop...")
 	c.logger.Info("  • Reading from: %s", c.cfg.StreamInputKey)
@@ -150,12 +150,12 @@ func (c *Consumer) Consume() (*ConsumerResult, error) {
 				// Check if this is a completion marker
 				if c.isCompletionMarker(message.Values) {
 					c.logger.Info("🏁 Completion marker detected from HTTPx!")
-					
+
 					// Log completion marker details
 					if totalResults, ok := message.Values["total_results"]; ok {
 						c.logger.Info("   HTTPx published %v URLs total", totalResults)
 					}
-					
+
 					completionReceived = true
 
 					// ACK the completion marker
@@ -217,8 +217,8 @@ func (c *Consumer) Consume() (*ConsumerResult, error) {
 
 // CrawlResult holds the result of crawling a single URL
 type CrawlResult struct {
-	EndpointsFound    int
-	EndpointsStored   int
+	EndpointsFound     int
+	EndpointsStored    int
 	EndpointsPublished int
 }
 
@@ -305,11 +305,11 @@ func (c *Consumer) publishToURLStream(endpoints []*models.CrawledEndpoint) (int,
 		}
 
 		values := map[string]interface{}{
-			"url":           ep.URL,
-			"asset_id":      ep.AssetID,
-			"scan_job_id":   scanJobID,
-			"source":        "katana",
-			"published_at":  time.Now().UTC().Format(time.RFC3339),
+			"url":          ep.URL,
+			"asset_id":     ep.AssetID,
+			"scan_job_id":  scanJobID,
+			"source":       "katana",
+			"published_at": time.Now().UTC().Format(time.RFC3339),
 		}
 
 		// Add optional fields if present
@@ -367,4 +367,3 @@ func (c *Consumer) sendURLCompletionMarker(totalURLs int) error {
 	c.logger.Info("🏁 Completion marker sent to %s (total: %d URLs)", c.cfg.StreamOutputKey, totalURLs)
 	return nil
 }
-

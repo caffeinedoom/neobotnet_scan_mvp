@@ -4,14 +4,13 @@
  * API functions for fetching URL data from the urls table.
  */
 
-import { createClient } from '@/lib/supabase/client';
+import { supabase } from '@/lib/supabase';
 import type { URLRecord, URLStats, URLQueryParams } from '@/types/urls';
 
 /**
  * Fetch URLs with filtering and pagination
  */
 export async function fetchURLs(params: URLQueryParams = {}): Promise<URLRecord[]> {
-  const supabase = createClient();
   
   let query = supabase
     .from('urls')
@@ -72,7 +71,6 @@ export async function fetchURLs(params: URLQueryParams = {}): Promise<URLRecord[
  * Fetch URL statistics
  */
 export async function fetchURLStats(params: { asset_id?: string } = {}): Promise<URLStats> {
-  const supabase = createClient();
   
   // Base query for counting
   let baseQuery = supabase.from('urls').select('*', { count: 'exact', head: true });
@@ -131,7 +129,6 @@ export async function fetchURLStats(params: { asset_id?: string } = {}): Promise
  * Fetch a single URL by ID
  */
 export async function fetchURLById(id: string): Promise<URLRecord | null> {
-  const supabase = createClient();
   
   const { data, error } = await supabase
     .from('urls')

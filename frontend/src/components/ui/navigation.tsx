@@ -14,7 +14,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
-import { LogOut, User, Globe, Database, Server, Building2, Code2, Link2 } from 'lucide-react';
+import { LogOut, User, Globe, Network, Server, Building2, Code2, Link2 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
@@ -77,7 +77,7 @@ export const Navigation: React.FC = () => {
     {
       href: '/dns',
       label: 'DNS',
-      icon: Database,
+      icon: Network,
       active: pathname.startsWith('/dns')
     },
     {
