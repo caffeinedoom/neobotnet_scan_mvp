@@ -1050,7 +1050,7 @@ CREATE TABLE IF NOT EXISTS "public"."asset_scan_jobs" (
     "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL,
     "parent_scan_id" "uuid",
     CONSTRAINT "valid_domain_counts" CHECK ((("total_domains" >= 0) AND ("completed_domains" >= 0) AND ("completed_domains" <= "total_domains"))),
-    CONSTRAINT "valid_modules" CHECK (("modules" <@ ARRAY['subfinder'::"text", 'dnsx'::"text", 'httpx'::"text", 'katana'::"text"])),
+    CONSTRAINT "valid_modules" CHECK (("modules" <@ ARRAY['subfinder'::"text", 'dnsx'::"text", 'httpx'::"text", 'katana'::"text", 'url-resolver'::"text"])),
     CONSTRAINT "valid_status" CHECK (("status" = ANY (ARRAY['pending'::"text", 'running'::"text", 'completed'::"text", 'failed'::"text", 'cancelled'::"text"])))
 );
 
@@ -1630,6 +1630,96 @@ COMMENT ON VIEW "public"."subdomain_current_dns" IS 'Aggregated view of current 
 
 
 
+CREATE TABLE IF NOT EXISTS "public"."urls" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "asset_id" "uuid" NOT NULL,
+    "scan_job_id" "uuid",
+    "url" "text" NOT NULL,
+    "url_hash" "text" NOT NULL,
+    "domain" "text" NOT NULL,
+    "path" "text",
+    "query_params" "jsonb" DEFAULT '{}'::"jsonb",
+    "sources" "jsonb" DEFAULT '[]'::"jsonb" NOT NULL,
+    "first_discovered_by" "text" NOT NULL,
+    "first_discovered_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "resolved_at" timestamp with time zone,
+    "is_alive" boolean,
+    "status_code" integer,
+    "content_type" "text",
+    "content_length" integer,
+    "response_time_ms" integer,
+    "title" "text",
+    "final_url" "text",
+    "redirect_chain" "jsonb" DEFAULT '[]'::"jsonb",
+    "webserver" "text",
+    "technologies" "jsonb" DEFAULT '[]'::"jsonb",
+    "has_params" boolean GENERATED ALWAYS AS (("query_params" <> '{}'::"jsonb")) STORED,
+    "file_extension" "text",
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    CONSTRAINT "urls_first_discovered_by_check" CHECK (("first_discovered_by" = ANY (ARRAY['katana'::"text", 'waymore'::"text", 'gau'::"text", 'gospider'::"text", 'hakrawler'::"text", 'manual'::"text"])))
+);
+
+
+ALTER TABLE "public"."urls" OWNER TO "postgres";
+
+
+COMMENT ON TABLE "public"."urls" IS 'Stores resolved URLs discovered by various tools (Katana, Waymore, GAU, etc.). Each URL is probed by the URL Resolver to determine if alive and extract metadata. Supports multi-source tracking and TTL-based re-resolution.';
+
+
+
+COMMENT ON COLUMN "public"."urls"."url" IS 'Full normalized URL. Example: https://example.com/api/users?id=123';
+
+
+
+COMMENT ON COLUMN "public"."urls"."url_hash" IS 'SHA256 hash of normalized URL for fast lookups and deduplication.';
+
+
+
+COMMENT ON COLUMN "public"."urls"."domain" IS 'Extracted domain for filtering. Example: example.com';
+
+
+
+COMMENT ON COLUMN "public"."urls"."path" IS 'URL path component. Example: /api/users';
+
+
+
+COMMENT ON COLUMN "public"."urls"."query_params" IS 'Parsed query string as JSON object. Example: {"id": "123", "page": "1"}';
+
+
+
+COMMENT ON COLUMN "public"."urls"."sources" IS 'Array of all tools that discovered this URL. Example: ["katana", "waymore"]';
+
+
+
+COMMENT ON COLUMN "public"."urls"."first_discovered_by" IS 'First tool to discover this URL. Used for attribution.';
+
+
+
+COMMENT ON COLUMN "public"."urls"."resolved_at" IS 'Timestamp of last resolution probe. NULL means never resolved. Used for TTL-based re-probing.';
+
+
+
+COMMENT ON COLUMN "public"."urls"."is_alive" IS 'Whether URL responded successfully. NULL=not checked, true=alive, false=dead.';
+
+
+
+COMMENT ON COLUMN "public"."urls"."status_code" IS 'HTTP response status code from last probe. Common: 200, 301, 404, 403, 500.';
+
+
+
+COMMENT ON COLUMN "public"."urls"."technologies" IS 'Detected technologies from response. Example: ["nginx", "php", "wordpress"]';
+
+
+
+COMMENT ON COLUMN "public"."urls"."has_params" IS 'Auto-computed: true if URL has query parameters. Useful for finding endpoints with inputs.';
+
+
+
+COMMENT ON COLUMN "public"."urls"."file_extension" IS 'Extracted file extension if present. Example: .php, .aspx, .js';
+
+
+
 CREATE TABLE IF NOT EXISTS "public"."user_quotas" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
     "user_id" "uuid" NOT NULL,
@@ -1808,6 +1898,16 @@ ALTER TABLE ONLY "public"."user_quotas"
 
 ALTER TABLE ONLY "public"."user_usage"
     ADD CONSTRAINT "unique_user_usage" UNIQUE ("user_id");
+
+
+
+ALTER TABLE ONLY "public"."urls"
+    ADD CONSTRAINT "urls_asset_url_unique" UNIQUE ("asset_id", "url_hash");
+
+
+
+ALTER TABLE ONLY "public"."urls"
+    ADD CONSTRAINT "urls_pkey" PRIMARY KEY ("id");
 
 
 
@@ -2113,6 +2213,54 @@ CREATE INDEX "idx_subdomains_subdomain" ON "public"."subdomains" USING "btree" (
 
 
 
+CREATE INDEX "idx_urls_asset_id" ON "public"."urls" USING "btree" ("asset_id");
+
+
+
+CREATE UNIQUE INDEX "idx_urls_asset_url_hash" ON "public"."urls" USING "btree" ("asset_id", "url_hash");
+
+
+
+CREATE INDEX "idx_urls_created_at" ON "public"."urls" USING "btree" ("created_at" DESC);
+
+
+
+CREATE INDEX "idx_urls_domain" ON "public"."urls" USING "btree" ("domain");
+
+
+
+CREATE INDEX "idx_urls_file_extension" ON "public"."urls" USING "btree" ("file_extension");
+
+
+
+CREATE INDEX "idx_urls_first_discovered_at" ON "public"."urls" USING "btree" ("first_discovered_at" DESC);
+
+
+
+CREATE INDEX "idx_urls_first_discovered_by" ON "public"."urls" USING "btree" ("first_discovered_by");
+
+
+
+CREATE INDEX "idx_urls_has_params" ON "public"."urls" USING "btree" ("has_params");
+
+
+
+CREATE INDEX "idx_urls_is_alive" ON "public"."urls" USING "btree" ("is_alive");
+
+
+
+CREATE INDEX "idx_urls_resolved_at" ON "public"."urls" USING "btree" ("resolved_at" DESC);
+
+
+
+CREATE INDEX "idx_urls_scan_job_id" ON "public"."urls" USING "btree" ("scan_job_id");
+
+
+
+CREATE INDEX "idx_urls_status_code" ON "public"."urls" USING "btree" ("status_code");
+
+
+
 CREATE INDEX "idx_user_quotas_user_id" ON "public"."user_quotas" USING "btree" ("user_id");
 
 
@@ -2300,6 +2448,16 @@ ALTER TABLE ONLY "public"."subdomains"
 
 
 
+ALTER TABLE ONLY "public"."urls"
+    ADD CONSTRAINT "urls_asset_id_fkey" FOREIGN KEY ("asset_id") REFERENCES "public"."assets"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."urls"
+    ADD CONSTRAINT "urls_scan_job_id_fkey" FOREIGN KEY ("scan_job_id") REFERENCES "public"."batch_scan_jobs"("id") ON DELETE SET NULL;
+
+
+
 ALTER TABLE ONLY "public"."user_quotas"
     ADD CONSTRAINT "user_quotas_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "auth"."users"("id") ON DELETE CASCADE;
 
@@ -2355,6 +2513,10 @@ CREATE POLICY "Authenticated users can read all subdomains" ON "public"."subdoma
 
 
 COMMENT ON POLICY "Authenticated users can read all subdomains" ON "public"."subdomains" IS 'LEAN model: All authenticated users can read all reconnaissance data. Part of public data sharing for bug bounty researchers.';
+
+
+
+CREATE POLICY "Authenticated users can read all urls" ON "public"."urls" FOR SELECT USING ((("auth"."role"() = 'authenticated'::"text") OR ("auth"."role"() = 'service_role'::"text")));
 
 
 
@@ -2554,6 +2716,12 @@ CREATE POLICY "Users can view their own scans" ON "public"."scans" FOR SELECT US
 
 
 
+CREATE POLICY "Users can view their own urls" ON "public"."urls" FOR SELECT USING ((EXISTS ( SELECT 1
+   FROM "public"."assets"
+  WHERE (("assets"."id" = "urls"."asset_id") AND ("assets"."user_id" = "auth"."uid"())))));
+
+
+
 ALTER TABLE "public"."apex_domains" ENABLE ROW LEVEL SECURITY;
 
 
@@ -2585,6 +2753,9 @@ ALTER TABLE "public"."scans" ENABLE ROW LEVEL SECURITY;
 
 
 ALTER TABLE "public"."subdomains" ENABLE ROW LEVEL SECURITY;
+
+
+ALTER TABLE "public"."urls" ENABLE ROW LEVEL SECURITY;
 
 
 ALTER TABLE "public"."user_quotas" ENABLE ROW LEVEL SECURITY;
@@ -2825,6 +2996,12 @@ GRANT ALL ON TABLE "public"."scans_with_assets" TO "service_role";
 GRANT ALL ON TABLE "public"."subdomain_current_dns" TO "anon";
 GRANT ALL ON TABLE "public"."subdomain_current_dns" TO "authenticated";
 GRANT ALL ON TABLE "public"."subdomain_current_dns" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."urls" TO "anon";
+GRANT ALL ON TABLE "public"."urls" TO "authenticated";
+GRANT ALL ON TABLE "public"."urls" TO "service_role";
 
 
 
