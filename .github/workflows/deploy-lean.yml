@@ -31,6 +31,7 @@ env:
   ECR_DNSX: neobotnet-v2-dev-dnsx
   ECR_HTTPX: neobotnet-v2-dev-httpx
   ECR_KATANA: neobotnet-v2-dev-katana
+  ECR_TYVT: neobotnet-v2-dev-tyvt
 
 jobs:
   # ================================================================
@@ -46,6 +47,7 @@ jobs:
       dnsx: ${{ steps.changes.outputs.dnsx }}
       httpx: ${{ steps.changes.outputs.httpx }}
       katana: ${{ steps.changes.outputs.katana }}
+      tyvt: ${{ steps.changes.outputs.tyvt }}
       infrastructure: ${{ steps.changes.outputs.infrastructure }}
       skip: ${{ steps.changes.outputs.skip }}
     
@@ -69,6 +71,7 @@ jobs:
           echo "dnsx=true" >> $GITHUB_OUTPUT
           echo "httpx=true" >> $GITHUB_OUTPUT
           echo "katana=true" >> $GITHUB_OUTPUT
+          echo "tyvt=true" >> $GITHUB_OUTPUT
           echo "infrastructure=true" >> $GITHUB_OUTPUT
           echo "skip=false" >> $GITHUB_OUTPUT
           exit 0
@@ -82,6 +85,7 @@ jobs:
         DNSX=$(echo "$CHANGED" | grep -q "^backend/containers/dnsx-go" && echo true || echo false)
         HTTPX=$(echo "$CHANGED" | grep -q "^backend/containers/httpx-go" && echo true || echo false)
         KATANA=$(echo "$CHANGED" | grep -q "^backend/containers/katana-go" && echo true || echo false)
+        TYVT=$(echo "$CHANGED" | grep -q "^backend/containers/tyvt-go" && echo true || echo false)
         INFRA=$(echo "$CHANGED" | grep -q "^infrastructure\|^.github/workflows" && echo true || echo false)
         
         # Check if only docs changed
@@ -99,10 +103,11 @@ jobs:
         echo "dnsx=$DNSX" >> $GITHUB_OUTPUT
         echo "httpx=$HTTPX" >> $GITHUB_OUTPUT
         echo "katana=$KATANA" >> $GITHUB_OUTPUT
+        echo "tyvt=$TYVT" >> $GITHUB_OUTPUT
         echo "infrastructure=$INFRA" >> $GITHUB_OUTPUT
         echo "skip=$SKIP" >> $GITHUB_OUTPUT
         
-        echo "📊 Changes: backend=$BACKEND orchestrator=$ORCHESTRATOR subfinder=$SUBFINDER dnsx=$DNSX httpx=$HTTPX katana=$KATANA infra=$INFRA skip=$SKIP"
+        echo "📊 Changes: backend=$BACKEND orchestrator=$ORCHESTRATOR subfinder=$SUBFINDER dnsx=$DNSX httpx=$HTTPX katana=$KATANA tyvt=$TYVT infra=$INFRA skip=$SKIP"
 
   # ================================================================
   # Job 2: Build Containers
@@ -189,6 +194,16 @@ jobs:
         docker push ${{ steps.ecr.outputs.registry }}/$ECR_KATANA:${{ github.sha }}
         docker push ${{ steps.ecr.outputs.registry }}/$ECR_KATANA:latest
         echo "✅ Katana built"
+        
+    - name: Build TYVT
+      if: needs.detect-changes.outputs.tyvt == 'true'
+      run: |
+        cd backend/containers/tyvt-go
+        docker build -t ${{ steps.ecr.outputs.registry }}/$ECR_TYVT:${{ github.sha }} .
+        docker tag ${{ steps.ecr.outputs.registry }}/$ECR_TYVT:${{ github.sha }} ${{ steps.ecr.outputs.registry }}/$ECR_TYVT:latest
+        docker push ${{ steps.ecr.outputs.registry }}/$ECR_TYVT:${{ github.sha }}
+        docker push ${{ steps.ecr.outputs.registry }}/$ECR_TYVT:latest
+        echo "✅ TYVT built"
 
   # ================================================================
   # Job 3: Deploy Infrastructure
@@ -293,6 +308,7 @@ jobs:
         echo "  DNSx: ${{ needs.detect-changes.outputs.dnsx }}"
         echo "  HTTPx: ${{ needs.detect-changes.outputs.httpx }}"
         echo "  Katana: ${{ needs.detect-changes.outputs.katana }}"
+        echo "  TYVT: ${{ needs.detect-changes.outputs.tyvt }}"
         echo ""
         echo "🔗 Endpoints:"
         echo "  API: https://aldous-api.neobotnet.com"

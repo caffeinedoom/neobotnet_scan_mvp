@@ -1791,6 +1791,47 @@ CREATE OR REPLACE VIEW "public"."user_usage_overview" AS
 ALTER VIEW "public"."user_usage_overview" OWNER TO "postgres";
 
 
+CREATE TABLE IF NOT EXISTS "public"."vt_discovered_urls" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "scan_job_id" "uuid" NOT NULL,
+    "asset_id" "uuid" NOT NULL,
+    "subdomain" "text" NOT NULL,
+    "url" "text" NOT NULL,
+    "positives" integer DEFAULT 0,
+    "total" integer DEFAULT 0,
+    "vt_scan_date" "text",
+    "source" "text" DEFAULT 'virustotal'::"text",
+    "discovered_at" timestamp with time zone DEFAULT "now"() NOT NULL
+);
+
+
+ALTER TABLE "public"."vt_discovered_urls" OWNER TO "postgres";
+
+
+COMMENT ON TABLE "public"."vt_discovered_urls" IS 'URLs discovered from VirusTotal domain reports - historical paths for recon';
+
+
+
+COMMENT ON COLUMN "public"."vt_discovered_urls"."subdomain" IS 'The subdomain that was queried (e.g., api.example.com)';
+
+
+
+COMMENT ON COLUMN "public"."vt_discovered_urls"."url" IS 'The discovered URL from VT undetected_urls';
+
+
+
+COMMENT ON COLUMN "public"."vt_discovered_urls"."positives" IS 'Number of AV engines that detected this URL as malicious';
+
+
+
+COMMENT ON COLUMN "public"."vt_discovered_urls"."total" IS 'Total number of AV engines that scanned this URL';
+
+
+
+COMMENT ON COLUMN "public"."vt_discovered_urls"."vt_scan_date" IS 'When VirusTotal originally scanned this URL';
+
+
+
 ALTER TABLE ONLY "public"."apex_domains"
     ADD CONSTRAINT "apex_domains_pkey" PRIMARY KEY ("id");
 
@@ -1918,6 +1959,16 @@ ALTER TABLE ONLY "public"."user_quotas"
 
 ALTER TABLE ONLY "public"."user_usage"
     ADD CONSTRAINT "user_usage_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."vt_discovered_urls"
+    ADD CONSTRAINT "vt_discovered_urls_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."vt_discovered_urls"
+    ADD CONSTRAINT "vt_discovered_urls_unique" UNIQUE ("url", "asset_id");
 
 
 
@@ -2273,6 +2324,22 @@ CREATE INDEX "idx_user_usage_user_id" ON "public"."user_usage" USING "btree" ("u
 
 
 
+CREATE INDEX "idx_vt_discovered_urls_asset_id" ON "public"."vt_discovered_urls" USING "btree" ("asset_id");
+
+
+
+CREATE INDEX "idx_vt_discovered_urls_discovered_at" ON "public"."vt_discovered_urls" USING "btree" ("discovered_at" DESC);
+
+
+
+CREATE INDEX "idx_vt_discovered_urls_scan_job_id" ON "public"."vt_discovered_urls" USING "btree" ("scan_job_id");
+
+
+
+CREATE INDEX "idx_vt_discovered_urls_subdomain" ON "public"."vt_discovered_urls" USING "btree" ("asset_id", "subdomain");
+
+
+
 CREATE OR REPLACE VIEW "public"."scans_with_assets" AS
  SELECT "s"."id",
     "s"."user_id",
@@ -2468,6 +2535,11 @@ ALTER TABLE ONLY "public"."user_usage"
 
 
 
+ALTER TABLE ONLY "public"."vt_discovered_urls"
+    ADD CONSTRAINT "vt_discovered_urls_asset_id_fkey" FOREIGN KEY ("asset_id") REFERENCES "public"."assets"("id") ON DELETE CASCADE;
+
+
+
 CREATE POLICY "Authenticated users can read all DNS records" ON "public"."dns_records" FOR SELECT USING ((("auth"."role"() = 'authenticated'::"text") OR ("auth"."role"() = 'service_role'::"text")));
 
 
@@ -2577,6 +2649,10 @@ CREATE POLICY "Service role full access to API keys" ON "public"."api_keys" USIN
 
 
 CREATE POLICY "Service role full access usage" ON "public"."user_usage" USING (("auth"."role"() = 'service_role'::"text"));
+
+
+
+CREATE POLICY "Service role has full access" ON "public"."vt_discovered_urls" USING (("auth"."role"() = 'service_role'::"text"));
 
 
 
@@ -2706,6 +2782,12 @@ CREATE POLICY "Users can view their own crawled endpoints" ON "public"."crawled_
 
 
 
+CREATE POLICY "Users can view their own discovered URLs" ON "public"."vt_discovered_urls" FOR SELECT USING (("asset_id" IN ( SELECT "assets"."id"
+   FROM "public"."assets"
+  WHERE ("assets"."user_id" = "auth"."uid"()))));
+
+
+
 CREATE POLICY "Users can view their own http_probes" ON "public"."http_probes" FOR SELECT USING (("scan_job_id" IN ( SELECT "asset_scan_jobs"."id"
    FROM "public"."asset_scan_jobs"
   WHERE ("asset_scan_jobs"."user_id" = "auth"."uid"()))));
@@ -2762,6 +2844,9 @@ ALTER TABLE "public"."user_quotas" ENABLE ROW LEVEL SECURITY;
 
 
 ALTER TABLE "public"."user_usage" ENABLE ROW LEVEL SECURITY;
+
+
+ALTER TABLE "public"."vt_discovered_urls" ENABLE ROW LEVEL SECURITY;
 
 
 GRANT USAGE ON SCHEMA "public" TO "postgres";
@@ -3020,6 +3105,12 @@ GRANT ALL ON TABLE "public"."user_usage" TO "service_role";
 GRANT ALL ON TABLE "public"."user_usage_overview" TO "anon";
 GRANT ALL ON TABLE "public"."user_usage_overview" TO "authenticated";
 GRANT ALL ON TABLE "public"."user_usage_overview" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."vt_discovered_urls" TO "anon";
+GRANT ALL ON TABLE "public"."vt_discovered_urls" TO "authenticated";
+GRANT ALL ON TABLE "public"."vt_discovered_urls" TO "service_role";
 
 
 

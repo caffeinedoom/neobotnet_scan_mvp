@@ -664,6 +664,10 @@ resource "aws_ecs_task_definition" "orchestrator" {
         {
           name  = "KATANA_TASK_DEFINITION"
           value = aws_ecs_task_definition.katana.arn
+        },
+        {
+          name  = "TYVT_TASK_DEFINITION"
+          value = aws_ecs_task_definition.tyvt.arn
         }
       ]
 
@@ -706,6 +710,130 @@ resource "aws_ecs_task_definition" "orchestrator" {
 
   tags = merge(local.common_tags, {
     Name = "${local.name_prefix}-orchestrator-task"
+  })
+}
+
+# ================================================================
+# TYVT - VIRUSTOTAL DOMAIN SCANNER
+# ================================================================
+# TYVT queries VirusTotal for each subdomain to discover historical URLs.
+# - Consumes from HTTPx Redis Stream (resolved hosts)
+# - Runs in parallel with Katana
+# - Rate limited: 4 req/min per key, 500/day, 15,500/month
+# - Supports API key rotation
+# Cost: ~$0.004/run (minimal CPU, I/O bound)
+
+resource "aws_ecr_repository" "tyvt" {
+  name                 = "${local.name_prefix}-tyvt"
+  image_tag_mutability = "MUTABLE"
+
+  image_scanning_configuration {
+    scan_on_push = true
+  }
+
+  lifecycle {
+    prevent_destroy = true
+  }
+
+  tags = merge(local.common_tags, {
+    Name = "${local.name_prefix}-tyvt-ecr"
+  })
+}
+
+# TYVT ECS Task Definition
+resource "aws_ecs_task_definition" "tyvt" {
+  family                   = "${local.name_prefix}-tyvt-batch"
+  network_mode             = "awsvpc"
+  requires_compatibilities = ["FARGATE"]
+  cpu                      = 256   # I/O bound (VT API calls)
+  memory                   = 512   # Minimal memory needed
+  execution_role_arn       = aws_iam_role.ecs_task_execution_role.arn
+  task_role_arn            = aws_iam_role.ecs_task_role.arn
+
+  container_definitions = jsonencode([
+    {
+      name      = "tyvt-scanner"
+      image     = "${aws_ecr_repository.tyvt.repository_url}:latest"
+      essential = true
+
+      environment = [
+        {
+          name  = "MODULE_TYPE"
+          value = "tyvt"
+        },
+        {
+          name  = "BATCH_MODE"
+          value = "true"
+        },
+        {
+          name  = "LOG_LEVEL"
+          value = "info"
+        },
+        {
+          name  = "REDIS_HOST"
+          value = aws_elasticache_cluster.redis.cache_nodes[0].address
+        },
+        {
+          name  = "REDIS_PORT"
+          value = tostring(aws_elasticache_cluster.redis.cache_nodes[0].port)
+        },
+        # Rate limiting configuration (preserve original throttle)
+        {
+          name  = "VT_ROTATION_INTERVAL"
+          value = "15s"
+        },
+        {
+          name  = "VT_RATE_LIMIT_DELAY"
+          value = "15s"
+        }
+      ]
+
+      secrets = [
+        {
+          name      = "SUPABASE_URL"
+          valueFrom = data.aws_ssm_parameter.supabase_url.arn
+        },
+        {
+          name      = "SUPABASE_SERVICE_ROLE_KEY"
+          valueFrom = data.aws_ssm_parameter.supabase_service_role_key.arn
+        },
+        {
+          name      = "VT_API_KEYS"
+          valueFrom = data.aws_ssm_parameter.virustotal_api_keys.arn
+        }
+      ]
+
+      # Resource limits (container memory < task memory)
+      memory = 480
+      cpu    = 256
+
+      # Logging configuration
+      logConfiguration = {
+        logDriver = "awslogs"
+        options = {
+          awslogs-group         = aws_cloudwatch_log_group.ecs.name
+          awslogs-region        = var.aws_region
+          awslogs-stream-prefix = "tyvt"
+        }
+      }
+
+      # Health check
+      healthCheck = {
+        command     = ["CMD-SHELL", "echo 'TYVT ready' || exit 1"]
+        interval    = 30
+        timeout     = 15
+        retries     = 3
+        startPeriod = 10
+      }
+
+      # Security
+      readonlyRootFilesystem = false
+      user                  = "1001:1001"
+    }
+  ])
+
+  tags = merge(local.common_tags, {
+    Name = "${local.name_prefix}-tyvt-task"
   })
 }
 

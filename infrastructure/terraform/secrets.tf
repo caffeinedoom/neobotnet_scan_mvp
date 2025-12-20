@@ -28,6 +28,13 @@ data "aws_ssm_parameter" "jwt_secret_key" {
   with_decryption = true
 }
 
+# VirusTotal API Keys for TYVT module
+# Store as comma-separated list: key1,key2,key3
+data "aws_ssm_parameter" "virustotal_api_keys" {
+  name            = "/${local.name_prefix}/virustotal-api-keys"
+  with_decryption = true
+}
+
 # ================================================================
 # LOCAL VALUES - Reference secrets throughout Terraform
 # ================================================================

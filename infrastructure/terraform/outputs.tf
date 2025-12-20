@@ -185,6 +185,25 @@ output "katana_task_definition_family" {
 }
 
 # ================================================================
+# TYVT VirusTotal Scanner Outputs
+# ================================================================
+
+output "tyvt_ecr_repository_url" {
+  description = "ECR repository URL for TYVT container"
+  value       = aws_ecr_repository.tyvt.repository_url
+}
+
+output "tyvt_task_definition_arn" {
+  description = "ARN of the TYVT ECS task definition"
+  value       = aws_ecs_task_definition.tyvt.arn
+}
+
+output "tyvt_task_definition_family" {
+  description = "Family name of the TYVT ECS task definition"
+  value       = aws_ecs_task_definition.tyvt.family
+}
+
+# ================================================================
 # Orchestrator CLI Outputs
 # ================================================================ 
 
