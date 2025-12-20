@@ -3,14 +3,13 @@
 # Tests database operations with real Supabase connection
 #
 # Prerequisites:
-#   - SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be set
+#   - .env.dev file in project root with SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY
+#   - OR environment variables set manually
 #   - A test asset must exist in the database
 #
 # Usage:
-#   export SUPABASE_URL=https://xxx.supabase.co
-#   export SUPABASE_SERVICE_ROLE_KEY=xxx
-#   export TEST_ASSET_ID=<uuid-of-existing-asset>
-#   ./test_db.sh
+#   ./test_db.sh                     # Uses .env.dev from project root
+#   ./test_db.sh /path/to/.env.dev   # Uses specified env file
 
 set -e
 
@@ -18,20 +17,56 @@ echo "🧪 URL Resolver Database Test"
 echo "=============================="
 echo ""
 
+# Find project root (look for .env.dev)
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
+
+# Source .env.dev if it exists
+ENV_FILE="${1:-$PROJECT_ROOT/.env.dev}"
+if [ -f "$ENV_FILE" ]; then
+    echo "📄 Loading environment from: $ENV_FILE"
+    set -a
+    source "$ENV_FILE"
+    set +a
+    echo "✅ Environment loaded"
+    echo ""
+else
+    echo "ℹ️  No .env.dev found at $ENV_FILE, using existing environment"
+    echo ""
+fi
+
 # Check required environment variables
 if [ -z "$SUPABASE_URL" ]; then
     echo "❌ Error: SUPABASE_URL is not set"
-    echo "   export SUPABASE_URL=https://xxx.supabase.co"
+    echo "   Create .env.dev or export SUPABASE_URL=https://xxx.supabase.co"
     exit 1
 fi
 
 if [ -z "$SUPABASE_SERVICE_ROLE_KEY" ]; then
     echo "❌ Error: SUPABASE_SERVICE_ROLE_KEY is not set"
-    echo "   export SUPABASE_SERVICE_ROLE_KEY=xxx"
+    echo "   Create .env.dev or export SUPABASE_SERVICE_ROLE_KEY=xxx"
     exit 1
 fi
 
-# Use provided asset ID or generate a test one
+# Fetch an existing asset ID from the database if not provided
+if [ -z "$TEST_ASSET_ID" ]; then
+    echo "🔍 Fetching an existing asset from database..."
+    ASSET_RESPONSE=$(curl -s "$SUPABASE_URL/rest/v1/assets?select=id,name&limit=1" \
+      -H "apikey: $SUPABASE_SERVICE_ROLE_KEY" \
+      -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY")
+    
+    # Extract first asset ID
+    TEST_ASSET_ID=$(echo "$ASSET_RESPONSE" | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
+    ASSET_NAME=$(echo "$ASSET_RESPONSE" | grep -o '"name":"[^"]*"' | head -1 | cut -d'"' -f4)
+    
+    if [ -n "$TEST_ASSET_ID" ]; then
+        echo "✅ Found asset: $ASSET_NAME ($TEST_ASSET_ID)"
+    else
+        echo "⚠️  No assets found in database. Creating test without asset..."
+    fi
+    echo ""
+fi
+
 ASSET_ID="${TEST_ASSET_ID:-aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa}"
 SCAN_JOB_ID="test-db-$(date +%s)"
 
@@ -78,30 +113,30 @@ echo "----------------------------------------"
 echo "See test_redis.sh for Redis streaming tests"
 echo ""
 
-# Test direct API insert if asset exists
-if [ "$TEST_ASSET_ID" != "" ]; then
+# Test direct API insert if we have a valid asset ID
+if [ "$ASSET_ID" != "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa" ]; then
     echo "🔬 Testing direct Supabase insert..."
     
     TEST_URL="https://test-$(date +%s).example.com/path?id=123"
     TEST_HASH=$(echo -n "$TEST_URL" | sha256sum | cut -d' ' -f1)
     
+    # Note: has_params is a generated column, so we don't include it
     RESPONSE=$(curl -s -X POST "$SUPABASE_URL/rest/v1/urls" \
       -H "apikey: $SUPABASE_SERVICE_ROLE_KEY" \
       -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
       -H "Content-Type: application/json" \
       -H "Prefer: return=representation" \
       -d "{
-        \"asset_id\": \"$TEST_ASSET_ID\",
+        \"asset_id\": \"$ASSET_ID\",
         \"url\": \"$TEST_URL\",
         \"url_hash\": \"$TEST_HASH\",
         \"domain\": \"test.example.com\",
         \"path\": \"/path\",
         \"query_params\": {\"id\": \"123\"},
-        \"sources\": [\"test\"],
-        \"first_discovered_by\": \"test-script\",
+        \"sources\": [\"katana\"],
+        \"first_discovered_by\": \"katana\",
         \"is_alive\": true,
-        \"status_code\": 200,
-        \"has_params\": true
+        \"status_code\": 200
       }")
     
     if echo "$RESPONSE" | grep -q '"id"'; then
