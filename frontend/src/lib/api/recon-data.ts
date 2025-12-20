@@ -15,6 +15,7 @@ export interface ReconSummary {
   failed_scans: number;
   pending_scans: number;
   total_subdomains: number;
+  total_probes: number;
   last_scan_date?: string;
 }
 
@@ -35,6 +36,7 @@ export interface ReconAsset {
   failed_scans: number;
   pending_scans: number;
   total_subdomains: number;
+  total_probes: number;
   last_scan_date?: string;
 }
 

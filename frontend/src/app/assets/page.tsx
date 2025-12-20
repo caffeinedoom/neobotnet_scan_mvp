@@ -46,7 +46,8 @@ export default function AssetsPage() {
     completed_scans: 0,
     failed_scans: 0,
     pending_scans: 0,
-    total_subdomains: 0
+    total_subdomains: 0,
+    total_probes: 0
   });
 
   useEffect(() => {
@@ -85,7 +86,8 @@ export default function AssetsPage() {
         completed_scans: 0,
         failed_scans: 0,
         pending_scans: 0,
-        total_subdomains: 0
+        total_subdomains: 0,
+        total_probes: 0
       });
     } finally {
       setLoading(false);

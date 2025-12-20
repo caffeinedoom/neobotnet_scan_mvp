@@ -214,7 +214,7 @@ export default function ProgramsPage() {
                         <div className="flex items-center justify-center gap-1 mb-1">
                           <Wifi className="h-3 w-3 text-muted-foreground" />
                         </div>
-                        <div className="text-lg font-bold font-mono text-muted-foreground">—</div>
+                        <div className="text-lg font-bold font-mono text-foreground">{(program.total_probes || 0).toLocaleString()}</div>
                         <div className="text-[10px] text-muted-foreground uppercase tracking-wider">servers</div>
                       </div>
                     </div>

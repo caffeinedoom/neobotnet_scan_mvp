@@ -26,6 +26,7 @@ export default function DashboardPage() {
     failed_scans: 0,
     pending_scans: 0,
     total_subdomains: 0,
+    total_probes: 0,
     last_scan_date: undefined
   });
 
@@ -61,6 +62,7 @@ export default function DashboardPage() {
         failed_scans: 0,
         pending_scans: 0,
         total_subdomains: 0,
+        total_probes: 0,
         last_scan_date: undefined
       });
     } finally {
