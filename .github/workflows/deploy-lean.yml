@@ -145,10 +145,10 @@ jobs:
     - name: Build Orchestrator
       if: needs.detect-changes.outputs.orchestrator == 'true' || needs.detect-changes.outputs.backend == 'true'
       run: |
-        cd cli/orchestrator
-        # Build orchestrator using backend as base
+        # Build orchestrator from project root (Dockerfile expects cli/orchestrator/main.py path)
         docker build \
           --build-arg ECR_REGISTRY=${{ steps.ecr.outputs.registry }} \
+          -f cli/orchestrator/Dockerfile \
           -t ${{ steps.ecr.outputs.registry }}/$ECR_ORCHESTRATOR:${{ github.sha }} .
         docker tag ${{ steps.ecr.outputs.registry }}/$ECR_ORCHESTRATOR:${{ github.sha }} ${{ steps.ecr.outputs.registry }}/$ECR_ORCHESTRATOR:latest
         docker push ${{ steps.ecr.outputs.registry }}/$ECR_ORCHESTRATOR:${{ github.sha }}
