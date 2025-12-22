@@ -17,7 +17,8 @@ import {
   Search, 
   Globe,
   Server,
-  Calendar
+  Calendar,
+  CircleDot
 } from 'lucide-react';
 import Link from 'next/link';
 import { reconDataService, type ReconAsset } from '@/lib/api/recon-data';
@@ -198,14 +199,14 @@ export default function ProgramsPage() {
                     <div className="grid grid-cols-3 gap-3 mb-4">
                       <div className="text-center">
                         <div className="flex items-center justify-center gap-1 mb-1">
-                          <Globe className="h-3 w-3 text-muted-foreground" />
+                          <CircleDot className="h-3 w-3 text-muted-foreground" />
                         </div>
                         <div className="text-lg font-bold font-mono text-foreground">{program.apex_domain_count || 0}</div>
                         <div className="text-[10px] text-muted-foreground uppercase tracking-wider">domains</div>
                       </div>
                       <div className="text-center">
                         <div className="flex items-center justify-center gap-1 mb-1">
-                          <Search className="h-3 w-3 text-muted-foreground" />
+                          <Globe className="h-3 w-3 text-muted-foreground" />
                         </div>
                         <div className="text-lg font-bold font-mono text-foreground">{(program.total_subdomains || 0).toLocaleString()}</div>
                         <div className="text-[10px] text-muted-foreground uppercase tracking-wider">subdomains</div>

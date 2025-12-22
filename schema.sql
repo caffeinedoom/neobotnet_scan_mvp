@@ -1050,7 +1050,7 @@ CREATE TABLE IF NOT EXISTS "public"."asset_scan_jobs" (
     "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL,
     "parent_scan_id" "uuid",
     CONSTRAINT "valid_domain_counts" CHECK ((("total_domains" >= 0) AND ("completed_domains" >= 0) AND ("completed_domains" <= "total_domains"))),
-    CONSTRAINT "valid_modules" CHECK (("modules" <@ ARRAY['subfinder'::"text", 'dnsx'::"text", 'httpx'::"text", 'katana'::"text", 'url-resolver'::"text"])),
+    CONSTRAINT "valid_modules" CHECK (("modules" <@ ARRAY['subfinder'::"text", 'dnsx'::"text", 'httpx'::"text", 'katana'::"text", 'url-resolver'::"text", 'tyvt'::"text"])),
     CONSTRAINT "valid_status" CHECK (("status" = ANY (ARRAY['pending'::"text", 'running'::"text", 'completed'::"text", 'failed'::"text", 'cancelled'::"text"])))
 );
 
@@ -1059,6 +1059,10 @@ ALTER TABLE "public"."asset_scan_jobs" OWNER TO "postgres";
 
 
 COMMENT ON COLUMN "public"."asset_scan_jobs"."parent_scan_id" IS 'Links to parent scan (for multi-asset operations)';
+
+
+
+COMMENT ON CONSTRAINT "valid_modules" ON "public"."asset_scan_jobs" IS 'Validates that all requested modules are in the allowed list. Updated 2025-12-20 to include tyvt (VirusTotal Domain Scanner).';
 
 
 

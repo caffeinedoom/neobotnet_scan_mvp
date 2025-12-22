@@ -33,3 +33,5 @@ COMMENT ON CONSTRAINT valid_modules ON asset_scan_jobs IS
 -- Expected output:
 -- valid_modules | CHECK ((modules <@ ARRAY['subfinder'::text, 'dnsx'::text, 'httpx'::text, 'katana'::text, 'url-resolver'::text, 'tyvt'::text]))
 
+
+
