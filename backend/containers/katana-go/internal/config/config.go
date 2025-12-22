@@ -93,8 +93,10 @@ func LoadConfig() (*Config, error) {
 		// Katana defaults (can be overridden)
 		// HeadlessMode enables Chrome-based crawling for JavaScript rendering
 		// Uses --no-sandbox for Fargate/Docker compatibility
+		// DISABLED: go-rod panic in WaitDOMStable with zero interval (2025-12-22)
+		// TODO: Re-enable once Katana SDK/go-rod issue is resolved
 		CrawlDepth:   getEnvInt("CRAWL_DEPTH", 1),
-		HeadlessMode: getEnvBool("HEADLESS_MODE", true),
+		HeadlessMode: getEnvBool("HEADLESS_MODE", false),
 		RateLimit:    getEnvInt("RATE_LIMIT", 150),
 		Concurrency:  getEnvInt("CONCURRENCY", 10),
 		Parallelism:  getEnvInt("PARALLELISM", 10),
