@@ -22,11 +22,15 @@ class ReconModule(str, Enum):
     
     UPDATE (2025-12-17):
     - Added KATANA for web crawling discovered HTTP endpoints
+    
+    UPDATE (2025-12-22):
+    - Added URL_RESOLVER for probing and enriching discovered URLs
     """
     SUBFINDER = "subfinder"
     DNSX = "dnsx"  # DNS resolution for discovered subdomains
     HTTPX = "httpx"  # HTTP probing for discovered subdomains
     KATANA = "katana"  # Web crawling for discovered HTTP endpoints
+    URL_RESOLVER = "url-resolver"  # URL probing and enrichment
     
     # Future modules (uncomment when implemented):
     # DNS_BRUTEFORCE = "dns_bruteforce"
