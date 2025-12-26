@@ -311,110 +311,129 @@ function ProbesPageContent() {
       )}
 
       {/* Filters */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base flex items-center gap-2">
-            <Filter className="h-4 w-4" />
-            Filters
-          </CardTitle>
-          <CardDescription>
-            Filter and search HTTP probes
-          </CardDescription>
+      <Card className="border border-border bg-card">
+        <CardHeader className="pb-4">
+          <CardTitle className="text-base font-mono">filters</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-6">
           {/* Search */}
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              type="text"
-              placeholder="Search by URL, subdomain, title, or server..."
-              value={searchQuery}
-              onChange={(e) => updateURLParams({ search: e.target.value })}
-              className="pl-10"
-            />
+          <div className="space-y-2">
+            <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+              Search
+            </label>
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                type="text"
+                placeholder="search by URL, subdomain, title, or server..."
+                value={searchQuery}
+                onChange={(e) => updateURLParams({ search: e.target.value })}
+                className="pl-10 font-mono bg-background border-border hover:border-[--terminal-green]/50 focus:border-[--terminal-green] transition-colors"
+              />
+            </div>
           </div>
 
           {/* Filter Row */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             {/* Asset Filter */}
-            <Select
-              value={assetIdParam || 'all'}
-              onValueChange={(value) =>
-                updateURLParams({ asset_id: value === 'all' ? null : value })
-              }
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="All Assets" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Assets</SelectItem>
-                {availableAssets.map((asset) => (
-                  <SelectItem key={asset.id} value={asset.id}>
-                    {asset.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div className="space-y-2">
+              <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                Program
+              </label>
+              <Select
+                value={assetIdParam || 'all'}
+                onValueChange={(value) =>
+                  updateURLParams({ asset_id: value === 'all' ? null : value })
+                }
+              >
+                <SelectTrigger className="font-mono bg-background border-border hover:border-[--terminal-green]/50 focus:border-[--terminal-green] transition-colors">
+                  <SelectValue placeholder="all programs" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">all programs</SelectItem>
+                  {availableAssets.map((asset) => (
+                    <SelectItem key={asset.id} value={asset.id}>
+                      {asset.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
 
             {/* Status Code Filter */}
-            <Select
-              value={statusCodeParam || 'all'}
-              onValueChange={(value) =>
-                updateURLParams({ status_code: value === 'all' ? null : value })
-              }
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="All Status Codes" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Status Codes</SelectItem>
-                <SelectItem value="200">200 (OK)</SelectItem>
-                <SelectItem value="301">301 (Moved Permanently)</SelectItem>
-                <SelectItem value="302">302 (Found)</SelectItem>
-                <SelectItem value="403">403 (Forbidden)</SelectItem>
-                <SelectItem value="404">404 (Not Found)</SelectItem>
-                <SelectItem value="500">500 (Server Error)</SelectItem>
-                <SelectItem value="502">502 (Bad Gateway)</SelectItem>
-                <SelectItem value="503">503 (Service Unavailable)</SelectItem>
-              </SelectContent>
-            </Select>
+            <div className="space-y-2">
+              <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                Status
+              </label>
+              <Select
+                value={statusCodeParam || 'all'}
+                onValueChange={(value) =>
+                  updateURLParams({ status_code: value === 'all' ? null : value })
+                }
+              >
+                <SelectTrigger className="font-mono bg-background border-border hover:border-[--terminal-green]/50 focus:border-[--terminal-green] transition-colors">
+                  <SelectValue placeholder="all status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">all status</SelectItem>
+                  <SelectItem value="200">200 (OK)</SelectItem>
+                  <SelectItem value="301">301 (Redirect)</SelectItem>
+                  <SelectItem value="302">302 (Found)</SelectItem>
+                  <SelectItem value="403">403 (Forbidden)</SelectItem>
+                  <SelectItem value="404">404 (Not Found)</SelectItem>
+                  <SelectItem value="500">500 (Error)</SelectItem>
+                  <SelectItem value="502">502 (Bad Gateway)</SelectItem>
+                  <SelectItem value="503">503 (Unavailable)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
 
             {/* Scheme Filter */}
-            <Select
-              value={schemeParam || 'all'}
-              onValueChange={(value) =>
-                updateURLParams({ scheme: value === 'all' ? null : value })
-              }
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="All Schemes" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Schemes</SelectItem>
-                <SelectItem value="https">HTTPS</SelectItem>
-                <SelectItem value="http">HTTP</SelectItem>
-              </SelectContent>
-            </Select>
+            <div className="space-y-2">
+              <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                Scheme
+              </label>
+              <Select
+                value={schemeParam || 'all'}
+                onValueChange={(value) =>
+                  updateURLParams({ scheme: value === 'all' ? null : value })
+                }
+              >
+                <SelectTrigger className="font-mono bg-background border-border hover:border-[--terminal-green]/50 focus:border-[--terminal-green] transition-colors">
+                  <SelectValue placeholder="all schemes" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">all schemes</SelectItem>
+                  <SelectItem value="https">HTTPS</SelectItem>
+                  <SelectItem value="http">HTTP</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
 
             {/* Technology Filter */}
-            <Select
-              value={technologyParam || 'all'}
-              onValueChange={(value) =>
-                updateURLParams({ technology: value === 'all' ? null : value })
-              }
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="All Technologies" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Technologies</SelectItem>
-                {availableTechnologies.slice(0, 20).map((tech) => (
-                  <SelectItem key={tech} value={tech}>
-                    {tech}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div className="space-y-2">
+              <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                Technology
+              </label>
+              <Select
+                value={technologyParam || 'all'}
+                onValueChange={(value) =>
+                  updateURLParams({ technology: value === 'all' ? null : value })
+                }
+              >
+                <SelectTrigger className="font-mono bg-background border-border hover:border-[--terminal-green]/50 focus:border-[--terminal-green] transition-colors">
+                  <SelectValue placeholder="all tech" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">all tech</SelectItem>
+                  {availableTechnologies.slice(0, 20).map((tech) => (
+                    <SelectItem key={tech} value={tech}>
+                      {tech}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
 
           {/* Clear Filters Button */}

@@ -502,39 +502,42 @@ function DNSPageContent() {
         </div>
 
         {/* Filters Card */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Filters & Search</CardTitle>
-            <CardDescription>
-              Filter DNS records by asset, domain, type, or search by subdomain name
-            </CardDescription>
+        <Card className="border border-border bg-card">
+          <CardHeader className="pb-4">
+            <CardTitle className="text-base font-mono">filters</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
               {/* Search Input */}
-              <div className="lg:col-span-2">
+              <div className="lg:col-span-2 space-y-2">
+                <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                  Search
+                </label>
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
-                    placeholder="Search subdomains..."
+                    placeholder="search subdomains..."
                     value={searchInput}
                     onChange={(e) => handleSearchChange(e.target.value)}
-                    className="pl-10"
+                    className="pl-10 font-mono bg-background border-border hover:border-[--terminal-green]/50 focus:border-[--terminal-green] transition-colors"
                   />
                 </div>
               </div>
 
               {/* Asset Filter */}
-              <div>
+              <div className="space-y-2">
+                <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                  Program
+                </label>
                 <Select
                   value={assetIdParam || 'all'}
                   onValueChange={handleAssetFilter}
                 >
-                  <SelectTrigger>
-                    <SelectValue placeholder="All Assets" />
+                  <SelectTrigger className="font-mono bg-background border-border hover:border-[--terminal-green]/50 focus:border-[--terminal-green] transition-colors">
+                    <SelectValue placeholder="all programs" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">All Assets</SelectItem>
+                    <SelectItem value="all">all programs</SelectItem>
                     {availableAssets.map((asset) => (
                       <SelectItem key={asset.id} value={asset.id}>
                         {asset.name}
@@ -545,16 +548,19 @@ function DNSPageContent() {
               </div>
 
               {/* Parent Domain Filter */}
-              <div>
+              <div className="space-y-2">
+                <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                  Domain
+                </label>
                 <Select
                   value={parentDomainParam || 'all'}
                   onValueChange={handleDomainFilter}
                 >
-                  <SelectTrigger>
-                    <SelectValue placeholder="All Domains" />
+                  <SelectTrigger className="font-mono bg-background border-border hover:border-[--terminal-green]/50 focus:border-[--terminal-green] transition-colors">
+                    <SelectValue placeholder="all domains" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">All Domains</SelectItem>
+                    <SelectItem value="all">all domains</SelectItem>
                     {availableDomains.map((domain) => (
                       <SelectItem key={domain} value={domain}>
                         {domain}
@@ -565,16 +571,19 @@ function DNSPageContent() {
               </div>
 
               {/* Record Type Filter */}
-              <div>
+              <div className="space-y-2">
+                <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                  Type
+                </label>
                 <Select
                   value={recordTypeParam || 'all'}
                   onValueChange={handleRecordTypeFilter}
                 >
-                  <SelectTrigger>
-                    <SelectValue placeholder="All Types" />
+                  <SelectTrigger className="font-mono bg-background border-border hover:border-[--terminal-green]/50 focus:border-[--terminal-green] transition-colors">
+                    <SelectValue placeholder="all types" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">All Types</SelectItem>
+                    <SelectItem value="all">all types</SelectItem>
                     <SelectItem value="A">A</SelectItem>
                     <SelectItem value="AAAA">AAAA</SelectItem>
                     <SelectItem value="CNAME">CNAME</SelectItem>
@@ -586,7 +595,7 @@ function DNSPageContent() {
             </div>
 
             {/* Action Buttons */}
-            <div className="flex flex-wrap items-center gap-2 mt-4">
+            <div className="flex flex-wrap items-center gap-2">
               <Button
                 variant="outline"
                 size="sm"
@@ -616,13 +625,12 @@ function DNSPageContent() {
               </Button>
               
               {/* Per Page Selector */}
-              <div className="ml-auto flex items-center space-x-2">
-                <span className="text-sm text-muted-foreground">Per page:</span>
+              <div className="ml-auto space-y-2">
                 <Select
                   value={perPage.toString()}
                   onValueChange={handlePerPageChange}
                 >
-                  <SelectTrigger className="w-[100px]">
+                  <SelectTrigger className="w-[80px] font-mono bg-background border-border hover:border-[--terminal-green]/50 focus:border-[--terminal-green] transition-colors">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
