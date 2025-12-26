@@ -9,9 +9,7 @@ import {
   Copy, 
   ExternalLink, 
   ChevronLeft, 
-  ChevronRight,
-  Filter,
-  Network
+  ChevronRight
 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -37,7 +35,6 @@ import {
   StatusCodeBadge,
   TechnologyList,
   RedirectChainIndicator,
-  HTTPProbeStatsCards,
 } from '@/components/http-probes';
 
 // Assets API
@@ -79,7 +76,6 @@ function ProbesPageContent() {
   const perPage = parseInt(searchParams.get('per_page') || '100', 10);
   const assetIdParam = searchParams.get('asset_id');
   const statusCodeParam = searchParams.get('status_code');
-  const schemeParam = searchParams.get('scheme') as 'http' | 'https' | null;
   const technologyParam = searchParams.get('technology');
   const searchQuery = searchParams.get('search') || '';
 
@@ -87,7 +83,6 @@ function ProbesPageContent() {
   const [probes, setProbes] = useState<HTTPProbe[]>([]);
   const [stats, setStats] = useState<HTTPProbeStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [isLoadingStats, setIsLoadingStats] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [totalProbes, setTotalProbes] = useState(0);
 
@@ -157,7 +152,6 @@ function ProbesPageContent() {
           offset: number;
           asset_id?: string;
           status_code?: number;
-          scheme?: 'http' | 'https';
           technology?: string;
         } = {
           limit: perPage,
@@ -166,7 +160,6 @@ function ProbesPageContent() {
 
         if (assetIdParam) queryParams.asset_id = assetIdParam;
         if (statusCodeParam) queryParams.status_code = parseInt(statusCodeParam);
-        if (schemeParam) queryParams.scheme = schemeParam;
         if (technologyParam) queryParams.technology = technologyParam;
 
         // Fetch probes
@@ -203,7 +196,6 @@ function ProbesPageContent() {
     perPage,
     assetIdParam,
     statusCodeParam,
-    schemeParam,
     technologyParam,
     searchQuery,
   ]);
@@ -215,8 +207,6 @@ function ProbesPageContent() {
   useEffect(() => {
     const fetchStats = async () => {
       if (!isAuthenticated) return;
-
-      setIsLoadingStats(true);
 
       try {
         const statsParams: { asset_id?: string } = {};
@@ -234,8 +224,6 @@ function ProbesPageContent() {
       } catch (err) {
         console.error('Error fetching HTTP probe stats:', err);
         // Don't show error toast for stats, it's non-critical
-      } finally {
-        setIsLoadingStats(false);
       }
     };
 
@@ -288,27 +276,16 @@ function ProbesPageContent() {
   return (
     <div className="container mx-auto p-6 space-y-6">
       {/* Header */}
-      <div className="flex flex-col space-y-2">
-        <div className="flex items-center space-x-2">
-          <Network className="h-6 w-6 text-primary" />
-          <h1 className="text-3xl font-bold tracking-tight">
-            HTTP Probes
-            {stats && (
-              <span className="text-muted-foreground ml-2 text-2xl">
-                {stats.total_probes.toLocaleString()}
-              </span>
-            )}
-          </h1>
-        </div>
-        <p className="text-muted-foreground">
-          Discovered HTTP endpoints with status codes, technologies, and server information
-        </p>
+      <div className="flex items-center space-x-3">
+        <h1 className="text-2xl font-bold tracking-tight font-mono text-foreground">
+          servers
+        </h1>
+        {stats && (
+          <span className="text-muted-foreground text-xl font-mono">
+            {stats.total_probes.toLocaleString()}
+          </span>
+        )}
       </div>
-
-      {/* Statistics Cards */}
-      {stats && (
-        <HTTPProbeStatsCards stats={stats} loading={isLoadingStats} />
-      )}
 
       {/* Filters */}
       <Card className="border border-border bg-card">
@@ -334,7 +311,7 @@ function ProbesPageContent() {
           </div>
 
           {/* Filter Row */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {/* Asset Filter */}
             <div className="space-y-2">
               <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
@@ -388,28 +365,6 @@ function ProbesPageContent() {
               </Select>
             </div>
 
-            {/* Scheme Filter */}
-            <div className="space-y-2">
-              <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                Scheme
-              </label>
-              <Select
-                value={schemeParam || 'all'}
-                onValueChange={(value) =>
-                  updateURLParams({ scheme: value === 'all' ? null : value })
-                }
-              >
-                <SelectTrigger className="font-mono bg-background border-border hover:border-[--terminal-green]/50 focus:border-[--terminal-green] transition-colors">
-                  <SelectValue placeholder="all schemes" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">all schemes</SelectItem>
-                  <SelectItem value="https">HTTPS</SelectItem>
-                  <SelectItem value="http">HTTP</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
             {/* Technology Filter */}
             <div className="space-y-2">
               <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
@@ -437,7 +392,7 @@ function ProbesPageContent() {
           </div>
 
           {/* Clear Filters Button */}
-          {(assetIdParam || statusCodeParam || schemeParam || technologyParam || searchQuery) && (
+          {(assetIdParam || statusCodeParam || technologyParam || searchQuery) && (
             <Button
               variant="outline"
               size="sm"
@@ -445,7 +400,6 @@ function ProbesPageContent() {
                 updateURLParams({
                   asset_id: null,
                   status_code: null,
-                  scheme: null,
                   technology: null,
                   search: null,
                 })
