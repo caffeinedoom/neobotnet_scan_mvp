@@ -97,8 +97,17 @@ func (s *WaymoreScanner) ScanDomain(domain string) ([]DiscoveredURL, error) {
 	done := make(chan error, 1)
 	go func() {
 		output, err := cmd.CombinedOutput()
+		// ALWAYS log output for debugging - waymore may fail silently
+		if len(output) > 0 {
+			// Truncate long output for logging
+			outputStr := string(output)
+			if len(outputStr) > 2000 {
+				outputStr = outputStr[:2000] + "... (truncated)"
+			}
+			log.Printf("      📝 waymore output:\n%s", outputStr)
+		}
 		if err != nil {
-			log.Printf("      ⚠️  waymore stderr: %s", string(output))
+			log.Printf("      ⚠️  waymore exited with error: %v", err)
 		}
 		done <- err
 	}()
@@ -108,7 +117,13 @@ func (s *WaymoreScanner) ScanDomain(domain string) ([]DiscoveredURL, error) {
 	case err := <-done:
 		if err != nil {
 			// Log but don't fail - waymore may have produced partial results
-			log.Printf("      ⚠️  waymore exited with error: %v", err)
+			log.Printf("      ⚠️  waymore command failed: %v", err)
+		}
+		// Also check if output file exists and log its size
+		if info, statErr := os.Stat(outputFile); statErr == nil {
+			log.Printf("      📁 Output file size: %d bytes", info.Size())
+		} else {
+			log.Printf("      ⚠️  Output file not found: %v", statErr)
 		}
 	case <-time.After(time.Duration(s.Timeout) * time.Second):
 		if cmd.Process != nil {
