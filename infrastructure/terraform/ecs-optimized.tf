@@ -668,6 +668,10 @@ resource "aws_ecs_task_definition" "orchestrator" {
         {
           name  = "TYVT_TASK_DEFINITION"
           value = aws_ecs_task_definition.tyvt.arn
+        },
+        {
+          name  = "WAYMORE_TASK_DEFINITION"
+          value = aws_ecs_task_definition.waymore.arn
         }
       ]
 

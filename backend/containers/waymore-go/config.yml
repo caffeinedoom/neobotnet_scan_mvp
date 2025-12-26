@@ -1,0 +1,91 @@
+# Waymore Configuration
+# Documentation: https://github.com/xnl-h4ck3r/waymore
+
+# ============================================================================
+# API KEYS (Optional - passed via environment variables)
+# ============================================================================
+# Note: These will be populated from environment variables at runtime
+# The following are placeholder values - actual keys come from AWS Secrets Manager
+
+# URLScan.io API key (optional, improves results)
+# Get from: https://urlscan.io/user/signup
+urlscan: ""
+
+# VirusTotal API key (optional, strict rate limits on free tier)
+# Get from: https://www.virustotal.com/gui/join-us
+virustotal: ""
+
+# Alien Vault OTX API key (optional)
+# Get from: https://otx.alienvault.com/
+alientvault: ""
+
+# ============================================================================
+# BEHAVIOR SETTINGS
+# ============================================================================
+
+# Rate limiting to be nice to archive providers
+ratelimit:
+  wayback: 2    # Requests per second
+  commoncrawl: 2
+  urlscan: 1
+  virustotal: 0.25  # 4 seconds between requests (free tier limit)
+  alienvault: 1
+
+# Timeout settings (seconds)
+timeout:
+  connect: 30
+  read: 60
+
+# Retry settings
+retries: 3
+
+# ============================================================================
+# FILTERING
+# ============================================================================
+
+# Filter out responses by extension (improves quality, reduces noise)
+filterextensions:
+  - jpg
+  - jpeg
+  - png
+  - gif
+  - svg
+  - webp
+  - ico
+  - bmp
+  - css
+  - woff
+  - woff2
+  - ttf
+  - eot
+  - otf
+
+# Filter out URLs matching these patterns
+filterpatterns:
+  - "^data:"
+  - "^javascript:"
+  - "^mailto:"
+
+# ============================================================================
+# OUTPUT
+# ============================================================================
+
+# Remove duplicate URLs
+nodups: true
+
+# Verbose output for debugging
+verbose: false
+
+# ============================================================================
+# PROVIDERS
+# ============================================================================
+# Enable/disable specific providers (all enabled by default)
+
+providers:
+  wayback: true
+  commoncrawl: true
+  urlscan: true
+  virustotal: true
+  alienvault: true
+
+

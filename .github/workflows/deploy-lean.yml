@@ -32,6 +32,7 @@ env:
   ECR_HTTPX: neobotnet-v2-dev-httpx
   ECR_KATANA: neobotnet-v2-dev-katana
   ECR_TYVT: neobotnet-v2-dev-tyvt
+  ECR_WAYMORE: neobotnet-v2-dev-waymore
 
 jobs:
   # ================================================================
@@ -48,6 +49,7 @@ jobs:
       httpx: ${{ steps.changes.outputs.httpx }}
       katana: ${{ steps.changes.outputs.katana }}
       tyvt: ${{ steps.changes.outputs.tyvt }}
+      waymore: ${{ steps.changes.outputs.waymore }}
       infrastructure: ${{ steps.changes.outputs.infrastructure }}
       skip: ${{ steps.changes.outputs.skip }}
     
@@ -72,6 +74,7 @@ jobs:
           echo "httpx=true" >> $GITHUB_OUTPUT
           echo "katana=true" >> $GITHUB_OUTPUT
           echo "tyvt=true" >> $GITHUB_OUTPUT
+          echo "waymore=true" >> $GITHUB_OUTPUT
           echo "infrastructure=true" >> $GITHUB_OUTPUT
           echo "skip=false" >> $GITHUB_OUTPUT
           exit 0
@@ -86,6 +89,7 @@ jobs:
         HTTPX=$(echo "$CHANGED" | grep -q "^backend/containers/httpx-go" && echo true || echo false)
         KATANA=$(echo "$CHANGED" | grep -q "^backend/containers/katana-go" && echo true || echo false)
         TYVT=$(echo "$CHANGED" | grep -q "^backend/containers/tyvt-go" && echo true || echo false)
+        WAYMORE=$(echo "$CHANGED" | grep -q "^backend/containers/waymore-go" && echo true || echo false)
         INFRA=$(echo "$CHANGED" | grep -q "^infrastructure\|^.github/workflows" && echo true || echo false)
         
         # Check if only docs changed
@@ -104,10 +108,11 @@ jobs:
         echo "httpx=$HTTPX" >> $GITHUB_OUTPUT
         echo "katana=$KATANA" >> $GITHUB_OUTPUT
         echo "tyvt=$TYVT" >> $GITHUB_OUTPUT
+        echo "waymore=$WAYMORE" >> $GITHUB_OUTPUT
         echo "infrastructure=$INFRA" >> $GITHUB_OUTPUT
         echo "skip=$SKIP" >> $GITHUB_OUTPUT
         
-        echo "📊 Changes: backend=$BACKEND orchestrator=$ORCHESTRATOR subfinder=$SUBFINDER dnsx=$DNSX httpx=$HTTPX katana=$KATANA tyvt=$TYVT infra=$INFRA skip=$SKIP"
+        echo "📊 Changes: backend=$BACKEND orchestrator=$ORCHESTRATOR subfinder=$SUBFINDER dnsx=$DNSX httpx=$HTTPX katana=$KATANA tyvt=$TYVT waymore=$WAYMORE infra=$INFRA skip=$SKIP"
 
   # ================================================================
   # Job 2: Build Containers
@@ -204,6 +209,16 @@ jobs:
         docker push ${{ steps.ecr.outputs.registry }}/$ECR_TYVT:${{ github.sha }}
         docker push ${{ steps.ecr.outputs.registry }}/$ECR_TYVT:latest
         echo "✅ TYVT built"
+        
+    - name: Build Waymore
+      if: needs.detect-changes.outputs.waymore == 'true'
+      run: |
+        cd backend/containers/waymore-go
+        docker build -t ${{ steps.ecr.outputs.registry }}/$ECR_WAYMORE:${{ github.sha }} .
+        docker tag ${{ steps.ecr.outputs.registry }}/$ECR_WAYMORE:${{ github.sha }} ${{ steps.ecr.outputs.registry }}/$ECR_WAYMORE:latest
+        docker push ${{ steps.ecr.outputs.registry }}/$ECR_WAYMORE:${{ github.sha }}
+        docker push ${{ steps.ecr.outputs.registry }}/$ECR_WAYMORE:latest
+        echo "✅ Waymore built"
 
   # ================================================================
   # Job 3: Deploy Infrastructure
@@ -309,6 +324,7 @@ jobs:
         echo "  HTTPx: ${{ needs.detect-changes.outputs.httpx }}"
         echo "  Katana: ${{ needs.detect-changes.outputs.katana }}"
         echo "  TYVT: ${{ needs.detect-changes.outputs.tyvt }}"
+        echo "  Waymore: ${{ needs.detect-changes.outputs.waymore }}"
         echo ""
         echo "🔗 Endpoints:"
         echo "  API: https://aldous-api.neobotnet.com"

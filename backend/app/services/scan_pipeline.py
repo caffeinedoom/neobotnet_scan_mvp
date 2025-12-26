@@ -5,12 +5,14 @@ Coordinates reconnaissance modules in a streaming architecture using Redis Strea
 for parallel execution and real-time data flow.
 
 Architecture:
-- Producer modules (Subfinder) write discoveries to Redis Streams
-- Consumer modules (DNSx, HTTPx) read from streams and process in parallel
+- Producer modules (Subfinder, Waymore) write discoveries to Redis Streams
+- Consumer modules (DNSx, HTTPx, URL Resolver) read from streams and process in parallel
 - All modules support streaming for maximum throughput
+- Parallel producers (Subfinder + Waymore) run concurrently for faster reconnaissance
 
 Features:
 - Automatic dependency resolution (DNSx auto-included with Subfinder)
+- Parallel producer execution (Subfinder + Waymore run simultaneously)
 - Parallel consumer execution (DNSx + HTTPx run simultaneously)
 - Real-time WebSocket updates via Redis pub/sub
 - Timeout handling with graceful degradation
@@ -19,6 +21,10 @@ Features:
 Author: Pluckware Development Team
 Date: October 28, 2025
 Phase: 5A - Streaming-Only Architecture (November 14, 2025 Refactor)
+
+Version: 3.1.0 (2025-12-22)
+- Added parallel producer support (Subfinder + Waymore)
+- Waymore streams historical URLs to URL Resolver
 
 Version: 3.0.0 (2025-11-14)
 Breaking Change: Sequential pipeline removed, streaming-only architecture
@@ -86,7 +92,12 @@ class ScanPipeline:
         "katana": 1800,         # 30 minutes (web crawling can be slow)
         "url-resolver": 3600,   # 1 hour (URL probing at scale)
         "nuclei": 1800,         # 30 minutes
+        "waymore": 1200,        # 20 minutes (archive APIs can be slow)
     }
+    
+    # Parallel producers: modules that can run concurrently as producers
+    # These modules take apex domains as input and produce different outputs
+    PARALLEL_PRODUCERS = {"subfinder", "waymore"}
     
     # Polling interval for checking scan completion (seconds)
     POLL_INTERVAL = 5
@@ -772,28 +783,56 @@ class ScanPipeline:
         self.logger.info(f"✅ Created asset_scan_jobs record: {asset_scan_id}")
         
         # ============================================================
-        # STEP 1: Prepare Producer Job (Subfinder)
+        # STEP 1: Prepare Producer Jobs (Subfinder + optional Waymore)
+        # ============================================================
+        # 
+        # Parallel Producers Architecture (v3.1.0):
+        # - Subfinder: discovers subdomains → DNSx + HTTPx consumers
+        # - Waymore: discovers historical URLs → URL Resolver consumer
+        # 
+        # These run in PARALLEL because they:
+        # - Both take apex domains as input
+        # - Produce different outputs (subdomains vs URLs)
+        # - Have no dependencies on each other
         # ============================================================
         
-        self.logger.info("📋 Creating producer job (Subfinder)...")
+        # Identify which parallel producers are requested
+        requested_producers = [m for m in modules if m in self.PARALLEL_PRODUCERS]
+        self.logger.info(f"📋 Creating {len(requested_producers)} producer job(s): {requested_producers}")
         
-        # Create BatchScanJob for subfinder (producer)
-        producer_job = await self._create_batch_scan_job(
-            asset_id=asset_id,
-            module="subfinder",
-            scan_request=scan_request,
-            user_id=user_id,
-            parent_scan_job_id=asset_scan_id  # ✅ FIX: Use asset_scan_id instead of scan_id
-        )
+        producer_jobs = {}
+        producer_stream_keys = {}
         
-        self.logger.info(f"✅ Producer job created: {producer_job.id}")
+        for producer_module in requested_producers:
+            self.logger.info(f"   Creating {producer_module} producer job...")
+            job = await self._create_batch_scan_job(
+                asset_id=asset_id,
+                module=producer_module,
+                scan_request=scan_request,
+                user_id=user_id,
+                parent_scan_job_id=asset_scan_id
+            )
+            producer_jobs[producer_module] = job
+            
+            # Generate unique stream key for each producer
+            stream_key = stream_coordinator.generate_stream_key(
+                scan_job_id=str(job.id),
+                producer_module=producer_module
+            )
+            producer_stream_keys[producer_module] = stream_key
+            self.logger.info(f"   ✅ {producer_module} job created: {job.id}")
+            self.logger.info(f"      Stream: {stream_key}")
+        
+        # For backward compatibility, keep reference to primary producer (subfinder if present)
+        producer_job = producer_jobs.get("subfinder") or list(producer_jobs.values())[0]
+        stream_key = producer_stream_keys.get("subfinder") or list(producer_stream_keys.values())[0]
         
         # ============================================================
-        # STEP 2: Prepare Consumer Jobs (DNSx, HTTPx, etc.)
+        # STEP 2: Prepare Consumer Jobs (DNSx, HTTPx, URL Resolver, etc.)
         # ============================================================
         
-        # Determine which consumers to launch (exclude subfinder, it's the producer)
-        consumer_modules = [m for m in modules if m != "subfinder"]
+        # Determine which consumers to launch (exclude all parallel producers)
+        consumer_modules = [m for m in modules if m not in self.PARALLEL_PRODUCERS]
         consumer_jobs = {}
         
         self.logger.info(f"📋 Creating {len(consumer_modules)} consumer job(s): {consumer_modules}")
@@ -811,34 +850,35 @@ class ScanPipeline:
             self.logger.info(f"   ✅ {module} job created: {job.id}")
         
         # ============================================================
-        # STEP 3: Generate Stream Identifiers
+        # STEP 3: Log Stream Configuration
         # ============================================================
         
-        # Generate unique stream key for this scan
-        stream_key = stream_coordinator.generate_stream_key(
-            scan_job_id=str(producer_job.id),
-            producer_module="subfinder"
-        )
-        
         self.logger.info(f"📋 Stream configuration:")
-        self.logger.info(f"   Stream key: {stream_key}")
+        for producer_module, stream_key_for_producer in producer_stream_keys.items():
+            self.logger.info(f"   {producer_module} → {stream_key_for_producer}")
         self.logger.info(f"   Consumers: {len(consumer_modules)} ({', '.join(consumer_modules)})")
         
         # ============================================================
         # STEP 4: Launch Streaming Pipeline (Multi-Stage Architecture)
         # ============================================================
         # 
-        # Stage 1: Subfinder → Stream A → DNSx + HTTPx (parallel)
-        # Stage 2: HTTPx → Stream B → Katana (chained)
+        # Parallel Producers (run concurrently):
+        #   - Subfinder → Stream A → DNSx + HTTPx (parallel)
+        #   - Waymore → Stream W → URL Resolver (historical URLs)
         #
-        # Katana is special: it consumes from HTTPx output, not Subfinder output.
+        # Chained Stages:
+        #   - Stage 1: DNSx, HTTPx (consume from Subfinder stream)
+        #   - Stage 2: Katana (consumes from HTTPx stream)
+        #   - Stage 3: URL Resolver (consumes from Katana stream OR Waymore stream)
+        #
         # HTTPx acts as both consumer (from Subfinder) and producer (to Katana).
+        # URL Resolver can consume from multiple sources (Katana, Waymore).
         # ============================================================
         
         # Separate consumers by stage:
         # Stage 1: DNSx, HTTPx (consume from Subfinder stream)
         # Stage 2: Katana (consumes from HTTPx stream)
-        # Stage 3: url-resolver (consumes from Katana stream)
+        # Stage 3: url-resolver (consumes from Katana stream AND/OR Waymore stream)
         stage1_consumers = [m for m in consumer_modules if m not in ["katana", "url-resolver"]]
         stage2_consumers = [m for m in consumer_modules if m == "katana"]
         stage3_consumers = [m for m in consumer_modules if m == "url-resolver"]
@@ -853,7 +893,7 @@ class ScanPipeline:
             self.logger.info(f"📋 Katana stream configuration:")
             self.logger.info(f"   HTTPx → Katana stream: {httpx_to_katana_stream_key}")
         
-        # Generate Katana → url-resolver stream key if url-resolver is requested
+        # Generate Katana → url-resolver stream key if url-resolver is requested and Katana is in pipeline
         katana_to_resolver_stream_key = None
         if "url-resolver" in consumer_modules and "katana" in consumer_modules:
             katana_to_resolver_stream_key = stream_coordinator.generate_stream_key(
@@ -863,22 +903,35 @@ class ScanPipeline:
             self.logger.info(f"📋 URL Resolver stream configuration:")
             self.logger.info(f"   Katana → url-resolver stream: {katana_to_resolver_stream_key}")
         
+        # Get Waymore → url-resolver stream key if both are in pipeline
+        waymore_to_resolver_stream_key = None
+        if "waymore" in producer_jobs and "url-resolver" in consumer_modules:
+            waymore_to_resolver_stream_key = producer_stream_keys["waymore"]
+            self.logger.info(f"   Waymore → url-resolver stream: {waymore_to_resolver_stream_key}")
+        
         total_consumer_tasks = (len(stage1_consumers) + len(stage2_consumers) + len(stage3_consumers)) * scale_factor
-        self.logger.info(f"🚀 Launching streaming pipeline: 1 producer + {total_consumer_tasks} consumer tasks...")
+        total_producer_tasks = len(requested_producers)
+        self.logger.info(f"🚀 Launching streaming pipeline: {total_producer_tasks} producer(s) + {total_consumer_tasks} consumer tasks...")
+        self.logger.info(f"   Producers: {requested_producers}")
         self.logger.info(f"   Stage 1 consumers: {stage1_consumers} ({scale_factor}x each)")
         if stage2_consumers:
             self.logger.info(f"   Stage 2 consumers: {stage2_consumers} ({scale_factor}x each, chained from HTTPx)")
         if stage3_consumers:
-            self.logger.info(f"   Stage 3 consumers: {stage3_consumers} ({scale_factor}x each, chained from Katana)")
+            self.logger.info(f"   Stage 3 consumers: {stage3_consumers} ({scale_factor}x each, chained from Katana/Waymore)")
         
-        # Launch producer (Subfinder)
-        self.logger.info("   📤 Launching producer (subfinder)...")
-        producer_launch = await batch_workflow_orchestrator.launch_streaming_producer(
-            producer_job=producer_job,
-            stream_key=stream_key
-        )
-        producer_task_arn = producer_launch["task_arn"]
-        self.logger.info(f"      ✅ Task: {producer_task_arn}")
+        # Launch ALL producers in parallel
+        producer_task_arns = {}
+        for producer_module in requested_producers:
+            self.logger.info(f"   📤 Launching producer ({producer_module})...")
+            producer_launch = await batch_workflow_orchestrator.launch_streaming_producer(
+                producer_job=producer_jobs[producer_module],
+                stream_key=producer_stream_keys[producer_module]
+            )
+            producer_task_arns[producer_module] = producer_launch["task_arn"]
+            self.logger.info(f"      ✅ Task: {producer_launch['task_arn']}")
+        
+        # For backward compatibility, keep reference to primary producer task ARN
+        producer_task_arn = producer_task_arns.get("subfinder") or list(producer_task_arns.values())[0]
         
         # Launch Stage 1 consumers (read from Subfinder stream)
         # With scale_factor > 1, launch multiple tasks per module (same consumer group)
@@ -959,48 +1012,72 @@ class ScanPipeline:
             # Store all task ARNs for this module
             consumer_task_arns[module] = module_task_arns
         
-        # Launch Stage 3 consumers (read from Katana stream - chained)
-        # url-resolver consumes URLs discovered by Katana for probing and enrichment
+        # Launch Stage 3 consumers (read from Katana AND/OR Waymore streams)
+        # URL Resolver consumes URLs from multiple sources:
+        # - Katana: crawled URLs from live endpoints
+        # - Waymore: historical URLs from archive sources
         for module in stage3_consumers:
-            consumer_group_name = stream_coordinator.generate_consumer_group_name(module)
-            
-            self.logger.info(f"   📥 Launching Stage 3 consumer ({module}) - {scale_factor} task(s)...")
-            self.logger.info(f"      Input: {katana_to_resolver_stream_key} (from Katana)")
-            self.logger.info(f"      Group: {consumer_group_name}")
-            
-            # Launch scale_factor tasks for this module (all share the same consumer group)
             module_task_arns = []
-            for i in range(scale_factor):
-                consumer_name = stream_coordinator.generate_consumer_name(
-                    module,
-                    f"{str(consumer_jobs[module].id)[:8]}-{i+1}"
-                )
+            
+            # Determine which streams this consumer should read from
+            input_streams = []
+            if katana_to_resolver_stream_key:
+                input_streams.append(("katana", katana_to_resolver_stream_key))
+            if waymore_to_resolver_stream_key:
+                input_streams.append(("waymore", waymore_to_resolver_stream_key))
+            
+            if not input_streams:
+                self.logger.warning(f"   ⚠️  No input streams for {module}, skipping")
+                continue
+            
+            # Launch consumers for EACH input stream
+            # Each gets its own consumer group to process independently
+            for source_name, input_stream_key in input_streams:
+                consumer_group_name = stream_coordinator.generate_consumer_group_name(f"{module}-{source_name}")
                 
-                consumer_launch = await batch_workflow_orchestrator.launch_streaming_consumer(
-                    consumer_job=consumer_jobs[module],
-                    stream_key=katana_to_resolver_stream_key,  # url-resolver reads from Katana output!
-                    consumer_group_name=consumer_group_name,
-                    consumer_name=consumer_name
-                )
-                module_task_arns.append(consumer_launch["task_arn"])
-                if scale_factor > 1:
-                    self.logger.info(f"      ✅ Task {i+1}/{scale_factor}: {consumer_launch['task_arn']}")
-                else:
-                    self.logger.info(f"      ✅ Task: {consumer_launch['task_arn']}")
+                self.logger.info(f"   📥 Launching Stage 3 consumer ({module}) for {source_name} - {scale_factor} task(s)...")
+                self.logger.info(f"      Input: {input_stream_key} (from {source_name})")
+                self.logger.info(f"      Group: {consumer_group_name}")
+                
+                # Launch scale_factor tasks for this stream
+                for i in range(scale_factor):
+                    consumer_name = stream_coordinator.generate_consumer_name(
+                        module,
+                        f"{source_name}-{str(consumer_jobs[module].id)[:8]}-{i+1}"
+                    )
+                    
+                    consumer_launch = await batch_workflow_orchestrator.launch_streaming_consumer(
+                        consumer_job=consumer_jobs[module],
+                        stream_key=input_stream_key,
+                        consumer_group_name=consumer_group_name,
+                        consumer_name=consumer_name
+                    )
+                    module_task_arns.append(consumer_launch["task_arn"])
+                    if scale_factor > 1 or len(input_streams) > 1:
+                        self.logger.info(f"      ✅ Task ({source_name}) {i+1}/{scale_factor}: {consumer_launch['task_arn']}")
+                    else:
+                        self.logger.info(f"      ✅ Task: {consumer_launch['task_arn']}")
             
             # Store all task ARNs for this module
             consumer_task_arns[module] = module_task_arns
         
-        self.logger.info(f"✅ All {1 + total_consumer_tasks} tasks launched successfully!")
-        self.logger.info(f"   Producer: subfinder (1 task)")
-        stage1_summary = ", ".join([f"{m} ({scale_factor}x)" for m in stage1_consumers])
-        self.logger.info(f"   Stage 1: {stage1_summary} (from Subfinder)")
+        self.logger.info(f"✅ All {total_producer_tasks + total_consumer_tasks} tasks launched successfully!")
+        producers_summary = ", ".join([f"{m} (1 task)" for m in requested_producers])
+        self.logger.info(f"   Producers: {producers_summary}")
+        if stage1_consumers:
+            stage1_summary = ", ".join([f"{m} ({scale_factor}x)" for m in stage1_consumers])
+            self.logger.info(f"   Stage 1: {stage1_summary} (from Subfinder)")
         if stage2_consumers:
             stage2_summary = ", ".join([f"{m} ({scale_factor}x)" for m in stage2_consumers])
             self.logger.info(f"   Stage 2: {stage2_summary} (from HTTPx)")
         if stage3_consumers:
+            stage3_sources = []
+            if "katana" in consumer_modules:
+                stage3_sources.append("Katana")
+            if "waymore" in producer_jobs:
+                stage3_sources.append("Waymore")
             stage3_summary = ", ".join([f"{m} ({scale_factor}x)" for m in stage3_consumers])
-            self.logger.info(f"   Stage 3: {stage3_summary} (from Katana)")
+            self.logger.info(f"   Stage 3: {stage3_summary} (from {'/'.join(stage3_sources)})")
         
         # ============================================================
         # STEP 5: Monitor Job Completion (NEW: Polling batch_scan_jobs)
@@ -1024,12 +1101,13 @@ class ScanPipeline:
         self.logger.info(f"🔍 Monitoring {len(consumer_modules)} consumers + 1 producer...")
         self.logger.info(f"   Method: Sequential job status polling (batch_scan_jobs table)")
         
-        # Collect all batch job IDs (producer + consumers)
-        batch_ids = [str(producer_job.id)]  # Subfinder
-        batch_ids.extend([str(job.id) for job in consumer_jobs.values()])  # DNSx, HTTPx, etc.
+        # Collect all batch job IDs (all producers + all consumers)
+        batch_ids = [str(job.id) for job in producer_jobs.values()]  # All producers
+        batch_ids.extend([str(job.id) for job in consumer_jobs.values()])  # All consumers
         
         self.logger.info(f"   Monitoring {len(batch_ids)} batch jobs:")
-        self.logger.info(f"     • Producer: {producer_job.id} (subfinder)")
+        for module, job in producer_jobs.items():
+            self.logger.info(f"     • Producer: {job.id} ({module})")
         for module, job in consumer_jobs.items():
             self.logger.info(f"     • Consumer: {job.id} ({module})")
         
@@ -1082,21 +1160,21 @@ class ScanPipeline:
         # Optional: Clean up stream (keep for debugging by default)
         # await stream_coordinator.cleanup_stream(stream_key, delete_stream=False)
         
-        # Build results in same format as execute_pipeline (producer + all consumers)
+        # Build results in same format as execute_pipeline (all producers + all consumers)
         results = []
         
-        # Producer result
-        # Use module-specific status from job monitoring (more accurate than overall status)
-        producer_status = monitor_result.get("module_statuses", {}).get("subfinder", "unknown")
-        results.append({
-            "module": "subfinder",
-            "status": producer_status,
-            "scan_job_id": str(producer_job.id),
-            "task_arn": producer_task_arn,
-            "role": "producer",
-            "started_at": pipeline_start.isoformat(),
-            "completed_at": datetime.utcnow().isoformat()
-        })
+        # All producer results
+        for producer_module, job in producer_jobs.items():
+            producer_status = monitor_result.get("module_statuses", {}).get(producer_module, "unknown")
+            results.append({
+                "module": producer_module,
+                "status": producer_status,
+                "scan_job_id": str(job.id),
+                "task_arn": producer_task_arns.get(producer_module),
+                "role": "producer",
+                "started_at": pipeline_start.isoformat(),
+                "completed_at": datetime.utcnow().isoformat()
+            })
         
         # All consumer results (dnsx, httpx, etc.)
         for module in consumer_modules:
@@ -1114,21 +1192,23 @@ class ScanPipeline:
         successful_modules = sum(1 for r in results if r["status"] == "completed")
         
         self.logger.info(f"✅ Streaming pipeline completed")
-        self.logger.info(f"   Producer: subfinder")
+        self.logger.info(f"   Producers: {', '.join(producer_jobs.keys())}")
         self.logger.info(f"   Consumers: {', '.join(consumer_modules)}")
         self.logger.info(f"   Successful: {successful_modules}/{len(results)} modules")
         self.logger.info(f"   Duration: {pipeline_duration:.1f}s")
         
         return {
             "pipeline_type": "streaming",
-            "pipeline": ["subfinder", "dnsx"],
+            "pipeline": list(producer_jobs.keys()) + consumer_modules,
+            "producers": list(producer_jobs.keys()),
+            "consumers": consumer_modules,
             "results": results,
             "total_modules": len(results),
             "successful_modules": successful_modules,
             "failed_modules": len(results) - successful_modules,
             "duration_seconds": pipeline_duration,
             "status": "completed" if successful_modules == len(results) else "partial_failure",
-            "stream_key": stream_key,
+            "stream_keys": producer_stream_keys,
             "stream_length": monitor_result.get("stream_length", 0),
             "monitor_result": monitor_result,
             "job_monitoring": {

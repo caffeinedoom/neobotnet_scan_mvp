@@ -25,12 +25,14 @@ class ReconModule(str, Enum):
     
     UPDATE (2025-12-22):
     - Added URL_RESOLVER for probing and enriching discovered URLs
+    - Added WAYMORE for historical URL discovery from Wayback Machine, Common Crawl, etc.
     """
     SUBFINDER = "subfinder"
     DNSX = "dnsx"  # DNS resolution for discovered subdomains
     HTTPX = "httpx"  # HTTP probing for discovered subdomains
     KATANA = "katana"  # Web crawling for discovered HTTP endpoints
     URL_RESOLVER = "url-resolver"  # URL probing and enrichment
+    WAYMORE = "waymore"  # Historical URL discovery (parallel producer with subfinder)
     
     # Future modules (uncomment when implemented):
     # DNS_BRUTEFORCE = "dns_bruteforce"

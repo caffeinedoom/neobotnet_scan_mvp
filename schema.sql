@@ -1050,7 +1050,7 @@ CREATE TABLE IF NOT EXISTS "public"."asset_scan_jobs" (
     "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL,
     "parent_scan_id" "uuid",
     CONSTRAINT "valid_domain_counts" CHECK ((("total_domains" >= 0) AND ("completed_domains" >= 0) AND ("completed_domains" <= "total_domains"))),
-    CONSTRAINT "valid_modules" CHECK (("modules" <@ ARRAY['subfinder'::"text", 'dnsx'::"text", 'httpx'::"text", 'katana'::"text", 'url-resolver'::"text", 'tyvt'::"text"])),
+    CONSTRAINT "valid_modules" CHECK (("modules" <@ ARRAY['subfinder'::"text", 'dnsx'::"text", 'httpx'::"text", 'katana'::"text", 'url-resolver'::"text", 'tyvt'::"text", 'waymore'::"text"])),
     CONSTRAINT "valid_status" CHECK (("status" = ANY (ARRAY['pending'::"text", 'running'::"text", 'completed'::"text", 'failed'::"text", 'cancelled'::"text"])))
 );
 
@@ -1062,7 +1062,7 @@ COMMENT ON COLUMN "public"."asset_scan_jobs"."parent_scan_id" IS 'Links to paren
 
 
 
-COMMENT ON CONSTRAINT "valid_modules" ON "public"."asset_scan_jobs" IS 'Validates that all requested modules are in the allowed list. Updated 2025-12-20 to include tyvt (VirusTotal Domain Scanner).';
+COMMENT ON CONSTRAINT "valid_modules" ON "public"."asset_scan_jobs" IS 'Validates that all requested modules are in the allowed list. Updated 2025-12-22 to include waymore (Historical URL Discovery).';
 
 
 
@@ -1393,6 +1393,46 @@ COMMENT ON COLUMN "public"."dns_records"."batch_scan_id" IS 'Batch processing id
 
 
 COMMENT ON COLUMN "public"."dns_records"."asset_id" IS 'Denormalized asset reference for fast queries';
+
+
+
+CREATE TABLE IF NOT EXISTS "public"."historical_urls" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "url" "text" NOT NULL,
+    "parent_domain" "text" NOT NULL,
+    "source" "text" DEFAULT 'waymore'::"text" NOT NULL,
+    "archive_timestamp" timestamp with time zone,
+    "asset_id" "uuid" NOT NULL,
+    "scan_job_id" "uuid",
+    "discovered_at" timestamp with time zone DEFAULT "now"(),
+    "metadata" "jsonb" DEFAULT '{}'::"jsonb"
+);
+
+
+ALTER TABLE "public"."historical_urls" OWNER TO "postgres";
+
+
+COMMENT ON TABLE "public"."historical_urls" IS 'Stores historical URL discoveries from Waymore (Wayback Machine, Common Crawl, etc.)';
+
+
+
+COMMENT ON COLUMN "public"."historical_urls"."url" IS 'The discovered URL (full URL including path and query params)';
+
+
+
+COMMENT ON COLUMN "public"."historical_urls"."parent_domain" IS 'The apex domain this URL belongs to (e.g., example.com)';
+
+
+
+COMMENT ON COLUMN "public"."historical_urls"."source" IS 'Archive source: wayback, commoncrawl, alienvault, urlscan, virustotal, intelligencex';
+
+
+
+COMMENT ON COLUMN "public"."historical_urls"."archive_timestamp" IS 'Original archive timestamp from the source (when available)';
+
+
+
+COMMENT ON COLUMN "public"."historical_urls"."metadata" IS 'Flexible JSON storage for source-specific metadata';
 
 
 
@@ -1891,6 +1931,16 @@ ALTER TABLE ONLY "public"."dns_records"
 
 
 
+ALTER TABLE ONLY "public"."historical_urls"
+    ADD CONSTRAINT "historical_urls_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."historical_urls"
+    ADD CONSTRAINT "historical_urls_url_asset_id_key" UNIQUE ("url", "asset_id");
+
+
+
 ALTER TABLE ONLY "public"."http_probes"
     ADD CONSTRAINT "http_probes_pkey" PRIMARY KEY ("id");
 
@@ -2169,6 +2219,30 @@ CREATE INDEX "idx_dns_records_subdomain" ON "public"."dns_records" USING "btree"
 
 
 CREATE INDEX "idx_dns_records_subdomain_type" ON "public"."dns_records" USING "btree" ("subdomain", "record_type") WHERE ("record_type" = ANY (ARRAY['A'::"text", 'AAAA'::"text"]));
+
+
+
+CREATE INDEX "idx_historical_urls_asset_id" ON "public"."historical_urls" USING "btree" ("asset_id");
+
+
+
+CREATE INDEX "idx_historical_urls_asset_source" ON "public"."historical_urls" USING "btree" ("asset_id", "source");
+
+
+
+CREATE INDEX "idx_historical_urls_discovered_at" ON "public"."historical_urls" USING "btree" ("discovered_at" DESC);
+
+
+
+CREATE INDEX "idx_historical_urls_parent_domain" ON "public"."historical_urls" USING "btree" ("parent_domain");
+
+
+
+CREATE INDEX "idx_historical_urls_scan_job_id" ON "public"."historical_urls" USING "btree" ("scan_job_id");
+
+
+
+CREATE INDEX "idx_historical_urls_source" ON "public"."historical_urls" USING "btree" ("source");
 
 
 
@@ -2499,6 +2573,11 @@ ON DELETE RESTRICT prevents deleting modules that are referenced.';
 
 
 
+ALTER TABLE ONLY "public"."historical_urls"
+    ADD CONSTRAINT "historical_urls_asset_id_fkey" FOREIGN KEY ("asset_id") REFERENCES "public"."assets"("id") ON DELETE CASCADE;
+
+
+
 ALTER TABLE ONLY "public"."http_probes"
     ADD CONSTRAINT "http_probes_asset_id_fkey" FOREIGN KEY ("asset_id") REFERENCES "public"."assets"("id") ON DELETE CASCADE;
 
@@ -2660,6 +2739,10 @@ CREATE POLICY "Service role has full access" ON "public"."vt_discovered_urls" US
 
 
 
+CREATE POLICY "Service role has full access to historical_urls" ON "public"."historical_urls" TO "service_role" USING (true) WITH CHECK (true);
+
+
+
 CREATE POLICY "Service role has full access to http_probes" ON "public"."http_probes" USING ((("auth"."jwt"() ->> 'role'::"text") = 'service_role'::"text")) WITH CHECK ((("auth"."jwt"() ->> 'role'::"text") = 'service_role'::"text"));
 
 
@@ -2713,6 +2796,12 @@ CREATE POLICY "Users can insert apex domains for own assets" ON "public"."apex_d
 CREATE POLICY "Users can insert own subdomains" ON "public"."subdomains" FOR INSERT WITH CHECK ((EXISTS ( SELECT 1
    FROM "public"."asset_scan_jobs"
   WHERE (("asset_scan_jobs"."id" = "subdomains"."scan_job_id") AND ("asset_scan_jobs"."user_id" = "auth"."uid"())))));
+
+
+
+CREATE POLICY "Users can read own historical_urls" ON "public"."historical_urls" FOR SELECT TO "authenticated" USING ((EXISTS ( SELECT 1
+   FROM "public"."assets"
+  WHERE (("assets"."id" = "historical_urls"."asset_id") AND ("assets"."user_id" = "auth"."uid"())))));
 
 
 
@@ -2827,6 +2916,9 @@ ALTER TABLE "public"."batch_scan_jobs" ENABLE ROW LEVEL SECURITY;
 
 
 ALTER TABLE "public"."crawled_endpoints" ENABLE ROW LEVEL SECURITY;
+
+
+ALTER TABLE "public"."historical_urls" ENABLE ROW LEVEL SECURITY;
 
 
 ALTER TABLE "public"."http_probes" ENABLE ROW LEVEL SECURITY;
@@ -3049,6 +3141,12 @@ GRANT ALL ON TABLE "public"."crawled_endpoints" TO "service_role";
 GRANT ALL ON TABLE "public"."dns_records" TO "anon";
 GRANT ALL ON TABLE "public"."dns_records" TO "authenticated";
 GRANT ALL ON TABLE "public"."dns_records" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."historical_urls" TO "anon";
+GRANT ALL ON TABLE "public"."historical_urls" TO "authenticated";
+GRANT ALL ON TABLE "public"."historical_urls" TO "service_role";
 
 
 

@@ -178,8 +178,10 @@ export default function ProgramsPage() {
           ) : (
             filteredPrograms.map((program) => (
               <Link key={program.id} href={`/programs/${program.id}`}>
-                <Card className="border border-border bg-card hover:border-[--terminal-green]/50 transition-all duration-200 cursor-pointer h-full group">
-                  <CardContent className="p-5">
+                <Card className="relative border border-border bg-card hover:border-[--terminal-green]/50 hover:bg-white/[0.02] transition-all duration-200 cursor-pointer h-full group overflow-hidden">
+                  {/* Hover overlay for clickable indication */}
+                  <div className="absolute inset-0 bg-gradient-to-br from-white/[0.03] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none" />
+                  <CardContent className="p-5 relative z-10">
                     {/* Program Header: Avatar + Name */}
                     <div className="flex items-center gap-3 mb-3">
                       <LetterAvatar name={program.name} className="w-10 h-10 text-lg" />
