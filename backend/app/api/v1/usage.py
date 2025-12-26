@@ -48,6 +48,7 @@ async def get_recon_data(
         enriched_assets = []
         total_subdomains = 0
         total_probes = 0
+        total_dns_records = 0
         total_scans = 0
         completed_scans = 0
         failed_scans = 0
@@ -100,6 +101,13 @@ async def get_recon_data(
             probe_count = probes_result.count or 0
             total_probes += probe_count
             
+            # Count DNS records for this asset
+            dns_result = client.table("dns_records").select(
+                "id", count="exact"
+            ).eq("asset_id", asset_id).execute()
+            dns_count = dns_result.count or 0
+            total_dns_records += dns_count
+            
             # Get last scan date for this asset
             asset_last_scan = None
             if asset_scans:
@@ -128,6 +136,7 @@ async def get_recon_data(
                 "pending_scans": asset_pending_scans,
                 "total_subdomains": subdomain_count,
                 "total_probes": probe_count,
+                "total_dns_records": dns_count,
                 "last_scan_date": asset_last_scan
             })
         
@@ -192,6 +201,7 @@ async def get_recon_data(
             "pending_scans": pending_scans,
             "total_subdomains": total_subdomains,
             "total_probes": total_probes,
+            "total_dns_records": total_dns_records,
             "last_scan_date": last_scan_date
         }
         

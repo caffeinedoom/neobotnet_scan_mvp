@@ -16,6 +16,7 @@ export interface ReconSummary {
   pending_scans: number;
   total_subdomains: number;
   total_probes: number;
+  total_dns_records: number;
   last_scan_date?: string;
 }
 
@@ -37,6 +38,7 @@ export interface ReconAsset {
   pending_scans: number;
   total_subdomains: number;
   total_probes: number;
+  total_dns_records: number;
   last_scan_date?: string;
 }
 

@@ -47,7 +47,8 @@ export default function AssetsPage() {
     failed_scans: 0,
     pending_scans: 0,
     total_subdomains: 0,
-    total_probes: 0
+    total_probes: 0,
+    total_dns_records: 0
   });
 
   useEffect(() => {

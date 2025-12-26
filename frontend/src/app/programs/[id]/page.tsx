@@ -156,7 +156,7 @@ export default function ProgramDetailPage() {
       href: `/dns?asset=${program.id}`,
       icon: Network,
       label: 'dns',
-      count: null,
+      count: program.total_dns_records || 0,
       subtitle: 'records',
     },
     {

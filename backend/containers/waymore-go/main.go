@@ -279,10 +279,16 @@ func runBatchMode(streamingEnabled bool) error {
 	}
 
 	// Update batch status to completed
+	// Use existing column names: completed_domains, total_records
+	// Store additional data in the metadata JSONB column
 	if err := supabaseClient.UpdateBatchScanStatus(batchConfig.BatchID, "completed", map[string]interface{}{
-		"total_urls":      len(allURLs),
-		"domains_scanned": len(batchConfig.BatchDomains),
-		"urls_streamed":   totalStreamed,
+		"completed_domains": len(batchConfig.BatchDomains),
+		"total_records":     len(allURLs),
+		"metadata": map[string]interface{}{
+			"urls_streamed":  totalStreamed,
+			"source_module":  "waymore",
+			"scan_completed": true,
+		},
 	}); err != nil {
 		log.Printf("⚠️  Warning: Could not update batch status: %v", err)
 	}
@@ -442,4 +448,3 @@ func loadBatchConfig() (*BatchConfig, error) {
 
 	return config, nil
 }
-

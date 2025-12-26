@@ -28,7 +28,8 @@ func NewWaymoreScanner(scanJobID, assetID string) *WaymoreScanner {
 	timeout := getEnvInt("WAYMORE_TIMEOUT", 600) // 10 minutes default
 
 	// Parse providers from environment or use defaults
-	providers := []string{"wayback", "commoncrawl", "alienvault", "urlscan", "virustotal"}
+	// Note: waymore uses 'otx' for AlienVault OTX, not 'alienvault'
+	providers := []string{"wayback", "commoncrawl", "otx", "urlscan", "virustotal"}
 	if providersEnv := os.Getenv("WAYMORE_PROVIDERS"); providersEnv != "" {
 		providers = strings.Split(providersEnv, ",")
 		for i, p := range providers {
@@ -63,13 +64,12 @@ func (s *WaymoreScanner) ScanDomain(domain string) ([]DiscoveredURL, error) {
 	outputFile := filepath.Join(tmpDir, "urls.txt")
 
 	// Build waymore command
-	// waymore -i domain -mode U -oU urls.txt -l 5000 -c config.yml --no-banner
+	// waymore -i domain -mode U -oU urls.txt -l 5000 -c config.yml
 	args := []string{
 		"-i", domain,
 		"-mode", "U", // URL mode only (no responses)
 		"-oU", outputFile, // Output URLs to file
 		"-l", strconv.Itoa(s.Limit),
-		"--no-banner",
 	}
 
 	// Add config file if it exists
@@ -212,4 +212,3 @@ func getEnvInt(key string, defaultValue int) int {
 	}
 	return defaultValue
 }
-
