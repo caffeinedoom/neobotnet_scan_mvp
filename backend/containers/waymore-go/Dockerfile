@@ -65,14 +65,22 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY --from=python-builder /opt/venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
+# FIX: Make waymore package directory writable for cache files (collinfo.json)
+# Waymore needs to write to its package directory for CommonCrawl index
+RUN chmod -R a+rw /opt/venv/lib/python3.11/site-packages/waymore/
+
 # Copy Go binary from builder
 COPY --from=go-builder /app/waymore-scanner /usr/local/bin/waymore-scanner
 
 # Copy configuration file
 COPY config.yml /app/config.yml
 
-# Create temp directory for waymore output
-RUN mkdir -p /tmp/waymore
+# Create temp directory for waymore output and cache
+RUN mkdir -p /tmp/waymore /tmp/waymore-cache && chmod 777 /tmp/waymore /tmp/waymore-cache
+
+# Create writable home directory for waymore/tldextract cache
+RUN mkdir -p /app/.cache && chmod 777 /app/.cache
+ENV HOME=/app
 
 # Set environment defaults
 ENV WAYMORE_CONFIG=/app/config.yml
