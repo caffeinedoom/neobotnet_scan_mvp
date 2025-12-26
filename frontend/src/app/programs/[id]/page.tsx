@@ -1,32 +1,62 @@
 'use client';
 
 /**
- * Program Detail Page - NeoBot-Net LEAN
+ * Program Detail Page - neobotnet
  * 
  * Displays detailed reconnaissance data for a specific program.
- * Read-only view with links to subdomains, DNS, and HTTP probes.
+ * Clean, minimal design with navigation to subdomains, DNS, and servers.
  */
 
 import { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { 
   ArrowLeft,
   Globe, 
-  Search, 
   ExternalLink,
-  Calendar,
-  Database,
-  Wifi,
-  Radar,
-  Clock
+  Network,
+  Server,
+  CircleDot,
+  ChevronRight
 } from 'lucide-react';
 import Link from 'next/link';
 import { reconDataService, type ReconAsset } from '@/lib/api/recon-data';
 import { toast } from 'sonner';
+
+// Letter Avatar component (matching /programs page)
+function LetterAvatar({ name, className = '' }: { name: string; className?: string }) {
+  const letter = name.charAt(0).toUpperCase();
+  
+  const colors = [
+    'bg-red-500/20 text-red-400',
+    'bg-orange-500/20 text-orange-400',
+    'bg-amber-500/20 text-amber-400',
+    'bg-yellow-500/20 text-yellow-400',
+    'bg-lime-500/20 text-lime-400',
+    'bg-green-500/20 text-green-400',
+    'bg-emerald-500/20 text-emerald-400',
+    'bg-teal-500/20 text-teal-400',
+    'bg-cyan-500/20 text-cyan-400',
+    'bg-sky-500/20 text-sky-400',
+    'bg-blue-500/20 text-blue-400',
+    'bg-indigo-500/20 text-indigo-400',
+    'bg-violet-500/20 text-violet-400',
+    'bg-purple-500/20 text-purple-400',
+    'bg-fuchsia-500/20 text-fuchsia-400',
+    'bg-pink-500/20 text-pink-400',
+  ];
+  
+  const colorIndex = name.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) % colors.length;
+  const colorClass = colors[colorIndex];
+  
+  return (
+    <div className={`flex items-center justify-center rounded-lg font-bold font-mono ${colorClass} ${className}`}>
+      {letter}
+    </div>
+  );
+}
 
 export default function ProgramDetailPage() {
   const router = useRouter();
@@ -82,13 +112,19 @@ export default function ProgramDetailPage() {
 
   if (loading) {
     return (
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-8">
+      <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8 py-8">
         <div className="space-y-6">
-          <div className="h-8 bg-muted animate-pulse rounded w-1/4" />
-          <div className="h-4 bg-muted animate-pulse rounded w-1/2" />
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="h-6 bg-muted animate-pulse rounded w-24" />
+          <div className="flex items-center gap-4">
+            <div className="w-14 h-14 bg-muted animate-pulse rounded-lg" />
+            <div className="space-y-2 flex-1">
+              <div className="h-8 bg-muted animate-pulse rounded w-1/3" />
+              <div className="h-4 bg-muted animate-pulse rounded w-1/2" />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {[...Array(4)].map((_, i) => (
-              <div key={i} className="h-24 bg-muted animate-pulse rounded" />
+              <div key={i} className="h-32 bg-muted animate-pulse rounded-lg" />
             ))}
           </div>
         </div>
@@ -100,224 +136,125 @@ export default function ProgramDetailPage() {
     return null;
   }
 
+  // Navigation cards data
+  const navCards = [
+    {
+      href: `/subdomains?asset=${program.id}`,
+      icon: CircleDot,
+      label: 'domains',
+      count: program.apex_domain_count || 0,
+      subtitle: `${program.active_domain_count || 0} active`,
+    },
+    {
+      href: `/subdomains?asset=${program.id}`,
+      icon: Globe,
+      label: 'subdomains',
+      count: program.total_subdomains || 0,
+      subtitle: 'discovered',
+    },
+    {
+      href: `/dns?asset=${program.id}`,
+      icon: Network,
+      label: 'dns',
+      count: null,
+      subtitle: 'records',
+    },
+    {
+      href: `/probes?asset=${program.id}`,
+      icon: Server,
+      label: 'servers',
+      count: program.total_probes || 0,
+      subtitle: 'live hosts',
+    },
+  ];
+
   return (
-    <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-8">
-      <div className="space-y-6">
+    <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8 py-8">
+      <div className="space-y-8">
         {/* Back Button */}
-        <Button 
-          variant="ghost" 
-          onClick={() => router.push('/programs')}
-          className="mb-4"
+        <Link 
+          href="/programs"
+          className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground transition-colors font-mono"
         >
           <ArrowLeft className="h-4 w-4 mr-2" />
-          Back to Programs
-        </Button>
+          programs
+        </Link>
 
         {/* Header */}
-        <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight flex items-center gap-3">
-              {program.name}
+        <div className="flex items-start gap-4">
+          <LetterAvatar name={program.name} className="w-14 h-14 text-2xl flex-shrink-0" />
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-3">
+              <h1 className="text-2xl font-bold tracking-tight font-mono text-foreground truncate">
+                {program.name}
+              </h1>
               {program.bug_bounty_url && (
                 <a 
                   href={program.bug_bounty_url} 
                   target="_blank" 
                   rel="noopener noreferrer"
-                  className="text-primary hover:text-primary/80"
+                  className="text-muted-foreground hover:text-[--terminal-green] transition-colors flex-shrink-0"
                 >
-                  <ExternalLink className="h-6 w-6" />
+                  <ExternalLink className="h-5 w-5" />
                 </a>
               )}
-            </h1>
+            </div>
+            
             {program.description && (
-              <p className="text-muted-foreground mt-2 max-w-2xl">
+              <p className="text-sm text-muted-foreground mt-1 font-mono">
                 {program.description}
               </p>
             )}
             
-            {/* Tags */}
-            {program.tags && program.tags.length > 0 && (
-              <div className="flex flex-wrap gap-2 mt-4">
-                {program.tags.map((tag) => (
-                  <Badge key={tag} variant="secondary">
-                    {tag}
-                  </Badge>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Last Scan Info */}
-          <Card className="w-full sm:w-auto">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-2 text-sm">
-                <Clock className="h-4 w-4 text-muted-foreground" />
-                {program.last_scan_date ? (
-                  <span>
-                    Last scanned: <strong>{new Date(program.last_scan_date).toLocaleDateString()}</strong>
-                  </span>
-                ) : (
-                  <span className="text-muted-foreground">No scans yet</span>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Stats Grid */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Domains</CardTitle>
-              <Globe className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{program.apex_domain_count || 0}</div>
-              <p className="text-xs text-muted-foreground">
-                {program.active_domain_count || 0} active
-              </p>
-            </CardContent>
-          </Card>
-          
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Subdomains</CardTitle>
-              <Search className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{(program.total_subdomains || 0).toLocaleString()}</div>
-              <p className="text-xs text-muted-foreground">Discovered</p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Scans</CardTitle>
-              <Radar className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{program.total_scans || 0}</div>
-              <p className="text-xs text-muted-foreground">
-                {program.completed_scans || 0} completed
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Created</CardTitle>
-              <Calendar className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-lg font-bold">
-                {new Date(program.created_at).toLocaleDateString('en-US', {
-                  month: 'short',
-                  day: 'numeric',
-                  year: 'numeric'
-                })}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Data Access Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {/* Subdomains */}
-          <Card className="hover:shadow-lg transition-shadow">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Globe className="h-5 w-5 text-blue-500" />
-                Subdomains
-              </CardTitle>
-              <CardDescription>
-                Discovered subdomains from Subfinder scans
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold mb-4">
-                {(program.total_subdomains || 0).toLocaleString()}
-              </div>
-              <Button asChild className="w-full">
-                <Link href={`/subdomains?asset=${program.id}`}>
-                  <Search className="h-4 w-4 mr-2" />
-                  View Subdomains
-                </Link>
-              </Button>
-            </CardContent>
-          </Card>
-
-          {/* DNS Records */}
-          <Card className="hover:shadow-lg transition-shadow">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Database className="h-5 w-5 text-green-500" />
-                DNS Records
-              </CardTitle>
-              <CardDescription>
-                A, AAAA, CNAME records from DNSx scans
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold mb-4 text-muted-foreground">
-                View All
-              </div>
-              <Button asChild variant="outline" className="w-full">
-                <Link href={`/dns?asset=${program.id}`}>
-                  <Database className="h-4 w-4 mr-2" />
-                  View DNS Records
-                </Link>
-              </Button>
-            </CardContent>
-          </Card>
-
-          {/* HTTP Probes */}
-          <Card className="hover:shadow-lg transition-shadow">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Wifi className="h-5 w-5 text-orange-500" />
-                HTTP Probes
-              </CardTitle>
-              <CardDescription>
-                Live hosts and responses from HTTPx scans
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold mb-4 text-muted-foreground">
-                View All
-              </div>
-              <Button asChild variant="outline" className="w-full">
-                <Link href={`/probes?asset=${program.id}`}>
-                  <Wifi className="h-4 w-4 mr-2" />
-                  View HTTP Probes
-                </Link>
-              </Button>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* API Access Info */}
-        <Card className="border-dashed">
-          <CardHeader>
-            <CardTitle className="text-lg">API Access</CardTitle>
-            <CardDescription>
-              Access this program&apos;s data programmatically via the API
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="bg-muted/50 rounded-lg p-4 font-mono text-sm">
-              <p className="text-muted-foreground mb-2"># Get subdomains for this program</p>
-              <p>curl -H &quot;X-API-Key: YOUR_API_KEY&quot; \</p>
-              <p className="ml-4">&quot;https://api.neobotnet.com/v1/programs/{program.id}/subdomains&quot;</p>
+            {/* Tags + Last Scan inline */}
+            <div className="flex flex-wrap items-center gap-2 mt-3">
+              {program.tags && program.tags.length > 0 && (
+                <>
+                  {program.tags.map((tag) => (
+                    <Badge key={tag} variant="secondary" className="font-mono text-xs">
+                      {tag}
+                    </Badge>
+                  ))}
+                  <span className="text-muted-foreground">·</span>
+                </>
+              )}
+              <span className="text-xs text-muted-foreground font-mono">
+                {program.last_scan_date 
+                  ? `scanned ${new Date(program.last_scan_date).toLocaleDateString()}`
+                  : 'no scans yet'
+                }
+              </span>
             </div>
-            <Button asChild variant="link" className="mt-4 p-0">
-              <Link href="/api-docs">
-                View full API documentation →
-              </Link>
-            </Button>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
+
+        {/* Navigation Cards Grid */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {navCards.map((card) => (
+            <Link key={card.label} href={card.href}>
+              <Card className="relative border border-border bg-card hover:border-[--terminal-green]/50 hover:bg-white/[0.02] transition-all duration-200 cursor-pointer h-full group overflow-hidden">
+                {/* Hover overlay */}
+                <div className="absolute inset-0 bg-gradient-to-br from-white/[0.03] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none" />
+                <CardContent className="p-4 relative z-10">
+                  <div className="flex items-center justify-between mb-3">
+                    <card.icon className="h-4 w-4 text-muted-foreground group-hover:text-[--terminal-green] transition-colors" />
+                    <ChevronRight className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                  </div>
+                  <div className="text-2xl font-bold font-mono text-foreground mb-1">
+                    {card.count !== null ? card.count.toLocaleString() : '—'}
+                  </div>
+                  <div className="text-xs text-muted-foreground uppercase tracking-wider font-mono">
+                    {card.label}
+                  </div>
+                  <div className="text-[10px] text-muted-foreground/70 font-mono mt-1">
+                    {card.subtitle}
+                  </div>
+                </CardContent>
+              </Card>
+            </Link>
+          ))}
+        </div>
       </div>
     </div>
   );
 }
-

@@ -48,7 +48,7 @@ resource "aws_ecr_repository" "waymore" {
 # ================================================================
 
 resource "aws_ecs_task_definition" "waymore" {
-  family                   = "${local.name_prefix}-waymore"
+  family                   = "${local.name_prefix}-waymore-batch"
   network_mode             = "awsvpc"
   requires_compatibilities = ["FARGATE"]
   cpu                      = 512   # Archive API calls + Python runtime
