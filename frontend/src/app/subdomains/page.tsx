@@ -169,7 +169,6 @@ function SubdomainsContent() {
   const perPage = parseInt(searchParams.get('per_page') || '50');
   const searchTerm = searchParams.get('search') || '';
   const selectedDomain = searchParams.get('parent_domain') || 'all';
-  const selectedModule = searchParams.get('source_module') || 'all';  
   const selectedAsset = searchParams.get('asset') || 'all';
 
   // Only loading state and data need useState
@@ -179,7 +178,6 @@ function SubdomainsContent() {
   
   // Available filter options (populated from data)
   const [availableDomains, setAvailableDomains] = useState<string[]>([]);
-  const [availableModules, setAvailableModules] = useState<string[]>([]);
   const [availableAssets, setAvailableAssets] = useState<{id: string, name: string}[]>([]);
 
   // ================================================================
@@ -249,7 +247,6 @@ function SubdomainsContent() {
         per_page: perPage,
         asset_id: selectedAsset !== 'all' ? selectedAsset : undefined,
         parent_domain: selectedDomain !== 'all' ? selectedDomain : undefined,
-        source_module: selectedModule !== 'all' ? selectedModule : undefined,
         search: debouncedSearch || undefined,
       });
       
@@ -265,7 +262,7 @@ function SubdomainsContent() {
     } finally {
       setIsLoadingData(false);
     }
-  }, [isAuthenticated, currentPage, perPage, selectedAsset, selectedDomain, selectedModule, debouncedSearch]);
+  }, [isAuthenticated, currentPage, perPage, selectedAsset, selectedDomain, debouncedSearch]);
 
   // ================================================================
   // NEW: Comprehensive Filter Options Loading (Phase 1b Fix)
@@ -282,7 +279,6 @@ function SubdomainsContent() {
       
       // Set comprehensive filter options from ALL user data
       setAvailableDomains(filterData.domains || []);
-      setAvailableModules(filterData.modules || []); 
       setAvailableAssets(filterData.assets || []);
       
     } catch (err) {
@@ -526,7 +522,7 @@ function SubdomainsContent() {
             <CardTitle className="text-base font-mono">filters</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
               {/* Search */}
               <div className="space-y-2">
                 <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
@@ -574,24 +570,6 @@ function SubdomainsContent() {
                     <SelectItem value="all">all domains</SelectItem>
                     {availableDomains.map(domain => (
                       <SelectItem key={domain} value={domain}>{domain}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Module Filter */}
-              <div className="space-y-2">
-                <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                  Source
-                </label>
-                <Select value={selectedModule} onValueChange={(value) => handleFilterChange('source_module', value)}>
-                  <SelectTrigger className="font-mono bg-background border-border hover:border-[--terminal-green]/50 focus:border-[--terminal-green] transition-colors">
-                    <SelectValue placeholder="all sources" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">all sources</SelectItem>
-                    {availableModules.map(module => (
-                      <SelectItem key={module} value={module}>{module}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -673,7 +651,7 @@ function SubdomainsContent() {
                 <Globe className="h-12 w-12 text-gray-400 mx-auto mb-4" />
                 <p className="text-muted-foreground">No subdomains found</p>
                 <p className="text-sm text-muted-foreground">
-                  {searchTerm || selectedDomain !== 'all' || selectedModule !== 'all'
+                  {searchTerm || selectedDomain !== 'all'
                     ? 'Try adjusting your filters' 
                     : 'Run your first scan to discover subdomains'
                   }
@@ -695,7 +673,6 @@ function SubdomainsContent() {
                             {subdomain.subdomain}
                           </div>
                           <Badge variant="outline">{subdomain.parent_domain}</Badge>
-                          <Badge variant="secondary">{subdomain.source_module}</Badge>
                           {subdomain.asset_name && (
                             <Badge variant="outline">{subdomain.asset_name}</Badge>
                           )}
