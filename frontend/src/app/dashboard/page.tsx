@@ -64,6 +64,7 @@ export default function DashboardPage() {
         pending_scans: 0,
         total_subdomains: 0,
         total_probes: 0,
+        total_dns_records: 0,
         last_scan_date: undefined
       });
     } finally {
