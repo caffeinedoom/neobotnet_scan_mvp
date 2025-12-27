@@ -540,19 +540,21 @@ export default function Home() {
         </div>
         </div>
 
-                {/* Web Mode: Card Display - 3 cards with fade on last */}
-                <div className="relative space-y-3">
-                  {activeTab === 'probes' && MOCK_PROBES.map((probe, i) => (
-                    <ServerCard key={i} probe={probe} fade={i === 2} />
-                  ))}
-                  
-                  {activeTab === 'dns' && MOCK_DNS.map((record, i) => (
-                    <DNSCard key={i} record={record} fade={i === 2} />
-                  ))}
-                  
-                  {activeTab === 'subdomains' && MOCK_SUBDOMAINS.map((sub, i) => (
-                    <SubdomainCard key={i} sub={sub} fade={i === 2} />
-                  ))}
+                {/* Web Mode: Card Display - Fixed height container to prevent page jumping */}
+                <div className="relative h-[420px] overflow-hidden">
+                  <div className="space-y-3">
+                    {activeTab === 'probes' && MOCK_PROBES.map((probe, i) => (
+                      <ServerCard key={i} probe={probe} fade={i === 2} />
+                    ))}
+                    
+                    {activeTab === 'dns' && MOCK_DNS.map((record, i) => (
+                      <DNSCard key={i} record={record} fade={i === 2} />
+                    ))}
+                    
+                    {activeTab === 'subdomains' && MOCK_SUBDOMAINS.map((sub, i) => (
+                      <SubdomainCard key={i} sub={sub} fade={i === 2} />
+                    ))}
+                  </div>
                   
                   {/* Bottom fade gradient */}
                   <div className="absolute bottom-0 left-0 right-0 h-24 bg-gradient-to-t from-background via-background/80 to-transparent pointer-events-none" />

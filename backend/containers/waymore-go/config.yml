@@ -1,22 +1,22 @@
-# Waymore Configuration
+# Waymore Configuration (Fallback)
 # Documentation: https://github.com/xnl-h4ck3r/waymore
-
+#
+# NOTE: This is a fallback config. The Go wrapper generates a runtime config
+# with API keys from AWS Secrets Manager at /tmp/waymore-config.yml
+#
 # ============================================================================
-# API KEYS (Populated from environment variables at container startup)
+# API KEYS - Configure via environment variables:
 # ============================================================================
-# These are populated by the Go wrapper from AWS Secrets Manager via env vars
+# - URLSCAN_API_KEY: Get free at https://urlscan.io/user/signup
+# - VIRUSTOTAL_API_KEY: Get free at https://www.virustotal.com/gui/join-us  
+# - ALIENVAULT_API_KEY: Get free at https://otx.alienvault.com/
+#
+# These are injected from AWS SSM Parameter Store via Terraform.
+# ============================================================================
 
-# URLScan.io API key (optional, improves results)
-# Get from: https://urlscan.io/user/signup
-URLSCAN_API_KEY: "${URLSCAN_API_KEY}"
-
-# VirusTotal API key (optional, strict rate limits on free tier)
-# Get from: https://www.virustotal.com/gui/join-us
-VIRUSTOTAL_API_KEY: "${VIRUSTOTAL_API_KEY}"
-
-# Alien Vault OTX API key (optional)
-# Get from: https://otx.alienvault.com/
-ALIENVAULT_API_KEY: "${ALIENVAULT_API_KEY}"
+URLSCAN_API_KEY: ""
+VIRUSTOTAL_API_KEY: ""
+ALIENVAULT_API_KEY: ""
 
 # ============================================================================
 # BEHAVIOR SETTINGS

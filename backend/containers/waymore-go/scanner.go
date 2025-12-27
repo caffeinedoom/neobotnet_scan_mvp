@@ -37,14 +37,76 @@ func NewWaymoreScanner(scanJobID, assetID string) *WaymoreScanner {
 		}
 	}
 
+	// Generate runtime config with API keys from environment
+	configPath := generateRuntimeConfig()
+
 	return &WaymoreScanner{
 		ScanJobID:  scanJobID,
 		AssetID:    assetID,
-		ConfigPath: getEnv("WAYMORE_CONFIG", "/app/config.yml"),
+		ConfigPath: configPath,
 		Limit:      limit,
 		Providers:  providers,
 		Timeout:    timeout,
 	}
+}
+
+// generateRuntimeConfig creates a waymore config file with API keys from environment variables
+func generateRuntimeConfig() string {
+	configPath := "/tmp/waymore-config.yml"
+
+	// Read API keys from environment (injected from AWS Secrets Manager)
+	urlscanKey := os.Getenv("URLSCAN_API_KEY")
+	virustotalKey := os.Getenv("VIRUSTOTAL_API_KEY")
+	alienvaultKey := os.Getenv("ALIENVAULT_API_KEY")
+
+	// Log which API keys are configured (without revealing the actual keys)
+	log.Printf("📋 API Key Configuration:")
+	if urlscanKey != "" {
+		log.Printf("   ✅ URLSCAN_API_KEY: configured (%d chars)", len(urlscanKey))
+	} else {
+		log.Printf("   ⚠️  URLSCAN_API_KEY: not configured")
+	}
+	if virustotalKey != "" {
+		log.Printf("   ✅ VIRUSTOTAL_API_KEY: configured (%d chars)", len(virustotalKey))
+	} else {
+		log.Printf("   ⚠️  VIRUSTOTAL_API_KEY: not configured")
+	}
+	if alienvaultKey != "" {
+		log.Printf("   ✅ ALIENVAULT_API_KEY: configured (%d chars)", len(alienvaultKey))
+	} else {
+		log.Printf("   ⚠️  ALIENVAULT_API_KEY: not configured")
+	}
+
+	// Create config content with the exact key names waymore expects
+	configContent := fmt.Sprintf(`# Waymore Runtime Configuration
+# Generated at container startup with API keys from AWS Secrets Manager
+
+# API Keys
+URLSCAN_API_KEY: "%s"
+VIRUSTOTAL_API_KEY: "%s"
+ALIENVAULT_API_KEY: "%s"
+
+# Rate limiting (be nice to archive providers)
+WAYBACK_RATE_LIMIT: 2
+COMMONCRAWL_RATE_LIMIT: 2
+URLSCAN_RATE_LIMIT: 1
+VIRUSTOTAL_RATE_LIMIT: 0.25
+
+# Timeout settings
+TIMEOUT: 60
+
+# Retries
+RETRIES: 3
+`, urlscanKey, virustotalKey, alienvaultKey)
+
+	// Write config file
+	if err := os.WriteFile(configPath, []byte(configContent), 0600); err != nil {
+		log.Printf("⚠️  Failed to write runtime config: %v", err)
+		return getEnv("WAYMORE_CONFIG", "/app/config.yml")
+	}
+
+	log.Printf("✅ Runtime config generated: %s", configPath)
+	return configPath
 }
 
 // ScanDomain runs waymore for a single domain and returns discovered URLs
