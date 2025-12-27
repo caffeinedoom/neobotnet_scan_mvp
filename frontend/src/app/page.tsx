@@ -12,45 +12,93 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
-import { Code2, Globe } from 'lucide-react';
+import { Code2, Globe, Copy, ExternalLink } from 'lucide-react';
 
 // ============================================================================
-// MOCK DATA - Realistic reconnaissance results
+// MOCK DATA - Rich data matching authenticated experience
 // ============================================================================
 
 const MOCK_SUBDOMAINS = [
-  { subdomain: 'api.acmecorp.com', discovered: 'Dec 17, 2025' },
-  { subdomain: 'staging.acmecorp.com', discovered: 'Dec 17, 2025' },
-  { subdomain: 'developer.acmecorp.com', discovered: 'Dec 17, 2025' },
-  { subdomain: 'partners-api.acmecorp.com', discovered: 'Dec 16, 2025' },
-  { subdomain: 'internal-tools.acmecorp.com', discovered: 'Dec 16, 2025' },
-  { subdomain: 'cdn-assets.acmecorp.com', discovered: 'Dec 16, 2025' },
-  { subdomain: 'mail.acmecorp.com', discovered: 'Dec 15, 2025' },
-  { subdomain: 'vpn.acmecorp.com', discovered: 'Dec 15, 2025' },
-  { subdomain: 'jira.acmecorp.com', discovered: 'Dec 15, 2025' },
-  { subdomain: 'confluence.acmecorp.com', discovered: 'Dec 14, 2025' },
+  { 
+    subdomain: 'api.acmecorp.com', 
+    parentDomain: 'acmecorp.com',
+    discovered: '2 hours ago',
+    program: 'AcmeCorp'
+  },
+  { 
+    subdomain: 'staging.acmecorp.com', 
+    parentDomain: 'acmecorp.com',
+    discovered: '5 hours ago',
+    program: 'AcmeCorp'
+  },
+  { 
+    subdomain: 'developer.acmecorp.com', 
+    parentDomain: 'acmecorp.com',
+    discovered: '1 day ago',
+    program: 'AcmeCorp'
+  },
 ];
 
 const MOCK_DNS = [
-  { subdomain: 'api.acmecorp.com', type: 'A', value: '104.18.20.35', ttl: '300s' },
-  { subdomain: 'mail.acmecorp.com', type: 'MX', value: 'aspmx.google.com', ttl: '3600s' },
-  { subdomain: 'cdn.acmecorp.com', type: 'CNAME', value: 'd1abc.cloudfront.net', ttl: '86400s' },
-  { subdomain: 'staging.acmecorp.com', type: 'A', value: '52.14.123.89', ttl: '300s' },
-  { subdomain: 'api.acmecorp.com', type: 'AAAA', value: '2606:4700::6812:1423', ttl: '300s' },
-  { subdomain: 'developer.acmecorp.com', type: 'CNAME', value: 'docs.acmecorp.com', ttl: '3600s' },
-  { subdomain: 'vpn.acmecorp.com', type: 'A', value: '203.0.113.50', ttl: '600s' },
-  { subdomain: 'jira.acmecorp.com', type: 'CNAME', value: 'acmecorp.atlassian.net', ttl: '3600s' },
+  { 
+    subdomain: 'api.acmecorp.com',
+    parentDomain: 'acmecorp.com',
+    records: [
+      { type: 'A', value: '104.18.20.35', ttl: 300 },
+      { type: 'AAAA', value: '2606:4700::6812:1423', ttl: 300 },
+    ],
+    lastResolved: '1 hour ago'
+  },
+  { 
+    subdomain: 'mail.acmecorp.com',
+    parentDomain: 'acmecorp.com',
+    records: [
+      { type: 'MX', value: 'aspmx.l.google.com', ttl: 3600, priority: 10 },
+      { type: 'MX', value: 'alt1.aspmx.l.google.com', ttl: 3600, priority: 20 },
+    ],
+    lastResolved: '3 hours ago'
+  },
+  { 
+    subdomain: 'cdn.acmecorp.com',
+    parentDomain: 'acmecorp.com',
+    records: [
+      { type: 'CNAME', value: 'd1abc.cloudfront.net', ttl: 86400 },
+    ],
+    lastResolved: '6 hours ago'
+  },
 ];
 
 const MOCK_PROBES = [
-  { url: 'https://api.acmecorp.com', status: 200, title: 'API Gateway', length: '2.4kb', server: 'nginx/1.24', cdn: 'Cloudflare' },
-  { url: 'https://staging.acmecorp.com', status: 403, title: 'Forbidden', length: '512b', server: 'nginx', cdn: 'AWS' },
-  { url: 'https://developer.acmecorp.com', status: 200, title: 'Developer Portal', length: '45kb', server: 'nginx', cdn: 'Fastly' },
-  { url: 'https://partners-api.acmecorp.com', status: 200, title: 'Partner API', length: '1.8kb', server: 'gunicorn', cdn: '—' },
-  { url: 'https://internal-tools.acmecorp.com', status: 401, title: 'Unauthorized', length: '256b', server: 'Apache/2.4', cdn: '—' },
-  { url: 'https://cdn-assets.acmecorp.com', status: 200, title: 'CDN Assets', length: '128b', server: 'CloudFront', cdn: 'AWS' },
-  { url: 'https://mail.acmecorp.com', status: 301, title: 'Redirect', length: '0b', server: 'gws', cdn: 'Google' },
-  { url: 'https://jira.acmecorp.com', status: 200, title: 'Jira Software', length: '89kb', server: 'Atlassian', cdn: 'Cloudflare' },
+  { 
+    url: 'https://api.acmecorp.com', 
+    status: 200, 
+    title: 'API Gateway - AcmeCorp', 
+    length: '2.4kb', 
+    server: 'nginx/1.24', 
+    cdn: 'Cloudflare',
+    technologies: ['React', 'Node.js', 'Express'],
+    ip: '104.18.20.35'
+  },
+  { 
+    url: 'https://staging.acmecorp.com', 
+    status: 403, 
+    title: 'Forbidden', 
+    length: '512b', 
+    server: 'nginx', 
+    cdn: 'AWS CloudFront',
+    technologies: ['nginx'],
+    ip: '52.14.123.89'
+  },
+  { 
+    url: 'https://developer.acmecorp.com', 
+    status: 200, 
+    title: 'Developer Portal', 
+    length: '45kb', 
+    server: 'gunicorn/20.1', 
+    cdn: 'Fastly',
+    technologies: ['Python', 'Django', 'React'],
+    ip: '151.101.1.57'
+  },
 ];
 
 // ============================================================================
@@ -87,33 +135,158 @@ const XIcon = () => (
 );
 
 // Status code badge with color coding
-const StatusBadge = ({ status }: { status: number }) => {
-  const getColor = () => {
-    if (status >= 200 && status < 300) return 'text-emerald-400';
-    if (status >= 300 && status < 400) return 'text-blue-400';
-    if (status >= 400 && status < 500) return 'text-amber-400';
-    return 'text-red-400';
-  };
-  
-  return <span className={`font-mono font-semibold ${getColor()}`}>{status}</span>;
-};
-
-// DNS Type badge
-const TypeBadge = ({ type }: { type: string }) => {
-  const colors: Record<string, string> = {
-    'A': 'text-cyan-400',
-    'AAAA': 'text-purple-400',
-    'CNAME': 'text-emerald-400',
-    'MX': 'text-amber-400',
-    'TXT': 'text-pink-400',
+const StatusBadge = ({ status, large = false }: { status: number; large?: boolean }) => {
+  const getStyles = () => {
+    if (status >= 200 && status < 300) return 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30';
+    if (status >= 300 && status < 400) return 'bg-blue-500/20 text-blue-400 border-blue-500/30';
+    if (status >= 400 && status < 500) return 'bg-amber-500/20 text-amber-400 border-amber-500/30';
+    return 'bg-red-500/20 text-red-400 border-red-500/30';
   };
   
   return (
-    <span className={`font-mono text-xs font-semibold ${colors[type] || 'text-muted-foreground'}`}>
-      {type.padEnd(5)}
+    <span className={`font-mono font-bold border rounded px-1.5 py-0.5 ${getStyles()} ${large ? 'text-sm' : 'text-xs'}`}>
+      {status}
     </span>
   );
 };
+
+// DNS Type badge with background
+const TypeBadge = ({ type }: { type: string }) => {
+  const styles: Record<string, string> = {
+    'A': 'bg-cyan-500/20 text-cyan-400 border-cyan-500/30',
+    'AAAA': 'bg-purple-500/20 text-purple-400 border-purple-500/30',
+    'CNAME': 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30',
+    'MX': 'bg-amber-500/20 text-amber-400 border-amber-500/30',
+    'TXT': 'bg-pink-500/20 text-pink-400 border-pink-500/30',
+  };
+  
+  return (
+    <span className={`font-mono text-xs font-semibold border rounded px-1.5 py-0.5 ${styles[type] || 'bg-muted text-muted-foreground border-border'}`}>
+      {type}
+    </span>
+  );
+};
+
+// Technology badge
+const TechBadge = ({ tech }: { tech: string }) => (
+  <span className="text-xs font-mono bg-muted/50 text-muted-foreground border border-border rounded px-1.5 py-0.5">
+    {tech}
+  </span>
+);
+
+// ============================================================================
+// CARD COMPONENTS - Matching authenticated experience
+// ============================================================================
+
+// Web Server Card (matches /probes)
+const ServerCard = ({ probe, fade = false }: { 
+  probe: typeof MOCK_PROBES[0]; 
+  fade?: boolean;
+}) => (
+  <div className={`relative rounded-lg border border-border bg-card/50 p-4 transition-all hover:border-[--terminal-green]/30 ${fade ? 'opacity-60' : ''}`}>
+    {/* Header: Status + URL + Actions */}
+    <div className="flex items-center gap-3 mb-3">
+      <StatusBadge status={probe.status} large />
+      <span className="font-mono text-sm text-[--terminal-green] truncate flex-1">{probe.url}</span>
+      <div className="flex items-center gap-1 opacity-50">
+        <Copy className="h-3.5 w-3.5 text-muted-foreground" />
+        <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" />
+      </div>
+    </div>
+    
+    {/* Meta: Title, Server, Size, CDN */}
+    <div className="flex items-center gap-2 text-xs text-muted-foreground mb-3 font-mono">
+      <span className="text-foreground/80">{probe.title}</span>
+      <span>·</span>
+      <span>{probe.server}</span>
+      <span>·</span>
+      <span className="text-cyan-400">{probe.length}</span>
+      {probe.cdn !== '—' && (
+        <>
+          <span>·</span>
+          <span className="text-purple-400">{probe.cdn}</span>
+        </>
+      )}
+    </div>
+    
+    {/* Technologies */}
+    <div className="flex flex-wrap gap-1.5">
+      {probe.technologies.map((tech, i) => (
+        <TechBadge key={i} tech={tech} />
+      ))}
+    </div>
+    
+    {/* Fade overlay for last card */}
+    {fade && (
+      <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-card rounded-lg pointer-events-none" />
+    )}
+  </div>
+);
+
+// DNS Record Card (matches /dns grouped view)
+const DNSCard = ({ record, fade = false }: { 
+  record: typeof MOCK_DNS[0]; 
+  fade?: boolean;
+}) => (
+  <div className={`relative rounded-lg border border-border bg-card/50 p-4 transition-all hover:border-[--terminal-green]/30 ${fade ? 'opacity-60' : ''}`}>
+    {/* Header: Subdomain + Copy */}
+    <div className="flex items-center gap-3 mb-3">
+      <Globe className="h-4 w-4 text-[--terminal-green]" />
+      <span className="font-mono text-sm text-[--terminal-green] truncate flex-1">{record.subdomain}</span>
+      <Copy className="h-3.5 w-3.5 text-muted-foreground opacity-50" />
+    </div>
+    
+    {/* Records */}
+    <div className="space-y-2">
+      {record.records.map((r, i) => (
+        <div key={i} className="flex items-center gap-2 text-xs font-mono">
+          <TypeBadge type={r.type} />
+          <span className="text-muted-foreground">→</span>
+          <span className="text-foreground/80 truncate flex-1">{r.value}</span>
+          <span className="text-muted-foreground/60">TTL: {r.ttl}s</span>
+        </div>
+      ))}
+    </div>
+    
+    {/* Footer */}
+    <div className="mt-3 pt-2 border-t border-border/50 flex items-center justify-between text-xs text-muted-foreground">
+      <span>{record.parentDomain}</span>
+      <span>{record.lastResolved}</span>
+    </div>
+    
+    {fade && (
+      <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-card rounded-lg pointer-events-none" />
+    )}
+  </div>
+);
+
+// Subdomain Card (matches /subdomains)
+const SubdomainCard = ({ sub, fade = false }: { 
+  sub: typeof MOCK_SUBDOMAINS[0]; 
+  fade?: boolean;
+}) => (
+  <div className={`relative rounded-lg border border-border bg-card/50 p-4 transition-all hover:border-[--terminal-green]/30 ${fade ? 'opacity-60' : ''}`}>
+    {/* Header: Subdomain + Actions */}
+    <div className="flex items-center gap-3 mb-2">
+      <Globe className="h-4 w-4 text-[--terminal-green]" />
+      <span className="font-mono text-sm text-[--terminal-green] truncate flex-1">{sub.subdomain}</span>
+      <div className="flex items-center gap-1 opacity-50">
+        <Copy className="h-3.5 w-3.5 text-muted-foreground" />
+        <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" />
+      </div>
+    </div>
+    
+    {/* Footer */}
+    <div className="flex items-center justify-between text-xs text-muted-foreground font-mono">
+      <span>{sub.parentDomain}</span>
+      <span>{sub.discovered}</span>
+    </div>
+    
+    {fade && (
+      <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-card rounded-lg pointer-events-none" />
+    )}
+  </div>
+);
 
 // ============================================================================
 // MAIN COMPONENT
@@ -367,36 +540,22 @@ export default function Home() {
         </div>
         </div>
 
-                {/* Web Mode: Data Preview - Reduced height */}
-                <div className="relative rounded-xl border border-border bg-card overflow-hidden shadow-[0_0_50px_-12px_rgba(0,0,0,0.9)] ring-1 ring-white/5">
-                  <div className="h-[280px] overflow-hidden p-4 font-mono text-sm">
-                    {activeTab === 'subdomains' && MOCK_SUBDOMAINS.slice(0, 8).map((item, i) => (
-                      <div key={i} className="py-1.5 hover:bg-muted/20 transition-colors flex">
-                        <span className="text-[--terminal-green]">{item.subdomain}</span>
-                        <span className="text-muted-foreground ml-auto text-xs">{item.discovered}</span>
-                      </div>
-                    ))}
-                    
-                    {activeTab === 'dns' && MOCK_DNS.slice(0, 8).map((item, i) => (
-                      <div key={i} className="py-1.5 hover:bg-muted/20 transition-colors flex gap-3">
-                        <span className="text-[--terminal-green] w-48 truncate">{item.subdomain}</span>
-                        <TypeBadge type={item.type} />
-                        <span className="text-muted-foreground truncate flex-1">{item.value}</span>
-                        <span className="text-muted-foreground/60 text-xs">{item.ttl}</span>
-                      </div>
-                    ))}
-                    
-                    {activeTab === 'probes' && MOCK_PROBES.slice(0, 8).map((item, i) => (
-                      <div key={i} className="py-1.5 hover:bg-muted/20 transition-colors flex gap-2">
-                        <StatusBadge status={item.status} />
-                        <span className="text-[--terminal-green] w-52 truncate">{item.url}</span>
-                        <span className="text-muted-foreground truncate flex-1 text-xs">{item.title}</span>
-                        <span className="text-cyan-400 text-xs w-12 text-right">{item.length}</span>
-                        <span className="text-muted-foreground/60 text-xs w-20 text-right">[{item.server}]</span>
-                      </div>
-                    ))}
-                  </div>
-                  <div className="absolute bottom-0 left-0 right-0 h-20 bg-gradient-to-t from-card via-card/80 to-transparent pointer-events-none" />
+                {/* Web Mode: Card Display - 3 cards with fade on last */}
+                <div className="relative space-y-3">
+                  {activeTab === 'probes' && MOCK_PROBES.map((probe, i) => (
+                    <ServerCard key={i} probe={probe} fade={i === 2} />
+                  ))}
+                  
+                  {activeTab === 'dns' && MOCK_DNS.map((record, i) => (
+                    <DNSCard key={i} record={record} fade={i === 2} />
+                  ))}
+                  
+                  {activeTab === 'subdomains' && MOCK_SUBDOMAINS.map((sub, i) => (
+                    <SubdomainCard key={i} sub={sub} fade={i === 2} />
+                  ))}
+                  
+                  {/* Bottom fade gradient */}
+                  <div className="absolute bottom-0 left-0 right-0 h-24 bg-gradient-to-t from-background via-background/80 to-transparent pointer-events-none" />
                 </div>
 
                 {/* Web Mode: Stats */}
@@ -410,14 +569,14 @@ export default function Home() {
                     </div>
                   </div>
                   <div className="h-8 w-px bg-border" />
-            <div className="text-center">
+                  <div className="text-center">
                     <div className="text-2xl sm:text-3xl font-bold text-foreground">156</div>
                     <div className="text-xs text-muted-foreground uppercase tracking-wider mt-1">programs</div>
-              </div>
-            </div>
+                  </div>
+                </div>
 
                 {/* Web Mode: CTA */}
-            <div className="text-center">
+                <div className="text-center">
                   <Button 
                     variant="link" 
                     className="text-[--terminal-green] hover:text-[--terminal-green]/80 font-bold font-mono"
