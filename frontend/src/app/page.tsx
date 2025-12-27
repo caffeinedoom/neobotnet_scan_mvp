@@ -37,6 +37,12 @@ const MOCK_SUBDOMAINS = [
     discovered: '1 day ago',
     program: 'AcmeCorp'
   },
+  { 
+    subdomain: 'internal-tools.acmecorp.com', 
+    parentDomain: 'acmecorp.com',
+    discovered: '2 days ago',
+    program: 'AcmeCorp'
+  },
 ];
 
 const MOCK_DNS = [
@@ -552,7 +558,7 @@ export default function Home() {
                     ))}
                     
                     {activeTab === 'subdomains' && MOCK_SUBDOMAINS.map((sub, i) => (
-                      <SubdomainCard key={i} sub={sub} fade={i === 2} />
+                      <SubdomainCard key={i} sub={sub} fade={i === 3} />
                     ))}
                   </div>
                   
