@@ -36,6 +36,28 @@ data "aws_ssm_parameter" "virustotal_api_keys" {
 }
 
 # ================================================================
+# WAYMORE API KEYS (Optional - for enhanced historical URL discovery)
+# ================================================================
+
+# URLScan.io API Key (free at https://urlscan.io/user/signup)
+data "aws_ssm_parameter" "urlscan_api_key" {
+  name            = "/${local.name_prefix}/urlscan-api-key"
+  with_decryption = true
+}
+
+# VirusTotal API Key for Waymore (separate from TYVT)
+data "aws_ssm_parameter" "waymore_virustotal_api_key" {
+  name            = "/${local.name_prefix}/waymore-virustotal-api-key"
+  with_decryption = true
+}
+
+# AlienVault OTX API Key (free at https://otx.alienvault.com/)
+data "aws_ssm_parameter" "alienvault_api_key" {
+  name            = "/${local.name_prefix}/alienvault-api-key"
+  with_decryption = true
+}
+
+# ================================================================
 # LOCAL VALUES - Reference secrets throughout Terraform
 # ================================================================
 

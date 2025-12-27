@@ -2,22 +2,21 @@
 # Documentation: https://github.com/xnl-h4ck3r/waymore
 
 # ============================================================================
-# API KEYS (Optional - passed via environment variables)
+# API KEYS (Populated from environment variables at container startup)
 # ============================================================================
-# Note: These will be populated from environment variables at runtime
-# The following are placeholder values - actual keys come from AWS Secrets Manager
+# These are populated by the Go wrapper from AWS Secrets Manager via env vars
 
 # URLScan.io API key (optional, improves results)
 # Get from: https://urlscan.io/user/signup
-urlscan: ""
+URLSCAN_API_KEY: "${URLSCAN_API_KEY}"
 
 # VirusTotal API key (optional, strict rate limits on free tier)
 # Get from: https://www.virustotal.com/gui/join-us
-virustotal: ""
+VIRUSTOTAL_API_KEY: "${VIRUSTOTAL_API_KEY}"
 
 # Alien Vault OTX API key (optional)
 # Get from: https://otx.alienvault.com/
-alientvault: ""
+ALIENVAULT_API_KEY: "${ALIENVAULT_API_KEY}"
 
 # ============================================================================
 # BEHAVIOR SETTINGS

@@ -110,21 +110,20 @@ resource "aws_ecs_task_definition" "waymore" {
         {
           name      = "SUPABASE_SERVICE_ROLE_KEY"
           valueFrom = data.aws_ssm_parameter.supabase_service_role_key.arn
+        },
+        # API keys for enhanced coverage (optional - will use empty string if not set)
+        {
+          name      = "URLSCAN_API_KEY"
+          valueFrom = data.aws_ssm_parameter.urlscan_api_key.arn
+        },
+        {
+          name      = "VIRUSTOTAL_API_KEY"
+          valueFrom = data.aws_ssm_parameter.waymore_virustotal_api_key.arn
+        },
+        {
+          name      = "ALIENVAULT_API_KEY"
+          valueFrom = data.aws_ssm_parameter.alienvault_api_key.arn
         }
-        # Optional API keys for enhanced coverage:
-        # Uncomment when API keys are added to SSM Parameter Store
-        # {
-        #   name      = "URLSCAN_API_KEY"
-        #   valueFrom = "${data.aws_ssm_parameter.urlscan_api_key.arn}"
-        # },
-        # {
-        #   name      = "VIRUSTOTAL_API_KEY"
-        #   valueFrom = "${data.aws_ssm_parameter.virustotal_api_keys.arn}"
-        # },
-        # {
-        #   name      = "ALIENVAULT_API_KEY"
-        #   valueFrom = "${data.aws_ssm_parameter.alienvault_api_key.arn}"
-        # }
       ]
 
       # Resource limits (container memory < task memory)
