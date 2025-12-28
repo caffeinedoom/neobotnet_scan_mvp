@@ -9,13 +9,7 @@ import {
   Copy, 
   ExternalLink, 
   ChevronLeft, 
-  ChevronRight,
-  Filter,
-  Globe,
-  CheckCircle2,
-  XCircle,
-  Clock,
-  FileCode
+  ChevronRight
 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -27,7 +21,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { formatDistanceToNow } from 'date-fns';
@@ -55,7 +49,7 @@ interface Asset {
 
 function StatusCodeBadge({ statusCode }: { statusCode: number | null }) {
   if (!statusCode) {
-    return <Badge variant="outline" className="text-muted-foreground">Pending</Badge>;
+    return <Badge variant="outline" className="text-muted-foreground font-mono text-xs">—</Badge>;
   }
   
   const getVariant = (code: number) => {
@@ -66,169 +60,9 @@ function StatusCodeBadge({ statusCode }: { statusCode: number | null }) {
   };
   
   return (
-    <Badge variant={getVariant(statusCode)} className="font-mono">
+    <Badge variant={getVariant(statusCode)} className="font-mono text-xs">
       {statusCode}
     </Badge>
-  );
-}
-
-// ================================================================
-// Alive Status Badge Component
-// ================================================================
-
-function AliveStatusBadge({ isAlive }: { isAlive: boolean | null }) {
-  if (isAlive === null) {
-    return (
-      <Badge variant="outline" className="text-muted-foreground">
-        <Clock className="w-3 h-3 mr-1" />
-        Pending
-      </Badge>
-    );
-  }
-  
-  if (isAlive) {
-    return (
-      <Badge className="bg-green-500/10 text-green-500 border-green-500/20">
-        <CheckCircle2 className="w-3 h-3 mr-1" />
-        Alive
-      </Badge>
-    );
-  }
-  
-  return (
-    <Badge variant="destructive" className="bg-red-500/10 text-red-500 border-red-500/20">
-      <XCircle className="w-3 h-3 mr-1" />
-      Dead
-    </Badge>
-  );
-}
-
-// ================================================================
-// Source Badges Component
-// ================================================================
-
-function SourceBadges({ sources }: { sources: string[] }) {
-  const sourceColors: Record<string, string> = {
-    katana: 'bg-purple-500/10 text-purple-500 border-purple-500/20',
-    waymore: 'bg-blue-500/10 text-blue-500 border-blue-500/20',
-    gau: 'bg-orange-500/10 text-orange-500 border-orange-500/20',
-    httpx: 'bg-cyan-500/10 text-cyan-500 border-cyan-500/20',
-  };
-  
-  return (
-    <div className="flex flex-wrap gap-1">
-      {sources.map((source) => (
-        <Badge 
-          key={source} 
-          variant="outline" 
-          className={`text-xs ${sourceColors[source.toLowerCase()] || ''}`}
-        >
-          {source}
-        </Badge>
-      ))}
-    </div>
-  );
-}
-
-// ================================================================
-// Stats Cards Component
-// ================================================================
-
-function URLStatsCards({ stats, loading }: { stats: URLStats | null; loading: boolean }) {
-  if (loading || !stats) {
-    return (
-      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-        {[...Array(6)].map((_, i) => (
-          <Card key={i} className="animate-pulse">
-            <CardHeader className="pb-2">
-              <div className="h-4 bg-muted rounded w-20" />
-            </CardHeader>
-            <CardContent>
-              <div className="h-8 bg-muted rounded w-16" />
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-    );
-  }
-  
-  return (
-    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-      <Card>
-        <CardHeader className="pb-2">
-          <CardDescription className="text-xs">Total URLs</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold font-mono">{stats.total_urls.toLocaleString()}</div>
-        </CardContent>
-      </Card>
-      
-      <Card>
-        <CardHeader className="pb-2">
-          <CardDescription className="text-xs flex items-center gap-1">
-            <CheckCircle2 className="w-3 h-3 text-green-500" />
-            Alive
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold font-mono text-green-500">
-            {stats.alive_urls.toLocaleString()}
-          </div>
-        </CardContent>
-      </Card>
-      
-      <Card>
-        <CardHeader className="pb-2">
-          <CardDescription className="text-xs flex items-center gap-1">
-            <XCircle className="w-3 h-3 text-red-500" />
-            Dead
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold font-mono text-red-500">
-            {stats.dead_urls.toLocaleString()}
-          </div>
-        </CardContent>
-      </Card>
-      
-      <Card>
-        <CardHeader className="pb-2">
-          <CardDescription className="text-xs flex items-center gap-1">
-            <Clock className="w-3 h-3 text-yellow-500" />
-            Pending
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold font-mono text-yellow-500">
-            {stats.pending_urls.toLocaleString()}
-          </div>
-        </CardContent>
-      </Card>
-      
-      <Card>
-        <CardHeader className="pb-2">
-          <CardDescription className="text-xs flex items-center gap-1">
-            <FileCode className="w-3 h-3" />
-            With Params
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold font-mono">{stats.urls_with_params.toLocaleString()}</div>
-        </CardContent>
-      </Card>
-      
-      <Card>
-        <CardHeader className="pb-2">
-          <CardDescription className="text-xs flex items-center gap-1">
-            <Globe className="w-3 h-3" />
-            Unique Domains
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold font-mono">{stats.unique_domains.toLocaleString()}</div>
-        </CardContent>
-      </Card>
-    </div>
   );
 }
 
@@ -260,14 +94,12 @@ function URLsPageContent() {
   const isAliveParam = searchParams.get('is_alive');
   const statusCodeParam = searchParams.get('status_code');
   const sourceParam = searchParams.get('source');
-  const hasParamsParam = searchParams.get('has_params');
   const searchQuery = searchParams.get('search') || '';
 
   // Component state
   const [urls, setURLs] = useState<URLRecord[]>([]);
   const [stats, setStats] = useState<URLStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [isLoadingStats, setIsLoadingStats] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [totalURLs, setTotalURLs] = useState(0);
 
@@ -338,7 +170,6 @@ function URLsPageContent() {
           is_alive?: boolean;
           status_code?: number;
           source?: string;
-          has_params?: boolean;
           search?: string;
         } = {
           limit: perPage,
@@ -349,14 +180,13 @@ function URLsPageContent() {
         if (isAliveParam) queryParams.is_alive = isAliveParam === 'true';
         if (statusCodeParam) queryParams.status_code = parseInt(statusCodeParam);
         if (sourceParam) queryParams.source = sourceParam;
-        if (hasParamsParam) queryParams.has_params = hasParamsParam === 'true';
         if (searchQuery) queryParams.search = searchQuery;
 
         // Fetch URLs
         const urlsData = await fetchURLs(queryParams);
 
         setURLs(urlsData);
-        setTotalURLs(urlsData.length); // Note: This is approximate for pagination
+        setTotalURLs(urlsData.length);
       } catch (err) {
         console.error('Error fetching URLs:', err);
         setError('Failed to load URLs. Please try again.');
@@ -375,19 +205,16 @@ function URLsPageContent() {
     isAliveParam,
     statusCodeParam,
     sourceParam,
-    hasParamsParam,
     searchQuery,
   ]);
 
   // ================================================================
-  // Fetch Statistics
+  // Fetch Statistics (for total count in header)
   // ================================================================
 
   useEffect(() => {
     const fetchStats = async () => {
       if (!isAuthenticated) return;
-
-      setIsLoadingStats(true);
 
       try {
         const statsParams: { asset_id?: string } = {};
@@ -397,8 +224,6 @@ function URLsPageContent() {
         setStats(statsData);
       } catch (err) {
         console.error('Error fetching URL stats:', err);
-      } finally {
-        setIsLoadingStats(false);
       }
     };
 
@@ -450,150 +275,143 @@ function URLsPageContent() {
 
   return (
     <div className="container mx-auto p-6 space-y-6">
-      {/* Header */}
-      <div className="flex flex-col space-y-2">
-        <div className="flex items-center space-x-2">
-          <Link2 className="h-6 w-6 text-primary" />
-          <h1 className="text-3xl font-bold tracking-tight">
-            URLs
-            {stats && (
-              <span className="text-muted-foreground ml-2 text-2xl">
-                {stats.total_urls.toLocaleString()}
-              </span>
-            )}
-          </h1>
-        </div>
-        <p className="text-muted-foreground">
-          Discovered URLs from Katana, Waymore, GAU, and other sources. Probed and enriched by URL Resolver.
-        </p>
+      {/* Header - Minimalistic like /probes */}
+      <div className="flex items-center space-x-3">
+        <h1 className="text-2xl font-bold tracking-tight font-mono text-foreground">
+          urls
+        </h1>
+        {stats && (
+          <span className="text-muted-foreground text-xl font-mono">
+            {stats.total_urls.toLocaleString()}
+          </span>
+        )}
       </div>
 
-      {/* Statistics Cards */}
-      <URLStatsCards stats={stats} loading={isLoadingStats} />
-
-      {/* Filters */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base flex items-center gap-2">
-            <Filter className="h-4 w-4" />
-            Filters
-          </CardTitle>
-          <CardDescription>
-            Filter and search discovered URLs
-          </CardDescription>
+      {/* Filters - Styled like /probes */}
+      <Card className="border border-border bg-card">
+        <CardHeader className="pb-4">
+          <CardTitle className="text-base font-mono">filters</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-6">
           {/* Search */}
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              type="text"
-              placeholder="Search by URL, domain, or title..."
-              value={searchQuery}
-              onChange={(e) => updateURLParams({ search: e.target.value })}
-              className="pl-10"
-            />
+          <div className="space-y-2">
+            <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+              Search
+            </label>
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                type="text"
+                placeholder="search by URL, domain, or title..."
+                value={searchQuery}
+                onChange={(e) => updateURLParams({ search: e.target.value })}
+                className="pl-10 font-mono bg-background border-border hover:border-[--terminal-green]/50 focus:border-[--terminal-green] transition-colors"
+              />
+            </div>
           </div>
 
-          {/* Filter Row */}
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+          {/* Filter Row - 4 columns like /probes */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             {/* Asset Filter */}
-            <Select
-              value={assetIdParam || 'all'}
-              onValueChange={(value) =>
-                updateURLParams({ asset_id: value === 'all' ? null : value })
-              }
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="All Assets" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Assets</SelectItem>
-                {availableAssets.map((asset) => (
-                  <SelectItem key={asset.id} value={asset.id}>
-                    {asset.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div className="space-y-2">
+              <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                Program
+              </label>
+              <Select
+                value={assetIdParam || 'all'}
+                onValueChange={(value) =>
+                  updateURLParams({ asset_id: value === 'all' ? null : value })
+                }
+              >
+                <SelectTrigger className="font-mono bg-background border-border hover:border-[--terminal-green]/50 focus:border-[--terminal-green] transition-colors">
+                  <SelectValue placeholder="all programs" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">all programs</SelectItem>
+                  {availableAssets.map((asset) => (
+                    <SelectItem key={asset.id} value={asset.id}>
+                      {asset.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
 
             {/* Alive Status Filter */}
-            <Select
-              value={isAliveParam || 'all'}
-              onValueChange={(value) =>
-                updateURLParams({ is_alive: value === 'all' ? null : value })
-              }
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="All Statuses" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Statuses</SelectItem>
-                <SelectItem value="true">Alive</SelectItem>
-                <SelectItem value="false">Dead</SelectItem>
-              </SelectContent>
-            </Select>
+            <div className="space-y-2">
+              <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                Status
+              </label>
+              <Select
+                value={isAliveParam || 'all'}
+                onValueChange={(value) =>
+                  updateURLParams({ is_alive: value === 'all' ? null : value })
+                }
+              >
+                <SelectTrigger className="font-mono bg-background border-border hover:border-[--terminal-green]/50 focus:border-[--terminal-green] transition-colors">
+                  <SelectValue placeholder="all status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">all status</SelectItem>
+                  <SelectItem value="true">alive</SelectItem>
+                  <SelectItem value="false">dead</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
 
             {/* Status Code Filter */}
-            <Select
-              value={statusCodeParam || 'all'}
-              onValueChange={(value) =>
-                updateURLParams({ status_code: value === 'all' ? null : value })
-              }
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="All Status Codes" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Status Codes</SelectItem>
-                <SelectItem value="200">200 (OK)</SelectItem>
-                <SelectItem value="301">301 (Moved)</SelectItem>
-                <SelectItem value="302">302 (Found)</SelectItem>
-                <SelectItem value="403">403 (Forbidden)</SelectItem>
-                <SelectItem value="404">404 (Not Found)</SelectItem>
-                <SelectItem value="500">500 (Server Error)</SelectItem>
-              </SelectContent>
-            </Select>
+            <div className="space-y-2">
+              <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                HTTP Code
+              </label>
+              <Select
+                value={statusCodeParam || 'all'}
+                onValueChange={(value) =>
+                  updateURLParams({ status_code: value === 'all' ? null : value })
+                }
+              >
+                <SelectTrigger className="font-mono bg-background border-border hover:border-[--terminal-green]/50 focus:border-[--terminal-green] transition-colors">
+                  <SelectValue placeholder="all codes" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">all codes</SelectItem>
+                  <SelectItem value="200">200 (OK)</SelectItem>
+                  <SelectItem value="301">301 (Redirect)</SelectItem>
+                  <SelectItem value="302">302 (Found)</SelectItem>
+                  <SelectItem value="403">403 (Forbidden)</SelectItem>
+                  <SelectItem value="404">404 (Not Found)</SelectItem>
+                  <SelectItem value="500">500 (Error)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
 
             {/* Source Filter */}
-            <Select
-              value={sourceParam || 'all'}
-              onValueChange={(value) =>
-                updateURLParams({ source: value === 'all' ? null : value })
-              }
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="All Sources" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Sources</SelectItem>
-                <SelectItem value="katana">Katana</SelectItem>
-                <SelectItem value="waymore">Waymore</SelectItem>
-                <SelectItem value="gau">GAU</SelectItem>
-                <SelectItem value="httpx">HTTPx</SelectItem>
-              </SelectContent>
-            </Select>
-
-            {/* Has Params Filter */}
-            <Select
-              value={hasParamsParam || 'all'}
-              onValueChange={(value) =>
-                updateURLParams({ has_params: value === 'all' ? null : value })
-              }
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="All URLs" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All URLs</SelectItem>
-                <SelectItem value="true">With Parameters</SelectItem>
-                <SelectItem value="false">Without Parameters</SelectItem>
-              </SelectContent>
-            </Select>
+            <div className="space-y-2">
+              <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                Source
+              </label>
+              <Select
+                value={sourceParam || 'all'}
+                onValueChange={(value) =>
+                  updateURLParams({ source: value === 'all' ? null : value })
+                }
+              >
+                <SelectTrigger className="font-mono bg-background border-border hover:border-[--terminal-green]/50 focus:border-[--terminal-green] transition-colors">
+                  <SelectValue placeholder="all sources" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">all sources</SelectItem>
+                  <SelectItem value="katana">katana</SelectItem>
+                  <SelectItem value="waymore">waymore</SelectItem>
+                  <SelectItem value="gau">gau</SelectItem>
+                  <SelectItem value="httpx">httpx</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
 
           {/* Clear Filters Button */}
-          {(assetIdParam || isAliveParam || statusCodeParam || sourceParam || hasParamsParam || searchQuery) && (
+          {(assetIdParam || isAliveParam || statusCodeParam || sourceParam || searchQuery) && (
             <Button
               variant="outline"
               size="sm"
@@ -603,7 +421,6 @@ function URLsPageContent() {
                   is_alive: null,
                   status_code: null,
                   source: null,
-                  has_params: null,
                   search: null,
                 })
               }
@@ -636,7 +453,7 @@ function URLsPageContent() {
         </div>
       ) : (
         <>
-          {/* URLs List */}
+          {/* URLs List - Clean like /probes */}
           <div className="space-y-4">
             {urls.map((urlRecord) => (
               <Card key={urlRecord.id}>
@@ -645,7 +462,7 @@ function URLsPageContent() {
                     <div className="flex-1 space-y-2">
                       {/* URL */}
                       <div className="flex items-center gap-2 flex-wrap">
-                        <code className="text-sm font-mono font-semibold bg-muted px-2 py-1 rounded break-all">
+                        <code className="text-base font-mono font-semibold bg-muted px-2 py-1 rounded break-all">
                           {urlRecord.url}
                         </code>
                         <Button
@@ -668,18 +485,17 @@ function URLsPageContent() {
                         )}
                       </div>
 
-                      {/* Metadata */}
+                      {/* Metadata - Simplified */}
                       <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
                         <span>{urlRecord.domain}</span>
                         {urlRecord.file_extension && (
-                          <Badge variant="outline" className="text-xs">
+                          <Badge variant="outline" className="text-xs font-mono">
                             .{urlRecord.file_extension}
                           </Badge>
                         )}
                         {urlRecord.has_params && (
-                          <Badge variant="outline" className="text-xs">
-                            <FileCode className="w-3 h-3 mr-1" />
-                            Has Params
+                          <Badge variant="outline" className="text-xs font-mono">
+                            params
                           </Badge>
                         )}
                         <span>
@@ -690,21 +506,26 @@ function URLsPageContent() {
                       </div>
                     </div>
 
-                    {/* Status Badges */}
+                    {/* Status Badge - Simplified */}
                     <div className="flex items-center gap-2">
-                      <AliveStatusBadge isAlive={urlRecord.is_alive} />
+                      {urlRecord.is_alive !== null && (
+                        <Badge 
+                          variant="outline" 
+                          className={`text-xs font-mono ${
+                            urlRecord.is_alive 
+                              ? 'text-green-500 border-green-500/30' 
+                              : 'text-red-500 border-red-500/30'
+                          }`}
+                        >
+                          {urlRecord.is_alive ? 'alive' : 'dead'}
+                        </Badge>
+                      )}
                       <StatusCodeBadge statusCode={urlRecord.status_code} />
                     </div>
                   </div>
                 </CardHeader>
 
                 <CardContent className="space-y-3">
-                  {/* Sources */}
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs text-muted-foreground font-semibold">Sources:</span>
-                    <SourceBadges sources={urlRecord.sources} />
-                  </div>
-
                   {/* Title */}
                   {urlRecord.title && (
                     <div>
@@ -713,40 +534,39 @@ function URLsPageContent() {
                     </div>
                   )}
 
-                  {/* Server & Response */}
-                  <div className="flex items-center gap-4 text-xs text-muted-foreground flex-wrap">
-                    {urlRecord.webserver && (
-                      <span>
-                        <span className="font-semibold">Server:</span>{' '}
-                        <code className="font-mono bg-muted px-1 rounded">{urlRecord.webserver}</code>
-                      </span>
-                    )}
-                    {urlRecord.content_type && (
-                      <span>
-                        <span className="font-semibold">Type:</span>{' '}
-                        <code className="font-mono bg-muted px-1 rounded">{urlRecord.content_type}</code>
-                      </span>
-                    )}
-                    {urlRecord.response_time_ms && (
-                      <span>
-                        <span className="font-semibold">Response:</span>{' '}
-                        {urlRecord.response_time_ms}ms
-                      </span>
-                    )}
-                  </div>
+                  {/* Server & Response - Clean */}
+                  {(urlRecord.webserver || urlRecord.content_type) && (
+                    <div className="flex items-center gap-4 text-xs text-muted-foreground flex-wrap">
+                      {urlRecord.webserver && (
+                        <span>
+                          <span className="font-semibold">Server:</span>{' '}
+                          <code className="font-mono bg-muted px-1 rounded">{urlRecord.webserver}</code>
+                        </span>
+                      )}
+                      {urlRecord.content_type && (
+                        <span>
+                          <span className="font-semibold">Type:</span>{' '}
+                          <code className="font-mono bg-muted px-1 rounded">{urlRecord.content_type}</code>
+                        </span>
+                      )}
+                      {urlRecord.response_time_ms && (
+                        <span className="font-mono">{urlRecord.response_time_ms}ms</span>
+                      )}
+                    </div>
+                  )}
 
-                  {/* Technologies */}
+                  {/* Technologies - Simplified */}
                   {urlRecord.technologies && urlRecord.technologies.length > 0 && (
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="text-xs text-muted-foreground font-semibold">Tech:</span>
                       {urlRecord.technologies.slice(0, 6).map((tech) => (
-                        <Badge key={tech} variant="secondary" className="text-xs">
+                        <Badge key={tech} variant="secondary" className="text-xs font-mono">
                           {tech}
                         </Badge>
                       ))}
                       {urlRecord.technologies.length > 6 && (
-                        <Badge variant="outline" className="text-xs">
-                          +{urlRecord.technologies.length - 6} more
+                        <Badge variant="outline" className="text-xs font-mono">
+                          +{urlRecord.technologies.length - 6}
                         </Badge>
                       )}
                     </div>
@@ -755,7 +575,7 @@ function URLsPageContent() {
                   {/* Final URL (if redirected) */}
                   {urlRecord.final_url && urlRecord.final_url !== urlRecord.url && (
                     <div className="text-xs">
-                      <span className="text-muted-foreground font-semibold">Final URL: </span>
+                      <span className="text-muted-foreground font-semibold">Final: </span>
                       <code className="font-mono text-foreground break-all">
                         {urlRecord.final_url}
                       </code>
@@ -816,4 +636,3 @@ export default function URLsPage() {
     </Suspense>
   );
 }
-
