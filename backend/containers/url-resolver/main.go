@@ -10,21 +10,26 @@ import (
 )
 
 // validateRequiredEnvVars validates that all required environment variables are set
-func validateRequiredEnvVars(streamingMode bool) error {
+func validateRequiredEnvVars(streamingMode, backfillMode bool) error {
 	// Required for all modes
 	required := []string{
-		"SCAN_JOB_ID",
 		"SUPABASE_URL",
 		"SUPABASE_SERVICE_ROLE_KEY",
 	}
 
 	// Mode-specific requirements
-	if streamingMode {
+	if backfillMode {
+		required = append(required, "ASSET_ID")
+	} else if streamingMode {
 		required = append(required,
+			"SCAN_JOB_ID",
 			"STREAM_INPUT_KEY",
 			"REDIS_HOST",
 			"REDIS_PORT",
 		)
+	} else {
+		// Simple mode needs scan job ID
+		required = append(required, "SCAN_JOB_ID")
 	}
 
 	// Check for missing variables
@@ -48,12 +53,15 @@ func main() {
 	// ============================================================
 
 	streamingMode := os.Getenv("STREAMING_MODE") == "true"
+	backfillMode := os.Getenv("BACKFILL_MODE") == "true"
 
 	log.Printf("🔗 URL Resolver Container starting...")
 
 	// Determine and log execution mode
 	var executionMode string
-	if streamingMode {
+	if backfillMode {
+		executionMode = "BACKFILL (Database)"
+	} else if streamingMode {
 		executionMode = "STREAMING (Consumer)"
 	} else {
 		executionMode = "SIMPLE (Testing)"
@@ -64,7 +72,7 @@ func main() {
 	// 2. VALIDATE ENVIRONMENT VARIABLES
 	// ============================================================
 
-	if err := validateRequiredEnvVars(streamingMode); err != nil {
+	if err := validateRequiredEnvVars(streamingMode, backfillMode); err != nil {
 		log.Fatalf("❌ Environment validation failed: %v", err)
 	}
 
@@ -74,6 +82,17 @@ func main() {
 	// 3. ROUTE TO APPROPRIATE HANDLER
 	// ============================================================
 
+	// Backfill mode - read from historical_urls table
+	if backfillMode {
+		log.Println("🔄 Starting BACKFILL mode execution...")
+		if err := runBackfillMode(); err != nil {
+			log.Fatalf("❌ Backfill mode failed: %v", err)
+		}
+		log.Println("✅ URL Resolver backfill completed successfully")
+		return
+	}
+
+	// Streaming mode - consume from Redis
 	if streamingMode {
 		log.Println("🌊 Starting STREAMING mode execution (Consumer)...")
 		if err := runStreamingMode(); err != nil {

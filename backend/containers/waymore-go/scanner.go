@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"bytes"
 	"fmt"
 	"log"
 	"os"
@@ -29,13 +30,16 @@ func NewWaymoreScanner(scanJobID, assetID string) *WaymoreScanner {
 
 	// Parse providers from environment or use defaults
 	// Note: waymore uses 'otx' for AlienVault OTX, not 'alienvault'
-	providers := []string{"wayback", "commoncrawl", "otx", "urlscan", "virustotal"}
+	// Note: Wayback Machine (archive.org) aggressively rate-limits AWS IPs, so we exclude it by default
+	// Users can override by setting WAYMORE_PROVIDERS environment variable
+	providers := []string{"commoncrawl", "otx", "urlscan", "virustotal"}
 	if providersEnv := os.Getenv("WAYMORE_PROVIDERS"); providersEnv != "" {
 		providers = strings.Split(providersEnv, ",")
 		for i, p := range providers {
 			providers[i] = strings.TrimSpace(p)
 		}
 	}
+	log.Printf("📋 Selected providers: %s", strings.Join(providers, ", "))
 
 	// Generate runtime config with API keys from environment
 	configPath := generateRuntimeConfig()
@@ -86,6 +90,13 @@ URLSCAN_API_KEY: "%s"
 VIRUSTOTAL_API_KEY: "%s"
 ALIENVAULT_API_KEY: "%s"
 
+# Filter settings (empty = no filter)
+FILTER_URL: ""
+FILTER_MIME: ""
+FILTER_CODE: ""
+FILTER_KEYWORDS: ""
+CONTINUE_RESPONSES_IF_PIPED: false
+
 # Rate limiting (be nice to archive providers)
 WAYBACK_RATE_LIMIT: 2
 COMMONCRAWL_RATE_LIMIT: 2
@@ -134,10 +145,11 @@ func (s *WaymoreScanner) ScanDomain(domain string) ([]DiscoveredURL, error) {
 		"-l", strconv.Itoa(s.Limit),
 	}
 
-	// Add config file if it exists
-	if _, err := os.Stat(s.ConfigPath); err == nil {
-		args = append(args, "-c", s.ConfigPath)
-	}
+	// Skip config file for now - waymore works better with defaults in ECS
+	// The API keys will still be available via environment variables
+	// if _, err := os.Stat(s.ConfigPath); err == nil {
+	// 	args = append(args, "-c", s.ConfigPath)
+	// }
 
 	// Add provider filtering
 	if len(s.Providers) > 0 {
@@ -150,26 +162,45 @@ func (s *WaymoreScanner) ScanDomain(domain string) ([]DiscoveredURL, error) {
 	cmd := exec.Command("waymore", args...)
 	cmd.Dir = tmpDir
 
-	// Set environment for API keys (passed through from container env)
+	// Set environment - keep original but override HOME for waymore's cache
 	cmd.Env = append(os.Environ(),
-		fmt.Sprintf("HOME=%s", tmpDir), // waymore uses HOME for cache
+		fmt.Sprintf("HOME=%s", tmpDir),
 	)
+
+	// Capture stdout and stderr
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
 
 	// Run with timeout
 	done := make(chan error, 1)
 	go func() {
-		output, err := cmd.CombinedOutput()
-		// ALWAYS log output for debugging - waymore may fail silently
-		if len(output) > 0 {
-			// Truncate long output for logging
-			outputStr := string(output)
-			if len(outputStr) > 2000 {
-				outputStr = outputStr[:2000] + "... (truncated)"
-			}
-			log.Printf("      📝 waymore output:\n%s", outputStr)
+		err := cmd.Run()
+
+		// Log stdout
+		log.Printf("      📝 waymore stdout length: %d bytes", stdout.Len())
+		if stdout.Len() > 0 {
+			log.Printf("      📝 waymore stdout:\n%s", stdout.String())
 		}
+
+		// Log stderr (this is where waymore usually writes status)
+		log.Printf("      📝 waymore stderr length: %d bytes", stderr.Len())
+		if stderr.Len() > 0 {
+			stderrStr := stderr.String()
+			if len(stderrStr) > 5000 {
+				stderrStr = stderrStr[:5000] + "... (truncated)"
+			}
+			log.Printf("      📝 waymore stderr:\n%s", stderrStr)
+		}
+
+		if stdout.Len() == 0 && stderr.Len() == 0 {
+			log.Printf("      ⚠️  waymore produced NO output at all (stdout=0, stderr=0)")
+		}
+
 		if err != nil {
 			log.Printf("      ⚠️  waymore exited with error: %v", err)
+		} else {
+			log.Printf("      ✅ waymore exited successfully (exit code 0)")
 		}
 		done <- err
 	}()

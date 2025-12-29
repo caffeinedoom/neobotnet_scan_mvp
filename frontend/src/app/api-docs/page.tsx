@@ -368,11 +368,12 @@ X-API-Key: nb_live_your_key_here`}
           <h2 className="text-2xl font-bold">Endpoints</h2>
 
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-4">
+            <TabsList className="grid w-full grid-cols-5">
               <TabsTrigger value="programs">Programs</TabsTrigger>
               <TabsTrigger value="subdomains">Subdomains</TabsTrigger>
               <TabsTrigger value="dns">DNS</TabsTrigger>
-              <TabsTrigger value="probes">HTTP Probes</TabsTrigger>
+              <TabsTrigger value="probes">Servers</TabsTrigger>
+              <TabsTrigger value="urls">URLs</TabsTrigger>
             </TabsList>
 
             {/* Programs */}
@@ -624,6 +625,164 @@ X-API-Key: nb_live_your_key_here`}
                 </CardContent>
               </Card>
             </TabsContent>
+
+            {/* URLs */}
+            <TabsContent value="urls" className="space-y-4">
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center gap-2">
+                    <Badge variant="secondary">GET</Badge>
+                    <code className="text-sm">/api/v1/urls</code>
+                  </div>
+                  <CardDescription>Get discovered URLs with filtering and pagination</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <CodeBlock
+                    id="get-urls"
+                    code={`curl -X GET "${baseUrl}/api/v1/urls" \\
+  -H "X-API-Key: YOUR_API_KEY" \\
+  -G \\
+  -d "is_alive=true" \\
+  -d "status_code=200" \\
+  -d "limit=100"`}
+                  />
+                  
+                  <div className="mt-4 space-y-2">
+                    <h4 className="font-medium text-sm">Query Parameters</h4>
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b">
+                          <th className="text-left py-2">Parameter</th>
+                          <th className="text-left py-2">Type</th>
+                          <th className="text-left py-2">Description</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr className="border-b">
+                          <td className="py-2"><code>asset_id</code></td>
+                          <td className="py-2">string</td>
+                          <td className="py-2">Filter by program/asset ID</td>
+                        </tr>
+                        <tr className="border-b">
+                          <td className="py-2"><code>is_alive</code></td>
+                          <td className="py-2">boolean</td>
+                          <td className="py-2">Filter by alive status (true/false)</td>
+                        </tr>
+                        <tr className="border-b">
+                          <td className="py-2"><code>status_code</code></td>
+                          <td className="py-2">integer</td>
+                          <td className="py-2">Filter by HTTP status code</td>
+                        </tr>
+                        <tr className="border-b">
+                          <td className="py-2"><code>source</code></td>
+                          <td className="py-2">string</td>
+                          <td className="py-2">Filter by discovery source (katana, waymore, gau)</td>
+                        </tr>
+                        <tr className="border-b">
+                          <td className="py-2"><code>has_params</code></td>
+                          <td className="py-2">boolean</td>
+                          <td className="py-2">Filter by URLs with query parameters</td>
+                        </tr>
+                        <tr className="border-b">
+                          <td className="py-2"><code>search</code></td>
+                          <td className="py-2">string</td>
+                          <td className="py-2">Search in URL, domain, or title</td>
+                        </tr>
+                        <tr className="border-b">
+                          <td className="py-2"><code>limit</code></td>
+                          <td className="py-2">integer</td>
+                          <td className="py-2">Max results (default: 100, max: 1000)</td>
+                        </tr>
+                        <tr className="border-b">
+                          <td className="py-2"><code>offset</code></td>
+                          <td className="py-2">integer</td>
+                          <td className="py-2">Skip N results for pagination</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+
+                  <details className="mt-4">
+                    <summary className="cursor-pointer text-sm font-medium text-muted-foreground hover:text-foreground">
+                      Example Response
+                    </summary>
+                    <pre className="mt-2 bg-zinc-950 text-zinc-100 rounded-lg p-4 text-xs overflow-x-auto">
+{`[
+  {
+    "id": "uuid",
+    "url": "https://example.com/api/v1/users",
+    "domain": "example.com",
+    "is_alive": true,
+    "status_code": 200,
+    "sources": ["katana", "waymore"],
+    "technologies": ["React", "nginx"],
+    "has_params": false,
+    "first_discovered_at": "2025-12-28T10:00:00Z"
+  }
+]`}
+                    </pre>
+                  </details>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center gap-2">
+                    <Badge variant="secondary">GET</Badge>
+                    <code className="text-sm">/api/v1/urls/stats</code>
+                  </div>
+                  <CardDescription>Get aggregate URL statistics</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <CodeBlock
+                    id="get-url-stats"
+                    code={`curl -X GET "${baseUrl}/api/v1/urls/stats" \\
+  -H "X-API-Key: YOUR_API_KEY"`}
+                  />
+                  
+                  <details className="mt-4">
+                    <summary className="cursor-pointer text-sm font-medium text-muted-foreground hover:text-foreground">
+                      Example Response
+                    </summary>
+                    <pre className="mt-2 bg-zinc-950 text-zinc-100 rounded-lg p-4 text-xs overflow-x-auto">
+{`{
+  "total_urls": 15420,
+  "alive_urls": 12380,
+  "dead_urls": 2540,
+  "pending_urls": 500,
+  "urls_with_params": 4230,
+  "unique_domains": 156,
+  "top_sources": [
+    {"source": "katana", "count": 8500},
+    {"source": "waymore", "count": 4200}
+  ],
+  "top_status_codes": [
+    {"status_code": 200, "count": 10500},
+    {"status_code": 404, "count": 1200}
+  ]
+}`}
+                    </pre>
+                  </details>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center gap-2">
+                    <Badge variant="secondary">GET</Badge>
+                    <code className="text-sm">/api/v1/urls/:id</code>
+                  </div>
+                  <CardDescription>Get a specific URL by ID</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <CodeBlock
+                    id="get-url-by-id"
+                    code={`curl -X GET "${baseUrl}/api/v1/urls/URL_ID" \\
+  -H "X-API-Key: YOUR_API_KEY"`}
+                  />
+                </CardContent>
+              </Card>
+            </TabsContent>
           </Tabs>
         </div>
 
@@ -690,6 +849,16 @@ X-API-Key: nb_live_your_key_here`}
 curl -s "${baseUrl}/api/v1/http-probes?status_code=200" \\
   -H "X-API-Key: YOUR_API_KEY" | \\
   jq -r '.[].url' | nuclei -t cves/`}
+              />
+            </div>
+
+            <div>
+              <h4 className="font-medium text-sm mb-2">Export discovered URLs with params for parameter fuzzing</h4>
+              <CodeBlock
+                id="export-urls-params"
+                code={`curl -s "${baseUrl}/api/v1/urls?has_params=true&is_alive=true&limit=1000" \\
+  -H "X-API-Key: YOUR_API_KEY" | \\
+  jq -r '.[].url' > urls_with_params.txt`}
               />
             </div>
           </CardContent>

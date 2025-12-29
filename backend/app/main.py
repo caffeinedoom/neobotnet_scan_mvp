@@ -20,6 +20,7 @@ from .api.v1.usage import router as usage_router  # LEAN: Backwards compatibilit
 from .api.v1.websocket import router as websocket_router
 from .api.v1.scans import router as scans_router
 from .api.v1.http_probes import router as http_probes_router
+from .api.v1.urls import router as urls_router
 from .services.websocket_manager import websocket_manager, batch_progress_notifier
 
 # Configure logging for CloudWatch visibility
@@ -275,6 +276,7 @@ def create_application() -> FastAPI:
     app.include_router(websocket_router, prefix=settings.api_v1_str)  # Add WebSocket routes
     app.include_router(scans_router, prefix=settings.api_v1_str)  # Unified scan endpoint
     app.include_router(http_probes_router, prefix=f"{settings.api_v1_str}/http-probes", tags=["http-probes"])
+    app.include_router(urls_router, prefix=f"{settings.api_v1_str}/urls", tags=["urls"])
     
     return app
 
