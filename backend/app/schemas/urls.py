@@ -23,7 +23,7 @@ class URLResponse(BaseModel):
     url: str
     url_hash: str
     domain: str
-    path: str
+    path: Optional[str] = None
     query_params: Optional[Dict[str, Any]] = None
     
     # Discovery tracking
