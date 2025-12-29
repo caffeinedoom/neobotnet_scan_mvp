@@ -8,7 +8,7 @@ Author: Pluckware Development Team
 Date: December 2025
 """
 
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Union
 from pydantic import BaseModel
 from datetime import datetime
 
@@ -42,7 +42,7 @@ class URLResponse(BaseModel):
     # Enrichment data
     title: Optional[str] = None
     final_url: Optional[str] = None
-    redirect_chain: Optional[List[str]] = None
+    redirect_chain: Optional[List[Any]] = None  # Can be status codes (int) or URLs (str)
     webserver: Optional[str] = None
     technologies: Optional[List[str]] = None
     
