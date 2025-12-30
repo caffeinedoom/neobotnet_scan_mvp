@@ -135,7 +135,8 @@ async def run_scan_pipeline(
     asset_id: str,
     modules: List[str],
     user_id: str,
-    scale_factor: int = 1
+    scale_factor: int = 1,
+    timeout_seconds: int = None
 ) -> dict:
     """
     Execute the scan pipeline using existing backend code.
@@ -145,6 +146,7 @@ async def run_scan_pipeline(
         modules: List of module names
         user_id: User ID for the scan
         scale_factor: Number of parallel tasks per consumer module (1-10)
+        timeout_seconds: Pipeline timeout in seconds (default: 3 hours)
         
     Returns:
         Pipeline result dictionary
@@ -173,7 +175,8 @@ async def run_scan_pipeline(
         modules=modules,
         scan_request=scan_request,
         user_id=user_id,
-        scale_factor=scale_factor
+        scale_factor=scale_factor,
+        timeout_seconds=timeout_seconds
     )
     
     return result
@@ -191,6 +194,7 @@ async def main():
     domains_str = os.environ.get('DOMAINS', '')
     modules_str = os.environ.get('MODULES', 'subfinder,dnsx,httpx')
     scale_factor = int(os.environ.get('SCALE_FACTOR', '1'))
+    timeout_seconds = int(os.environ.get('PIPELINE_TIMEOUT', '10800'))  # Default: 3 hours
     
     if not program_name:
         logger.error("❌ PROGRAM_NAME environment variable is required")
@@ -208,6 +212,7 @@ async def main():
     logger.info(f"🔧 Modules: {modules}")
     if scale_factor > 1:
         logger.info(f"📈 Scale: {scale_factor}x parallel tasks per consumer")
+    logger.info(f"⏱️  Timeout: {timeout_seconds // 3600}h {(timeout_seconds % 3600) // 60}m ({timeout_seconds}s)")
     
     # Initialize Supabase client directly (avoid backend's Settings which requires more env vars)
     from supabase import create_client
@@ -238,7 +243,8 @@ async def main():
             asset_id=asset_id,
             modules=modules,
             user_id=user_id,
-            scale_factor=scale_factor
+            scale_factor=scale_factor,
+            timeout_seconds=timeout_seconds
         )
         
         duration = (datetime.utcnow() - start_time).total_seconds()

@@ -57,7 +57,7 @@ resource "aws_ecs_task_definition" "url_resolver" {
 
   container_definitions = jsonencode([
     {
-      name      = "url-resolver"
+      name      = "url-resolver-scanner"
       image     = "${aws_ecr_repository.url_resolver.repository_url}:latest"
       essential = true
 
@@ -108,9 +108,8 @@ resource "aws_ecs_task_definition" "url_resolver" {
         }
       ]
 
-      # Resource limits (container memory < task memory)
-      memory = 3900
-      cpu    = 2048
+      # Resource limits - let task-level allocation apply (orchestrator overrides these)
+      # Removed hardcoded memory/cpu to allow dynamic allocation from scan_module_profiles
 
       # Logging configuration
       logConfiguration = {

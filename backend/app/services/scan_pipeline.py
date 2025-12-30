@@ -102,6 +102,10 @@ class ScanPipeline:
     # Polling interval for checking scan completion (seconds)
     POLL_INTERVAL = 5
     
+    # Default pipeline timeout (seconds) - can be overridden per-scan
+    # 3 hours default to handle large targets with many subdomains
+    DEFAULT_PIPELINE_TIMEOUT = 10800  # 3 hours
+    
     def __init__(self):
         self.supabase = SupabaseClient().service_client
         self.logger = logging.getLogger(__name__)
@@ -677,7 +681,8 @@ class ScanPipeline:
         scan_request: EnhancedAssetScanRequest,
         user_id: str,
         scan_job_id: str = None,
-        scale_factor: int = 1
+        scale_factor: int = 1,
+        timeout_seconds: int = None
     ) -> Dict[str, Any]:
         """
         Execute modules using Redis Streams for parallel real-time processing.
@@ -691,6 +696,7 @@ class ScanPipeline:
         Args:
             asset_id: Asset UUID
             modules: List of module names (must include subfinder and dnsx)
+            timeout_seconds: Maximum time to wait for all modules (default: 3 hours)
             scan_request: Original scan request
             user_id: User UUID
             scan_job_id: Optional scan job ID for progress tracking (parent scan ID from scans table)
@@ -806,10 +812,10 @@ class ScanPipeline:
         for producer_module in requested_producers:
             self.logger.info(f"   Creating {producer_module} producer job...")
             job = await self._create_batch_scan_job(
-                asset_id=asset_id,
+            asset_id=asset_id,
                 module=producer_module,
-                scan_request=scan_request,
-                user_id=user_id,
+            scan_request=scan_request,
+            user_id=user_id,
                 parent_scan_job_id=asset_scan_id
             )
             producer_jobs[producer_module] = job
@@ -1034,29 +1040,29 @@ class ScanPipeline:
             # Each gets its own consumer group to process independently
             for source_name, input_stream_key in input_streams:
                 consumer_group_name = stream_coordinator.generate_consumer_group_name(f"{module}-{source_name}")
-                
+            
                 self.logger.info(f"   📥 Launching Stage 3 consumer ({module}) for {source_name} - {scale_factor} task(s)...")
                 self.logger.info(f"      Input: {input_stream_key} (from {source_name})")
-                self.logger.info(f"      Group: {consumer_group_name}")
-                
+            self.logger.info(f"      Group: {consumer_group_name}")
+            
                 # Launch scale_factor tasks for this stream
-                for i in range(scale_factor):
-                    consumer_name = stream_coordinator.generate_consumer_name(
-                        module,
+            for i in range(scale_factor):
+                consumer_name = stream_coordinator.generate_consumer_name(
+                    module,
                         f"{source_name}-{str(consumer_jobs[module].id)[:8]}-{i+1}"
-                    )
-                    
-                    consumer_launch = await batch_workflow_orchestrator.launch_streaming_consumer(
-                        consumer_job=consumer_jobs[module],
+                )
+                
+                consumer_launch = await batch_workflow_orchestrator.launch_streaming_consumer(
+                    consumer_job=consumer_jobs[module],
                         stream_key=input_stream_key,
-                        consumer_group_name=consumer_group_name,
-                        consumer_name=consumer_name
-                    )
-                    module_task_arns.append(consumer_launch["task_arn"])
-                    if scale_factor > 1 or len(input_streams) > 1:
-                        self.logger.info(f"      ✅ Task ({source_name}) {i+1}/{scale_factor}: {consumer_launch['task_arn']}")
-                    else:
-                        self.logger.info(f"      ✅ Task: {consumer_launch['task_arn']}")
+                    consumer_group_name=consumer_group_name,
+                    consumer_name=consumer_name
+                )
+                module_task_arns.append(consumer_launch["task_arn"])
+                if scale_factor > 1 or len(input_streams) > 1:
+                    self.logger.info(f"      ✅ Task ({source_name}) {i+1}/{scale_factor}: {consumer_launch['task_arn']}")
+                else:
+                    self.logger.info(f"      ✅ Task: {consumer_launch['task_arn']}")
             
             # Store all task ARNs for this module
             consumer_task_arns[module] = module_task_arns
@@ -1112,10 +1118,14 @@ class ScanPipeline:
             self.logger.info(f"     • Consumer: {job.id} ({module})")
         
         # Wait for ALL jobs to reach terminal status (completed/failed/timeout)
+        # Use provided timeout or default (3 hours)
+        pipeline_timeout = timeout_seconds if timeout_seconds else self.DEFAULT_PIPELINE_TIMEOUT
+        self.logger.info(f"⏱️  Pipeline timeout set to: {pipeline_timeout}s ({pipeline_timeout // 3600}h {(pipeline_timeout % 3600) // 60}m)")
+        
         try:
             job_completion_result = await self._wait_for_jobs_completion(
                 job_ids=batch_ids,
-                timeout=3600,  # 1 hour timeout (same as before)
+                timeout=pipeline_timeout,
                 check_interval=10  # Check every 10 seconds
             )
             
@@ -1166,15 +1176,15 @@ class ScanPipeline:
         # All producer results
         for producer_module, job in producer_jobs.items():
             producer_status = monitor_result.get("module_statuses", {}).get(producer_module, "unknown")
-            results.append({
+        results.append({
                 "module": producer_module,
-                "status": producer_status,
+            "status": producer_status,
                 "scan_job_id": str(job.id),
                 "task_arn": producer_task_arns.get(producer_module),
-                "role": "producer",
-                "started_at": pipeline_start.isoformat(),
-                "completed_at": datetime.utcnow().isoformat()
-            })
+            "role": "producer",
+            "started_at": pipeline_start.isoformat(),
+            "completed_at": datetime.utcnow().isoformat()
+        })
         
         # All consumer results (dnsx, httpx, etc.)
         for module in consumer_modules:

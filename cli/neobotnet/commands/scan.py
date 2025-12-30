@@ -56,6 +56,11 @@ def run_scan(
         help="Number of parallel tasks per consumer module (1-10)",
         min=1, max=10
     ),
+    timeout: int = typer.Option(
+        10800, "--timeout", "-t",
+        help="Pipeline timeout in seconds (default: 3 hours = 10800s)",
+        min=1800, max=86400
+    ),
     wait: bool = typer.Option(
         False, "--wait", "-w",
         help="Wait for scan to complete"
@@ -99,6 +104,7 @@ def run_scan(
     console.print(f"   Modules: {', '.join(module_list)}")
     if scale > 1:
         console.print(f"   Scale: {scale}x parallel tasks per module")
+    console.print(f"   Timeout: {timeout // 3600}h {(timeout % 3600) // 60}m ({timeout}s)")
     console.print()
     
     try:
@@ -119,7 +125,8 @@ def run_scan(
                         {"name": "DOMAINS", "value": ",".join(domain_list)},
                         {"name": "MODULES", "value": ",".join(module_list)},
                         {"name": "OPERATOR_USER_ID", "value": operator_user_id},
-                        {"name": "SCALE_FACTOR", "value": str(scale)}
+                        {"name": "SCALE_FACTOR", "value": str(scale)},
+                        {"name": "PIPELINE_TIMEOUT", "value": str(timeout)}
                     ]
                 }
             ]
