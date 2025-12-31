@@ -18,6 +18,7 @@ from ...schemas.public import (
     ShowcaseSubdomain,
     ShowcaseDNSRecord,
     ShowcaseWebServer,
+    ShowcaseProgram,
     ShowcaseStats,
 )
 
@@ -87,6 +88,7 @@ async def get_showcase(request: Request):
                 subdomains=[],
                 dns_records=[],
                 web_servers=[],
+                programs=[],
                 stats=ShowcaseStats(
                     total_subdomains=0,
                     total_dns_records=0,
@@ -95,6 +97,14 @@ async def get_showcase(request: Request):
                     total_programs=0,
                 ),
             )
+        
+        # ====================================================================
+        # Build programs list (just id and name)
+        # ====================================================================
+        programs_data = [
+            ShowcaseProgram(id=p["id"], name=p["name"])
+            for p in (programs_result.data or [])
+        ]
         
         # ====================================================================
         # Get random subdomains (5 records)
@@ -192,6 +202,7 @@ async def get_showcase(request: Request):
             subdomains=subdomains_data,
             dns_records=dns_data,
             web_servers=servers_data,
+            programs=programs_data,
             stats=ShowcaseStats(
                 total_subdomains=total_subdomains,
                 total_dns_records=total_dns,

@@ -44,6 +44,11 @@ interface ShowcaseWebServer {
   program_name: string;
 }
 
+interface ShowcaseProgram {
+  id: string;
+  name: string;
+}
+
 interface ShowcaseStats {
   total_subdomains: number;
   total_dns_records: number;
@@ -56,6 +61,7 @@ interface ShowcaseData {
   subdomains: ShowcaseSubdomain[];
   dns_records: ShowcaseDNSRecord[];
   web_servers: ShowcaseWebServer[];
+  programs: ShowcaseProgram[];
   stats: ShowcaseStats;
 }
 
@@ -78,6 +84,9 @@ const FALLBACK_DATA: ShowcaseData = {
     { url: 'https://api.example.com', status_code: 200, title: 'API Gateway', webserver: 'nginx', content_length: 2400, technologies: ['React', 'Node.js'], program_name: 'Demo' },
     { url: 'https://staging.example.com', status_code: 403, title: 'Forbidden', webserver: 'nginx', content_length: 512, technologies: [], program_name: 'Demo' },
     { url: 'https://developer.example.com', status_code: 200, title: 'Developer Portal', webserver: 'gunicorn', content_length: 45000, technologies: ['Python', 'Django'], program_name: 'Demo' },
+  ],
+  programs: [
+    { id: '1', name: 'Demo Program' },
   ],
   stats: {
     total_subdomains: 10000,
@@ -347,7 +356,7 @@ const API_EXAMPLES: { id: APITabType; label: string; command: string; output: st
   },
 ];
 
-type ViewMode = 'web' | 'api';
+type ViewMode = 'web' | 'api' | 'programs';
 
 // Typing animation text
 const TITLE_TEXT = 'neobotnet';
@@ -513,7 +522,7 @@ export default function Home() {
               <span className={`${typingPhase === 'done' ? 'text-[--terminal-green]' : ''} ${showCursor ? 'opacity-100' : 'opacity-0'} transition-opacity`}>_</span>
             </h1>
         
-            {/* Mode Toggle: Web | API - Framed for visual clarity */}
+            {/* Mode Toggle: Web | API | Programs - Framed for visual clarity */}
             <div className="flex justify-center pt-2">
               <div className="inline-flex items-center gap-1 p-1 rounded-lg bg-muted/50 border border-border">
                 <button 
@@ -537,6 +546,16 @@ export default function Home() {
                 >
                   <Code2 className="h-4 w-4" />
                   <span>API</span>
+                </button>
+                <button 
+                  onClick={() => handleModeSwitch('programs')}
+                  className={`flex items-center gap-2 px-4 py-2 text-sm font-mono font-bold rounded-md transition-all ${
+                    viewMode === 'programs' 
+                      ? 'text-[--terminal-green] bg-background shadow-sm' 
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  <span>Programs</span>
                 </button>
               </div>
             </div>
@@ -731,7 +750,85 @@ export default function Home() {
                   >
                     view full api documentation →
                   </Link>
-            </div>
+                </div>
+              </>
+            )}
+
+            {/* Programs Mode */}
+            {viewMode === 'programs' && (
+              <>
+                {/* Programs List - Ultra minimal */}
+                <div className="relative h-[420px] overflow-hidden">
+                  <div className="space-y-2">
+                    {/* Loading State */}
+                    {isDataLoading && (
+                      <>
+                        {[1, 2, 3, 4].map((i) => (
+                          <div key={i} className="flex items-center gap-3 p-3 rounded-lg border border-border bg-card/50 animate-pulse">
+                            <div className="h-8 w-8 bg-muted rounded-full" />
+                            <div className="h-4 w-40 bg-muted rounded" />
+                          </div>
+                        ))}
+                      </>
+                    )}
+                    
+                    {/* Loaded State - Program names only */}
+                    {!isDataLoading && showcaseData && showcaseData.programs.map((program, i) => (
+                      <div 
+                        key={program.id} 
+                        className={`flex items-center gap-3 p-3 rounded-lg border border-border bg-card/50 transition-all hover:border-[--terminal-green]/30 ${i === showcaseData.programs.length - 1 ? 'opacity-60' : ''}`}
+                      >
+                        {/* Initial Badge */}
+                        <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center text-sm font-bold font-mono text-foreground">
+                          {program.name.charAt(0).toUpperCase()}
+                        </div>
+                        {/* Program Name */}
+                        <span className="font-mono text-sm text-foreground">{program.name}</span>
+                      </div>
+                    ))}
+                    
+                    {/* More programs teaser */}
+                    {!isDataLoading && showcaseData && (
+                      <div className="flex items-center gap-3 p-3 rounded-lg border border-dashed border-border/50 bg-transparent">
+                        <div className="h-8 w-8 rounded-full bg-muted/30 flex items-center justify-center text-sm font-mono text-muted-foreground">
+                          +
+                        </div>
+                        <span className="font-mono text-sm text-muted-foreground">more programs...</span>
+                      </div>
+                    )}
+                  </div>
+                  
+                  {/* Bottom fade gradient */}
+                  <div className="absolute bottom-0 left-0 right-0 h-24 bg-gradient-to-t from-background via-background/80 to-transparent pointer-events-none" />
+                </div>
+
+                {/* Programs Mode: Stats */}
+                <div className="flex justify-center items-center gap-8 py-4 font-mono">
+                  <div className="text-center">
+                    <div className={`text-2xl sm:text-3xl font-bold text-[--terminal-green] ${isDataLoading ? 'animate-pulse' : ''}`}>
+                      {isDataLoading ? '...' : stats?.total_programs || 0}
+                    </div>
+                    <div className="text-xs text-muted-foreground uppercase tracking-wider mt-1">programs</div>
+                  </div>
+                  <div className="h-8 w-px bg-border" />
+                  <div className="text-center">
+                    <div className={`text-2xl sm:text-3xl font-bold text-foreground ${isDataLoading ? 'animate-pulse' : ''}`}>
+                      {isDataLoading ? '...' : formatNumber(stats?.total_subdomains || 0)}
+                    </div>
+                    <div className="text-xs text-muted-foreground uppercase tracking-wider mt-1">subdomains</div>
+                  </div>
+                </div>
+
+                {/* Programs Mode: CTA */}
+                <div className="text-center">
+                  <Button 
+                    variant="link" 
+                    className="text-[--terminal-green] hover:text-[--terminal-green]/80 font-bold font-mono"
+                    onClick={() => signInWithGoogle()}
+                  >
+                    Sign up to explore all programs →
+                  </Button>
+                </div>
               </>
             )}
           </div>

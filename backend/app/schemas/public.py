@@ -51,6 +51,12 @@ class ShowcaseWebServer(BaseModel):
 # Stats Summary
 # ============================================================================
 
+class ShowcaseProgram(BaseModel):
+    """A program for public display - ultra minimal."""
+    id: str
+    name: str
+
+
 class ShowcaseStats(BaseModel):
     """Aggregate statistics for all data types."""
     total_subdomains: int
@@ -69,4 +75,5 @@ class ShowcaseResponse(BaseModel):
     subdomains: List[ShowcaseSubdomain]
     dns_records: List[ShowcaseDNSRecord]
     web_servers: List[ShowcaseWebServer]
+    programs: List[ShowcaseProgram]
     stats: ShowcaseStats
