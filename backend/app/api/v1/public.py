@@ -122,7 +122,7 @@ async def get_showcase(request: Request):
         # ====================================================================
         dns_data = []
         dns_result = client.table("dns_records")\
-            .select("subdomain, record_type, value, ttl, asset_id")\
+            .select("subdomain, record_type, record_value, ttl, asset_id")\
             .limit(100)\
             .execute()
         
@@ -133,7 +133,7 @@ async def get_showcase(request: Request):
                 dns_data.append(ShowcaseDNSRecord(
                     subdomain=d["subdomain"],
                     record_type=d["record_type"],
-                    value=d.get("value", ""),
+                    value=d.get("record_value", ""),
                     ttl=d.get("ttl"),
                     program_name=program_name,
                 ))
