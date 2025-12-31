@@ -161,6 +161,24 @@ const TechBadge = ({ tech }: { tech: string }) => (
   </span>
 );
 
+// Skeleton loading card - subtle pulsing animation
+const SkeletonCard = () => (
+  <div className="rounded-lg border border-border bg-card/50 p-4 animate-pulse">
+    <div className="flex items-center gap-3 mb-3">
+      <div className="h-6 w-12 bg-muted rounded" />
+      <div className="h-4 flex-1 bg-muted rounded" />
+    </div>
+    <div className="flex items-center gap-2 mb-3">
+      <div className="h-3 w-32 bg-muted/60 rounded" />
+      <div className="h-3 w-20 bg-muted/60 rounded" />
+    </div>
+    <div className="flex gap-1.5">
+      <div className="h-5 w-16 bg-muted/40 rounded" />
+      <div className="h-5 w-20 bg-muted/40 rounded" />
+    </div>
+  </div>
+);
+
 // ============================================================================
 // CARD COMPONENTS - Matching authenticated experience
 // ============================================================================
@@ -344,7 +362,8 @@ export default function Home() {
   const [autoToggle, setAutoToggle] = useState(true);
   
   // Showcase data from API
-  const [showcaseData, setShowcaseData] = useState<ShowcaseData>(FALLBACK_DATA);
+  const [showcaseData, setShowcaseData] = useState<ShowcaseData | null>(null);
+  const [isDataLoading, setIsDataLoading] = useState(true);
   
   // Typing animation state
   const [typedTitle, setTypedTitle] = useState('');
@@ -359,10 +378,15 @@ export default function Home() {
       if (response.ok) {
         const data: ShowcaseData = await response.json();
         setShowcaseData(data);
+      } else {
+        // API failed, use fallback
+        setShowcaseData(FALLBACK_DATA);
       }
     } catch (error) {
       console.warn('Failed to fetch showcase data, using fallback:', error);
-      // Keep fallback data
+      setShowcaseData(FALLBACK_DATA);
+    } finally {
+      setIsDataLoading(false);
     }
   }, []);
   
@@ -453,12 +477,15 @@ export default function Home() {
   // Format number with commas
   const formatNumber = (num: number) => num.toLocaleString();
   
+  // Get stats safely (handle loading/null state)
+  const stats = showcaseData?.stats;
+  
   // Tab order: Web Servers, DNS Records, Subdomains, URLs (locked)
   const tabs: { id: TabType; label: string; count: string; locked?: boolean }[] = [
-    { id: 'probes', label: 'Web Servers', count: formatNumber(showcaseData.stats.total_web_servers) },
-    { id: 'dns', label: 'DNS Records', count: formatNumber(showcaseData.stats.total_dns_records) },
-    { id: 'subdomains', label: 'Subdomains', count: formatNumber(showcaseData.stats.total_subdomains) },
-    { id: 'urls', label: 'URLs', count: formatNumber(showcaseData.stats.total_urls), locked: true },
+    { id: 'probes', label: 'Web Servers', count: isDataLoading ? '...' : formatNumber(stats?.total_web_servers || 0) },
+    { id: 'dns', label: 'DNS Records', count: isDataLoading ? '...' : formatNumber(stats?.total_dns_records || 0) },
+    { id: 'subdomains', label: 'Subdomains', count: isDataLoading ? '...' : formatNumber(stats?.total_subdomains || 0) },
+    { id: 'urls', label: 'URLs', count: isDataLoading ? '...' : formatNumber(stats?.total_urls || 0), locked: true },
   ];
 
   return (
@@ -569,15 +596,25 @@ export default function Home() {
                 {/* Web Mode: Card Display - Fixed height container to prevent page jumping */}
                 <div className="relative h-[420px] overflow-hidden">
                   <div className="space-y-3">
-                    {activeTab === 'probes' && showcaseData.web_servers.slice(0, 3).map((server, i) => (
+                    {/* Loading State - Show skeletons */}
+                    {isDataLoading && activeTab !== 'urls' && (
+                      <>
+                        <SkeletonCard />
+                        <SkeletonCard />
+                        <SkeletonCard />
+                      </>
+                    )}
+                    
+                    {/* Loaded State - Show real data */}
+                    {!isDataLoading && showcaseData && activeTab === 'probes' && showcaseData.web_servers.slice(0, 3).map((server, i) => (
                       <ServerCard key={i} server={server} fade={i === 2} />
                     ))}
                     
-                    {activeTab === 'dns' && showcaseData.dns_records.slice(0, 3).map((record, i) => (
+                    {!isDataLoading && showcaseData && activeTab === 'dns' && showcaseData.dns_records.slice(0, 3).map((record, i) => (
                       <DNSCard key={i} record={record} fade={i === 2} />
                     ))}
                     
-                    {activeTab === 'subdomains' && showcaseData.subdomains.slice(0, 4).map((sub, i) => (
+                    {!isDataLoading && showcaseData && activeTab === 'subdomains' && showcaseData.subdomains.slice(0, 4).map((sub, i) => (
                       <SubdomainCard key={i} sub={sub} fade={i === 3} />
                     ))}
                     
@@ -588,7 +625,7 @@ export default function Home() {
                           <Lock className="h-12 w-12 text-[--terminal-green]" />
                         </div>
                         <h3 className="text-2xl font-bold font-mono text-foreground mb-2">
-                          {formatNumber(showcaseData.stats.total_urls)} URLs Discovered
+                          {isDataLoading ? '...' : formatNumber(showcaseData?.stats.total_urls || 0)} URLs Discovered
                         </h3>
                         <p className="text-muted-foreground font-mono max-w-md mb-6">
                           Sign up to explore URLs, parameters, paths, and more curated intelligence from our reconnaissance scans.
@@ -613,7 +650,7 @@ export default function Home() {
                 {/* Web Mode: Stats */}
                 <div className="flex justify-center items-center gap-8 py-4 font-mono">
                   <div className="text-center">
-                    <div className="text-2xl sm:text-3xl font-bold text-[--terminal-green]">
+                    <div className={`text-2xl sm:text-3xl font-bold text-[--terminal-green] ${isDataLoading ? 'animate-pulse' : ''}`}>
                       {tabs.find(t => t.id === activeTab)?.count}
                     </div>
                     <div className="text-xs text-muted-foreground uppercase tracking-wider mt-1">
@@ -622,7 +659,9 @@ export default function Home() {
                   </div>
                   <div className="h-8 w-px bg-border" />
                   <div className="text-center">
-                    <div className="text-2xl sm:text-3xl font-bold text-foreground">{showcaseData.stats.total_programs}</div>
+                    <div className={`text-2xl sm:text-3xl font-bold text-foreground ${isDataLoading ? 'animate-pulse' : ''}`}>
+                      {isDataLoading ? '...' : stats?.total_programs || 0}
+                    </div>
                     <div className="text-xs text-muted-foreground uppercase tracking-wider mt-1">programs</div>
                   </div>
                 </div>
