@@ -11,6 +11,8 @@ from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import Response
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
 
 from .core.config import settings
 from .api.v1.auth import router as auth_router
@@ -21,6 +23,7 @@ from .api.v1.websocket import router as websocket_router
 from .api.v1.scans import router as scans_router
 from .api.v1.http_probes import router as http_probes_router
 from .api.v1.urls import router as urls_router
+from .api.v1.public import router as public_router, limiter  # PUBLIC: Unauthenticated showcase
 from .services.websocket_manager import websocket_manager, batch_progress_notifier
 
 # Configure logging for CloudWatch visibility
@@ -277,6 +280,12 @@ def create_application() -> FastAPI:
     app.include_router(scans_router, prefix=settings.api_v1_str)  # Unified scan endpoint
     app.include_router(http_probes_router, prefix=f"{settings.api_v1_str}/http-probes", tags=["http-probes"])
     app.include_router(urls_router, prefix=f"{settings.api_v1_str}/urls", tags=["urls"])
+    
+    # PUBLIC: Unauthenticated showcase endpoint with rate limiting
+    app.state.limiter = limiter
+    app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+    app.include_router(public_router, prefix=f"{settings.api_v1_str}/public", tags=["public"])
+    logger.info("🌐 Public showcase endpoint enabled at /api/v1/public/showcase (rate limited: 10/min)")
     
     return app
 
