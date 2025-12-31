@@ -929,10 +929,10 @@ class ScanPipeline:
         producer_task_arns = {}
         for producer_module in requested_producers:
             self.logger.info(f"   📤 Launching producer ({producer_module})...")
-            producer_launch = await batch_workflow_orchestrator.launch_streaming_producer(
+        producer_launch = await batch_workflow_orchestrator.launch_streaming_producer(
                 producer_job=producer_jobs[producer_module],
                 stream_key=producer_stream_keys[producer_module]
-            )
+        )
             producer_task_arns[producer_module] = producer_launch["task_arn"]
             self.logger.info(f"      ✅ Task: {producer_launch['task_arn']}")
         
@@ -1071,8 +1071,8 @@ class ScanPipeline:
         producers_summary = ", ".join([f"{m} (1 task)" for m in requested_producers])
         self.logger.info(f"   Producers: {producers_summary}")
         if stage1_consumers:
-            stage1_summary = ", ".join([f"{m} ({scale_factor}x)" for m in stage1_consumers])
-            self.logger.info(f"   Stage 1: {stage1_summary} (from Subfinder)")
+        stage1_summary = ", ".join([f"{m} ({scale_factor}x)" for m in stage1_consumers])
+        self.logger.info(f"   Stage 1: {stage1_summary} (from Subfinder)")
         if stage2_consumers:
             stage2_summary = ", ".join([f"{m} ({scale_factor}x)" for m in stage2_consumers])
             self.logger.info(f"   Stage 2: {stage2_summary} (from HTTPx)")
