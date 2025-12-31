@@ -3,109 +3,90 @@
 /**
  * Landing Page - neobotnet
  * 
- * Minimal, data-first landing page showcasing reconnaissance results.
+ * Minimal, data-first landing page showcasing REAL reconnaissance data.
+ * Data fetched from public showcase API endpoint (no auth required).
  * "Web Reconnaissance. Delivered."
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
-import { Code2, Globe, Copy, ExternalLink } from 'lucide-react';
+import { Code2, Globe, Copy, ExternalLink, Lock } from 'lucide-react';
+import { API_BASE_URL } from '@/lib/api/config';
 
 // ============================================================================
-// MOCK DATA - Rich data matching authenticated experience
+// TYPES - Matching backend ShowcaseResponse
 // ============================================================================
 
-const MOCK_SUBDOMAINS = [
-  { 
-    subdomain: 'api.acmecorp.com', 
-    parentDomain: 'acmecorp.com',
-    discovered: '2 hours ago',
-    program: 'AcmeCorp'
-  },
-  { 
-    subdomain: 'staging.acmecorp.com', 
-    parentDomain: 'acmecorp.com',
-    discovered: '5 hours ago',
-    program: 'AcmeCorp'
-  },
-  { 
-    subdomain: 'developer.acmecorp.com', 
-    parentDomain: 'acmecorp.com',
-    discovered: '1 day ago',
-    program: 'AcmeCorp'
-  },
-  { 
-    subdomain: 'internal-tools.acmecorp.com', 
-    parentDomain: 'acmecorp.com',
-    discovered: '2 days ago',
-    program: 'AcmeCorp'
-  },
-];
+interface ShowcaseSubdomain {
+  subdomain: string;
+  parent_domain: string;
+  program_name: string;
+}
 
-const MOCK_DNS = [
-  { 
-    subdomain: 'api.acmecorp.com',
-    parentDomain: 'acmecorp.com',
-    records: [
-      { type: 'A', value: '104.18.20.35', ttl: 300 },
-      { type: 'AAAA', value: '2606:4700::6812:1423', ttl: 300 },
-    ],
-    lastResolved: '1 hour ago'
-  },
-  { 
-    subdomain: 'mail.acmecorp.com',
-    parentDomain: 'acmecorp.com',
-    records: [
-      { type: 'MX', value: 'aspmx.l.google.com', ttl: 3600, priority: 10 },
-      { type: 'MX', value: 'alt1.aspmx.l.google.com', ttl: 3600, priority: 20 },
-    ],
-    lastResolved: '3 hours ago'
-  },
-  { 
-    subdomain: 'cdn.acmecorp.com',
-    parentDomain: 'acmecorp.com',
-    records: [
-      { type: 'CNAME', value: 'd1abc.cloudfront.net', ttl: 86400 },
-    ],
-    lastResolved: '6 hours ago'
-  },
-];
+interface ShowcaseDNSRecord {
+  subdomain: string;
+  record_type: string;
+  value: string;
+  ttl: number | null;
+  program_name: string;
+}
 
-const MOCK_PROBES = [
-  { 
-    url: 'https://api.acmecorp.com', 
-    status: 200, 
-    title: 'API Gateway - AcmeCorp', 
-    length: '2.4kb', 
-    server: 'nginx/1.24', 
-    cdn: 'Cloudflare',
-    technologies: ['React', 'Node.js', 'Express'],
-    ip: '104.18.20.35'
+interface ShowcaseWebServer {
+  url: string;
+  status_code: number;
+  title: string | null;
+  webserver: string | null;
+  content_length: number | null;
+  technologies: string[];
+  program_name: string;
+}
+
+interface ShowcaseStats {
+  total_subdomains: number;
+  total_dns_records: number;
+  total_web_servers: number;
+  total_urls: number;
+  total_programs: number;
+}
+
+interface ShowcaseData {
+  subdomains: ShowcaseSubdomain[];
+  dns_records: ShowcaseDNSRecord[];
+  web_servers: ShowcaseWebServer[];
+  stats: ShowcaseStats;
+}
+
+// ============================================================================
+// FALLBACK DATA - Used if API fails
+// ============================================================================
+
+const FALLBACK_DATA: ShowcaseData = {
+  subdomains: [
+    { subdomain: 'api.example.com', parent_domain: 'example.com', program_name: 'Demo' },
+    { subdomain: 'staging.example.com', parent_domain: 'example.com', program_name: 'Demo' },
+    { subdomain: 'developer.example.com', parent_domain: 'example.com', program_name: 'Demo' },
+  ],
+  dns_records: [
+    { subdomain: 'api.example.com', record_type: 'A', value: '104.18.20.35', ttl: 300, program_name: 'Demo' },
+    { subdomain: 'mail.example.com', record_type: 'MX', value: 'mail.google.com', ttl: 3600, program_name: 'Demo' },
+    { subdomain: 'cdn.example.com', record_type: 'CNAME', value: 'd1.cloudfront.net', ttl: 86400, program_name: 'Demo' },
+  ],
+  web_servers: [
+    { url: 'https://api.example.com', status_code: 200, title: 'API Gateway', webserver: 'nginx', content_length: 2400, technologies: ['React', 'Node.js'], program_name: 'Demo' },
+    { url: 'https://staging.example.com', status_code: 403, title: 'Forbidden', webserver: 'nginx', content_length: 512, technologies: [], program_name: 'Demo' },
+    { url: 'https://developer.example.com', status_code: 200, title: 'Developer Portal', webserver: 'gunicorn', content_length: 45000, technologies: ['Python', 'Django'], program_name: 'Demo' },
+  ],
+  stats: {
+    total_subdomains: 10000,
+    total_dns_records: 25000,
+    total_web_servers: 5000,
+    total_urls: 50000,
+    total_programs: 50,
   },
-  { 
-    url: 'https://staging.acmecorp.com', 
-    status: 403, 
-    title: 'Forbidden', 
-    length: '512b', 
-    server: 'nginx', 
-    cdn: 'AWS CloudFront',
-    technologies: ['nginx'],
-    ip: '52.14.123.89'
-  },
-  { 
-    url: 'https://developer.acmecorp.com', 
-    status: 200, 
-    title: 'Developer Portal', 
-    length: '45kb', 
-    server: 'gunicorn/20.1', 
-    cdn: 'Fastly',
-    technologies: ['Python', 'Django', 'React'],
-    ip: '151.101.1.57'
-  },
-];
+};
 
 // ============================================================================
 // COMPONENTS
@@ -184,54 +165,71 @@ const TechBadge = ({ tech }: { tech: string }) => (
 // CARD COMPONENTS - Matching authenticated experience
 // ============================================================================
 
-// Web Server Card (matches /probes)
-const ServerCard = ({ probe, fade = false }: { 
-  probe: typeof MOCK_PROBES[0]; 
+// Web Server Card (matches /probes) - Uses ShowcaseWebServer
+const ServerCard = ({ server, fade = false }: { 
+  server: ShowcaseWebServer; 
   fade?: boolean;
-}) => (
-  <div className={`relative rounded-lg border border-border bg-card/50 p-4 transition-all hover:border-[--terminal-green]/30 ${fade ? 'opacity-60' : ''}`}>
-    {/* Header: Status + URL + Actions */}
-    <div className="flex items-center gap-3 mb-3">
-      <StatusBadge status={probe.status} large />
-      <span className="font-mono text-sm text-[--terminal-green] truncate flex-1">{probe.url}</span>
-      <div className="flex items-center gap-1 opacity-50">
-        <Copy className="h-3.5 w-3.5 text-muted-foreground" />
-        <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" />
+}) => {
+  const formatSize = (bytes: number | null) => {
+    if (!bytes) return null;
+    if (bytes < 1024) return `${bytes}b`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)}kb`;
+    return `${(bytes / 1024 / 1024).toFixed(1)}mb`;
+  };
+
+  return (
+    <div className={`relative rounded-lg border border-border bg-card/50 p-4 transition-all hover:border-[--terminal-green]/30 ${fade ? 'opacity-60' : ''}`}>
+      {/* Header: Status + URL + Actions */}
+      <div className="flex items-center gap-3 mb-3">
+        <StatusBadge status={server.status_code} large />
+        <span className="font-mono text-sm text-[--terminal-green] truncate flex-1">{server.url}</span>
+        <div className="flex items-center gap-1 opacity-50">
+          <Copy className="h-3.5 w-3.5 text-muted-foreground" />
+          <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" />
+        </div>
       </div>
-    </div>
-    
-    {/* Meta: Title, Server, Size, CDN */}
-    <div className="flex items-center gap-2 text-xs text-muted-foreground mb-3 font-mono">
-      <span className="text-foreground/80">{probe.title}</span>
-      <span>·</span>
-      <span>{probe.server}</span>
-      <span>·</span>
-      <span className="text-cyan-400">{probe.length}</span>
-      {probe.cdn !== '—' && (
-        <>
-          <span>·</span>
-          <span className="text-purple-400">{probe.cdn}</span>
-        </>
+      
+      {/* Meta: Title, Server, Size */}
+      <div className="flex items-center gap-2 text-xs text-muted-foreground mb-3 font-mono">
+        {server.title && <span className="text-foreground/80 truncate">{server.title}</span>}
+        {server.webserver && (
+          <>
+            <span>·</span>
+            <span>{server.webserver}</span>
+          </>
+        )}
+        {server.content_length && (
+          <>
+            <span>·</span>
+            <span className="text-cyan-400">{formatSize(server.content_length)}</span>
+          </>
+        )}
+        <span className="ml-auto text-muted-foreground/60">{server.program_name}</span>
+      </div>
+      
+      {/* Technologies */}
+      {server.technologies.length > 0 && (
+        <div className="flex flex-wrap gap-1.5">
+          {server.technologies.slice(0, 5).map((tech, i) => (
+            <TechBadge key={i} tech={tech} />
+          ))}
+          {server.technologies.length > 5 && (
+            <span className="text-xs text-muted-foreground">+{server.technologies.length - 5}</span>
+          )}
+        </div>
+      )}
+      
+      {/* Fade overlay for last card */}
+      {fade && (
+        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-card rounded-lg pointer-events-none" />
       )}
     </div>
-    
-    {/* Technologies */}
-    <div className="flex flex-wrap gap-1.5">
-      {probe.technologies.map((tech, i) => (
-        <TechBadge key={i} tech={tech} />
-      ))}
-    </div>
-    
-    {/* Fade overlay for last card */}
-    {fade && (
-      <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-card rounded-lg pointer-events-none" />
-    )}
-  </div>
-);
+  );
+};
 
-// DNS Record Card (matches /dns grouped view)
+// DNS Record Card (matches /dns) - Uses ShowcaseDNSRecord
 const DNSCard = ({ record, fade = false }: { 
-  record: typeof MOCK_DNS[0]; 
+  record: ShowcaseDNSRecord; 
   fade?: boolean;
 }) => (
   <div className={`relative rounded-lg border border-border bg-card/50 p-4 transition-all hover:border-[--terminal-green]/30 ${fade ? 'opacity-60' : ''}`}>
@@ -242,22 +240,17 @@ const DNSCard = ({ record, fade = false }: {
       <Copy className="h-3.5 w-3.5 text-muted-foreground opacity-50" />
     </div>
     
-    {/* Records */}
-    <div className="space-y-2">
-      {record.records.map((r, i) => (
-        <div key={i} className="flex items-center gap-2 text-xs font-mono">
-          <TypeBadge type={r.type} />
-          <span className="text-muted-foreground">→</span>
-          <span className="text-foreground/80 truncate flex-1">{r.value}</span>
-          <span className="text-muted-foreground/60">TTL: {r.ttl}s</span>
-        </div>
-      ))}
+    {/* Single Record */}
+    <div className="flex items-center gap-2 text-xs font-mono">
+      <TypeBadge type={record.record_type} />
+      <span className="text-muted-foreground">→</span>
+      <span className="text-foreground/80 truncate flex-1">{record.value}</span>
+      {record.ttl && <span className="text-muted-foreground/60">TTL: {record.ttl}s</span>}
     </div>
     
     {/* Footer */}
     <div className="mt-3 pt-2 border-t border-border/50 flex items-center justify-between text-xs text-muted-foreground">
-      <span>{record.parentDomain}</span>
-      <span>{record.lastResolved}</span>
+      <span>{record.program_name}</span>
     </div>
     
     {fade && (
@@ -266,9 +259,9 @@ const DNSCard = ({ record, fade = false }: {
   </div>
 );
 
-// Subdomain Card (matches /subdomains)
+// Subdomain Card (matches /subdomains) - Uses ShowcaseSubdomain
 const SubdomainCard = ({ sub, fade = false }: { 
-  sub: typeof MOCK_SUBDOMAINS[0]; 
+  sub: ShowcaseSubdomain; 
   fade?: boolean;
 }) => (
   <div className={`relative rounded-lg border border-border bg-card/50 p-4 transition-all hover:border-[--terminal-green]/30 ${fade ? 'opacity-60' : ''}`}>
@@ -284,8 +277,8 @@ const SubdomainCard = ({ sub, fade = false }: {
     
     {/* Footer */}
     <div className="flex items-center justify-between text-xs text-muted-foreground font-mono">
-      <span>{sub.parentDomain}</span>
-      <span>{sub.discovered}</span>
+      <span>{sub.parent_domain}</span>
+      <span>{sub.program_name}</span>
     </div>
     
     {fade && (
@@ -298,10 +291,10 @@ const SubdomainCard = ({ sub, fade = false }: {
 // MAIN COMPONENT
 // ============================================================================
 
-type TabType = 'subdomains' | 'dns' | 'probes';
+type TabType = 'subdomains' | 'dns' | 'probes' | 'urls';
 type APITabType = 'export' | 'live' | 'dns' | 'nuclei';
 
-// Tab order: Web Servers first, then DNS, then Subdomains
+// Tab order: Web Servers first, then DNS, then Subdomains, then URLs (locked)
 const TAB_ORDER: TabType[] = ['probes', 'dns', 'subdomains'];
 
 // API Examples
@@ -350,11 +343,33 @@ export default function Home() {
   const [activeAPITab, setActiveAPITab] = useState<APITabType>('export');
   const [autoToggle, setAutoToggle] = useState(true);
   
+  // Showcase data from API
+  const [showcaseData, setShowcaseData] = useState<ShowcaseData>(FALLBACK_DATA);
+  
   // Typing animation state
   const [typedTitle, setTypedTitle] = useState('');
   const [typedTagline, setTypedTagline] = useState('');
   const [showCursor, setShowCursor] = useState(true);
   const [typingPhase, setTypingPhase] = useState<'title' | 'tagline' | 'done'>('title');
+  
+  // Fetch showcase data from public API
+  const fetchShowcaseData = useCallback(async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/v1/public/showcase`);
+      if (response.ok) {
+        const data: ShowcaseData = await response.json();
+        setShowcaseData(data);
+      }
+    } catch (error) {
+      console.warn('Failed to fetch showcase data, using fallback:', error);
+      // Keep fallback data
+    }
+  }, []);
+  
+  // Fetch data on mount
+  useEffect(() => {
+    fetchShowcaseData();
+  }, [fetchShowcaseData]);
 
   // Typing animation effect
   useEffect(() => {
@@ -435,11 +450,15 @@ export default function Home() {
     return null;
   }
 
-  // Tab order: Web Servers, DNS Records, Subdomains
-  const tabs: { id: TabType; label: string; count: string }[] = [
-    { id: 'probes', label: 'Web Servers', count: '38,291' },
-    { id: 'dns', label: 'DNS Records', count: '124,567' },
-    { id: 'subdomains', label: 'Subdomains', count: '47,832' },
+  // Format number with commas
+  const formatNumber = (num: number) => num.toLocaleString();
+  
+  // Tab order: Web Servers, DNS Records, Subdomains, URLs (locked)
+  const tabs: { id: TabType; label: string; count: string; locked?: boolean }[] = [
+    { id: 'probes', label: 'Web Servers', count: formatNumber(showcaseData.stats.total_web_servers) },
+    { id: 'dns', label: 'DNS Records', count: formatNumber(showcaseData.stats.total_dns_records) },
+    { id: 'subdomains', label: 'Subdomains', count: formatNumber(showcaseData.stats.total_subdomains) },
+    { id: 'urls', label: 'URLs', count: formatNumber(showcaseData.stats.total_urls), locked: true },
   ];
 
   return (
@@ -533,37 +552,62 @@ export default function Home() {
                         key={tab.id}
                         onClick={() => handleTabClick(tab.id)}
                         className={`
-                          px-4 py-2 rounded-md text-sm font-mono font-medium transition-all duration-300
+                          px-4 py-2 rounded-md text-sm font-mono font-medium transition-all duration-300 flex items-center gap-1.5
                           ${activeTab === tab.id 
                             ? 'bg-background text-foreground shadow-sm' 
                             : 'text-muted-foreground hover:text-foreground'
                           }
                         `}
                       >
+                        {tab.locked && <Lock className="h-3 w-3" />}
                         {tab.label}
                       </button>
                     ))}
-        </div>
-        </div>
+                  </div>
+                </div>
 
                 {/* Web Mode: Card Display - Fixed height container to prevent page jumping */}
                 <div className="relative h-[420px] overflow-hidden">
                   <div className="space-y-3">
-                    {activeTab === 'probes' && MOCK_PROBES.map((probe, i) => (
-                      <ServerCard key={i} probe={probe} fade={i === 2} />
+                    {activeTab === 'probes' && showcaseData.web_servers.slice(0, 3).map((server, i) => (
+                      <ServerCard key={i} server={server} fade={i === 2} />
                     ))}
                     
-                    {activeTab === 'dns' && MOCK_DNS.map((record, i) => (
+                    {activeTab === 'dns' && showcaseData.dns_records.slice(0, 3).map((record, i) => (
                       <DNSCard key={i} record={record} fade={i === 2} />
                     ))}
                     
-                    {activeTab === 'subdomains' && MOCK_SUBDOMAINS.map((sub, i) => (
+                    {activeTab === 'subdomains' && showcaseData.subdomains.slice(0, 4).map((sub, i) => (
                       <SubdomainCard key={i} sub={sub} fade={i === 3} />
                     ))}
+                    
+                    {/* URLs - Locked State */}
+                    {activeTab === 'urls' && (
+                      <div className="flex flex-col items-center justify-center h-full py-16 text-center">
+                        <div className="rounded-full bg-muted/50 p-6 mb-6">
+                          <Lock className="h-12 w-12 text-[--terminal-green]" />
+                        </div>
+                        <h3 className="text-2xl font-bold font-mono text-foreground mb-2">
+                          {formatNumber(showcaseData.stats.total_urls)} URLs Discovered
+                        </h3>
+                        <p className="text-muted-foreground font-mono max-w-md mb-6">
+                          Sign up to explore URLs, parameters, paths, and more curated intelligence from our reconnaissance scans.
+                        </p>
+                        <Button 
+                          size="lg"
+                          onClick={() => signInWithGoogle()}
+                          className="h-12 px-6 text-base font-mono font-medium bg-[--terminal-green] text-background hover:bg-[--terminal-green]/90 transition-all"
+                        >
+                          Sign Up to Unlock →
+                        </Button>
+                      </div>
+                    )}
                   </div>
                   
-                  {/* Bottom fade gradient */}
-                  <div className="absolute bottom-0 left-0 right-0 h-24 bg-gradient-to-t from-background via-background/80 to-transparent pointer-events-none" />
+                  {/* Bottom fade gradient - only show for non-locked tabs */}
+                  {activeTab !== 'urls' && (
+                    <div className="absolute bottom-0 left-0 right-0 h-24 bg-gradient-to-t from-background via-background/80 to-transparent pointer-events-none" />
+                  )}
                 </div>
 
                 {/* Web Mode: Stats */}
@@ -573,26 +617,28 @@ export default function Home() {
                       {tabs.find(t => t.id === activeTab)?.count}
                     </div>
                     <div className="text-xs text-muted-foreground uppercase tracking-wider mt-1">
-                      {activeTab === 'subdomains' ? 'subdomains' : activeTab === 'dns' ? 'dns records' : 'web servers'}
+                      {activeTab === 'subdomains' ? 'subdomains' : activeTab === 'dns' ? 'dns records' : activeTab === 'urls' ? 'urls' : 'web servers'}
                     </div>
                   </div>
                   <div className="h-8 w-px bg-border" />
                   <div className="text-center">
-                    <div className="text-2xl sm:text-3xl font-bold text-foreground">156</div>
+                    <div className="text-2xl sm:text-3xl font-bold text-foreground">{showcaseData.stats.total_programs}</div>
                     <div className="text-xs text-muted-foreground uppercase tracking-wider mt-1">programs</div>
                   </div>
                 </div>
 
-                {/* Web Mode: CTA */}
-                <div className="text-center">
-                  <Button 
-                    variant="link" 
-                    className="text-[--terminal-green] hover:text-[--terminal-green]/80 font-bold font-mono"
-                    onClick={() => signInWithGoogle()}
-                  >
-                    Sign in to explore all data →
-                  </Button>
-                </div>
+                {/* Web Mode: CTA - only show for non-locked tabs */}
+                {activeTab !== 'urls' && (
+                  <div className="text-center">
+                    <Button 
+                      variant="link" 
+                      className="text-[--terminal-green] hover:text-[--terminal-green]/80 font-bold font-mono"
+                      onClick={() => signInWithGoogle()}
+                    >
+                      Sign in to explore all data →
+                    </Button>
+                  </div>
+                )}
               </>
             ) : (
               <>
