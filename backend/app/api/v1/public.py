@@ -208,5 +208,7 @@ async def get_showcase(request: Request):
         return response
         
     except Exception as e:
+        import traceback
         logger.error(f"Error generating showcase data: {e}")
-        raise HTTPException(status_code=500, detail="Failed to generate showcase data")
+        logger.error(f"Traceback: {traceback.format_exc()}")
+        raise HTTPException(status_code=500, detail=f"Failed to generate showcase data: {str(e)}")
