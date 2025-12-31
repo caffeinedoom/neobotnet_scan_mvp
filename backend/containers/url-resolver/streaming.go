@@ -88,7 +88,7 @@ func loadStreamingConfig() (*StreamingConfig, error) {
 		AssetID:           os.Getenv("ASSET_ID"),
 		BatchSize:         getEnvInt64("BATCH_SIZE", 10),
 		BlockMilliseconds: getEnvInt64("BLOCK_MILLISECONDS", 5000),
-		MaxProcessingTime: time.Duration(getEnvInt64("MAX_PROCESSING_TIME", 3600)) * time.Second,
+		MaxProcessingTime: time.Duration(getEnvInt64("MAX_PROCESSING_TIME", 10800)) * time.Second, // Default: 3 hours
 		ResolutionTTL:     time.Duration(getEnvInt64("RESOLUTION_TTL_HOURS", 24)) * time.Hour,
 		ProbeBatchSize:    int(getEnvInt64("PROBE_BATCH_SIZE", 100)),
 	}

@@ -1308,7 +1308,7 @@ class BatchWorkflowOrchestrator:
         - CONSUMER_NAME={consumer_name}
         - BATCH_SIZE=50 (default)
         - BLOCK_MILLISECONDS=5000 (default)
-        - MAX_PROCESSING_TIME=3600 (default)
+        - MAX_PROCESSING_TIME=10800 (default 3 hours)
         - STREAM_OUTPUT_KEY={stream_output_key} (optional, enables producer mode)
         
         Args:
@@ -1334,7 +1334,7 @@ class BatchWorkflowOrchestrator:
             {"name": "MODULE_ROLE", "value": "consumer"},
             {"name": "BATCH_SIZE", "value": "50"},  # Messages per XREADGROUP
             {"name": "BLOCK_MILLISECONDS", "value": "5000"},  # 5 seconds blocking
-            {"name": "MAX_PROCESSING_TIME", "value": "3600"},  # 1 hour timeout
+            {"name": "MAX_PROCESSING_TIME", "value": "10800"},  # 3 hour timeout (sync with pipeline default)
         ]
         
         # Add output stream key if provided (enables consumer+producer mode)

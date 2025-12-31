@@ -312,12 +312,37 @@ func (sc *SupabaseClient) UpdateScanJobStatus(jobID, status string, metadata map
 	return nil
 }
 
-// UpdateBatchScanStatus updates the status of a batch scan job
+// UpdateBatchScanStatus updates the status of a batch scan job with retry logic
 func (sc *SupabaseClient) UpdateBatchScanStatus(batchID, status string, metadata map[string]interface{}) error {
+	return sc.UpdateBatchScanStatusWithRetry(batchID, status, metadata, 3) // 3 retries by default
+}
+
+// UpdateBatchScanStatusWithRetry updates the status of a batch scan job with configurable retries
+func (sc *SupabaseClient) UpdateBatchScanStatusWithRetry(batchID, status string, metadata map[string]interface{}, maxRetries int) error {
 	if batchID == "" {
 		return fmt.Errorf("batch_id is required")
 	}
 
+	var lastErr error
+	for attempt := 1; attempt <= maxRetries; attempt++ {
+		err := sc.updateBatchScanStatusOnce(batchID, status, metadata)
+		if err == nil {
+			return nil
+		}
+		lastErr = err
+		fmt.Printf("⚠️  Status update failed (attempt %d/%d): %v\n", attempt, maxRetries, err)
+		if attempt < maxRetries {
+			// Exponential backoff: 1s, 2s, 4s...
+			sleepDuration := time.Duration(1<<uint(attempt-1)) * time.Second
+			fmt.Printf("   Retrying in %v...\n", sleepDuration)
+			time.Sleep(sleepDuration)
+		}
+	}
+	return fmt.Errorf("status update failed after %d retries: %w", maxRetries, lastErr)
+}
+
+// updateBatchScanStatusOnce performs a single status update attempt
+func (sc *SupabaseClient) updateBatchScanStatusOnce(batchID, status string, metadata map[string]interface{}) error {
 	url := fmt.Sprintf("%s/rest/v1/batch_scan_jobs?id=eq.%s", sc.url, batchID)
 
 	// Prepare update payload

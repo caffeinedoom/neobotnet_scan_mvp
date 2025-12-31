@@ -128,7 +128,7 @@ func loadStreamingConfig() (*StreamingConfig, error) {
 		ScanJobID:         os.Getenv("SCAN_JOB_ID"),
 		BatchSize:         getEnvInt64("BATCH_SIZE", 50),                                         // Default: 50 messages per batch
 		BlockMilliseconds: getEnvInt64("BLOCK_MILLISECONDS", 5000),                               // Default: 5 seconds
-		MaxProcessingTime: time.Duration(getEnvInt64("MAX_PROCESSING_TIME", 3600)) * time.Second, // Default: 1 hour
+		MaxProcessingTime: time.Duration(getEnvInt64("MAX_PROCESSING_TIME", 10800)) * time.Second, // Default: 3 hours
 	}
 
 	// Validate required fields
