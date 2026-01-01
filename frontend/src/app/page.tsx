@@ -330,31 +330,31 @@ const TAB_ORDER: TabType[] = ['probes', 'dns', 'subdomains'];
 const API_EXAMPLES: { id: APITabType; label: string; command: string; output: string[] }[] = [
   {
     id: 'export',
-    label: 'Export',
-    command: `curl -s "https://api.neobotnet.com/v1/programs/all/subdomains" \\
-  -H "X-API-Key: YOUR_API_KEY" | jq -r '.[].subdomain' > subs.txt`,
-    output: ['Saved 47,832 subdomains to subs.txt'],
+    label: 'Subdomains',
+    command: `curl -s "https://aldous-api.neobotnet.com/api/v1/programs/all/subdomains" \\
+  -H "X-API-Key: YOUR_API_KEY" | jq -r '.subdomains[].subdomain'`,
+    output: ['api.nubank.com.br', 'developer.nubank.com.br', 'cdn.epicgames.com', 'staging.t-mobile.com', '...'],
   },
   {
     id: 'live',
     label: 'Live Hosts',
-    command: `curl -s "https://api.neobotnet.com/v1/http-probes?status_code=200" \\
+    command: `curl -s "https://aldous-api.neobotnet.com/api/v1/http-probes?status_code=200" \\
   -H "X-API-Key: YOUR_API_KEY" | jq -r '.[].url'`,
-    output: ['https://api.acmecorp.com', 'https://developer.acmecorp.com', 'https://cdn.acmecorp.com', '...'],
+    output: ['https://api.nubank.com.br', 'https://developer.epicgames.com', 'https://cdn.t-mobile.com', '...'],
   },
   {
     id: 'dns',
-    label: 'DNS',
-    command: `curl -s "https://api.neobotnet.com/v1/dns?record_type=CNAME" \\
-  -H "X-API-Key: YOUR_API_KEY" | jq '.[] | {sub: .subdomain, target: .value}'`,
-    output: ['{"sub": "cdn.acmecorp.com", "target": "d1abc.cloudfront.net"}', '{"sub": "jira.acmecorp.com", "target": "acmecorp.atlassian.net"}', '...'],
+    label: 'CNAME',
+    command: `curl -s "https://aldous-api.neobotnet.com/api/v1/programs/PROGRAM_ID/dns?record_type=CNAME" \\
+  -H "X-API-Key: YOUR_API_KEY" | jq '.records[] | {sub: .subdomain, target: .value}'`,
+    output: ['{"sub": "cdn.nubank.com.br", "target": "d1abc.cloudfront.net"}', '{"sub": "status.epicgames.com", "target": "epicgames.statuspage.io"}', '...'],
   },
   {
     id: 'nuclei',
-    label: 'Nuclei',
-    command: `curl -s "https://api.neobotnet.com/v1/http-probes?status_code=200" \\
+    label: 'Pipeline',
+    command: `curl -s "https://aldous-api.neobotnet.com/api/v1/http-probes?status_code=200" \\
   -H "X-API-Key: YOUR_API_KEY" | jq -r '.[].url' | nuclei -t cves/`,
-    output: ['[CVE-2024-XXXX] https://api.acmecorp.com', '[info] Scanning 1,247 targets...', '...'],
+    output: ['[info] Loaded 1,247 targets from stdin', '[CVE-2024-XXXX] https://api.nubank.com.br', '...'],
   },
 ];
 
