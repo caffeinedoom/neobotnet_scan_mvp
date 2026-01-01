@@ -52,9 +52,11 @@ class ShowcaseWebServer(BaseModel):
 # ============================================================================
 
 class ShowcaseProgram(BaseModel):
-    """A program for public display - ultra minimal."""
+    """A program for public display with basic stats."""
     id: str
     name: str
+    subdomain_count: int
+    server_count: int
 
 
 class ShowcaseStats(BaseModel):

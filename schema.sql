@@ -1236,6 +1236,7 @@ CREATE TABLE IF NOT EXISTS "public"."batch_scan_jobs" (
     "metadata" "jsonb" DEFAULT '{}'::"jsonb",
     "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL,
     "total_records" integer DEFAULT 0 NOT NULL,
+    "urls_inserted" integer DEFAULT 0,
     CONSTRAINT "valid_batch_type" CHECK (("batch_type" = ANY (ARRAY['multi_asset'::"text", 'single_asset'::"text"]))),
     CONSTRAINT "valid_domain_counts" CHECK ((("total_domains" >= 0) AND ("completed_domains" >= 0) AND ("failed_domains" >= 0) AND (("completed_domains" + "failed_domains") <= "total_domains"))),
     CONSTRAINT "valid_domains_array" CHECK (("array_length"("batch_domains", 1) = "total_domains")),

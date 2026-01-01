@@ -99,12 +99,32 @@ async def get_showcase(request: Request):
             )
         
         # ====================================================================
-        # Build programs list (just id and name)
+        # Build programs list with per-program stats (limit to 4)
         # ====================================================================
-        programs_data = [
-            ShowcaseProgram(id=p["id"], name=p["name"])
-            for p in (programs_result.data or [])
-        ]
+        programs_data = []
+        for p in (programs_result.data or [])[:4]:  # Limit to 4 programs
+            program_id = p["id"]
+            
+            # Count subdomains for this program
+            sub_count_result = client.table("subdomains")\
+                .select("id", count="exact")\
+                .eq("asset_id", program_id)\
+                .execute()
+            subdomain_count = sub_count_result.count or 0
+            
+            # Count servers (http_probes) for this program
+            server_count_result = client.table("http_probes")\
+                .select("id", count="exact")\
+                .eq("asset_id", program_id)\
+                .execute()
+            server_count = server_count_result.count or 0
+            
+            programs_data.append(ShowcaseProgram(
+                id=program_id,
+                name=p["name"],
+                subdomain_count=subdomain_count,
+                server_count=server_count,
+            ))
         
         # ====================================================================
         # Get random subdomains (5 records)

@@ -47,6 +47,8 @@ interface ShowcaseWebServer {
 interface ShowcaseProgram {
   id: string;
   name: string;
+  subdomain_count: number;
+  server_count: number;
 }
 
 interface ShowcaseStats {
@@ -86,7 +88,7 @@ const FALLBACK_DATA: ShowcaseData = {
     { url: 'https://developer.example.com', status_code: 200, title: 'Developer Portal', webserver: 'gunicorn', content_length: 45000, technologies: ['Python', 'Django'], program_name: 'Demo' },
   ],
   programs: [
-    { id: '1', name: 'Demo Program' },
+    { id: '1', name: 'Demo Program', subdomain_count: 1000, server_count: 500 },
   ],
   stats: {
     total_subdomains: 10000,
@@ -588,7 +590,7 @@ export default function Home() {
 
           {/* Content Area - Switches based on viewMode */}
           <div className="space-y-4 transition-all duration-300">
-            {viewMode === 'web' ? (
+            {viewMode === 'web' && (
               <>
                 {/* Web Mode: Data Tabs */}
                 <div className="flex justify-center">
@@ -698,7 +700,9 @@ export default function Home() {
                   </div>
                 )}
               </>
-            ) : (
+            )}
+
+            {viewMode === 'api' && (
               <>
                 {/* API Mode: Tabs */}
                 <div className="flex justify-center">
@@ -757,70 +761,72 @@ export default function Home() {
             {/* Programs Mode */}
             {viewMode === 'programs' && (
               <>
-                {/* Programs List - Ultra minimal */}
+                {/* Programs Table - Columnar Layout */}
                 <div className="relative h-[420px] overflow-hidden">
-                  <div className="space-y-2">
+                  <div className="rounded-xl border border-border bg-card/50 overflow-hidden">
+                    {/* Table Header */}
+                    <div className="grid grid-cols-[auto_1fr_100px_100px] gap-4 px-4 py-3 border-b border-border bg-muted/30 font-mono text-xs text-muted-foreground uppercase tracking-wider">
+                      <div className="w-8"></div>
+                      <div>Program</div>
+                      <div className="text-right">Subs</div>
+                      <div className="text-right">Servers</div>
+                    </div>
+                    
                     {/* Loading State */}
                     {isDataLoading && (
-                      <>
+                      <div className="divide-y divide-border">
                         {[1, 2, 3, 4].map((i) => (
-                          <div key={i} className="flex items-center gap-3 p-3 rounded-lg border border-border bg-card/50 animate-pulse">
+                          <div key={i} className="grid grid-cols-[auto_1fr_100px_100px] gap-4 px-4 py-3 animate-pulse">
                             <div className="h-8 w-8 bg-muted rounded-full" />
-                            <div className="h-4 w-40 bg-muted rounded" />
+                            <div className="h-4 w-32 bg-muted rounded self-center" />
+                            <div className="h-4 w-12 bg-muted rounded self-center ml-auto" />
+                            <div className="h-4 w-12 bg-muted rounded self-center ml-auto" />
                           </div>
                         ))}
-                      </>
+                      </div>
                     )}
                     
-                    {/* Loaded State - Program names only */}
-                    {!isDataLoading && showcaseData && showcaseData.programs.map((program, i) => (
-                      <div 
-                        key={program.id} 
-                        className={`flex items-center gap-3 p-3 rounded-lg border border-border bg-card/50 transition-all hover:border-[--terminal-green]/30 ${i === showcaseData.programs.length - 1 ? 'opacity-60' : ''}`}
-                      >
-                        {/* Initial Badge */}
-                        <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center text-sm font-bold font-mono text-foreground">
-                          {program.name.charAt(0).toUpperCase()}
-                        </div>
-                        {/* Program Name */}
-                        <span className="font-mono text-sm text-foreground">{program.name}</span>
-                      </div>
-                    ))}
-                    
-                    {/* More programs teaser */}
+                    {/* Loaded State - Programs with stats */}
                     {!isDataLoading && showcaseData && (
-                      <div className="flex items-center gap-3 p-3 rounded-lg border border-dashed border-border/50 bg-transparent">
-                        <div className="h-8 w-8 rounded-full bg-muted/30 flex items-center justify-center text-sm font-mono text-muted-foreground">
-                          +
+                      <div className="divide-y divide-border">
+                        {showcaseData.programs.map((program) => (
+                          <div 
+                            key={program.id} 
+                            className="grid grid-cols-[auto_1fr_100px_100px] gap-4 px-4 py-3 transition-colors hover:bg-muted/20"
+                          >
+                            {/* Initial Badge */}
+                            <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center text-sm font-bold font-mono text-foreground">
+                              {program.name.charAt(0).toUpperCase()}
+                            </div>
+                            {/* Program Name */}
+                            <span className="font-mono text-sm text-foreground self-center">{program.name}</span>
+                            {/* Subdomain Count */}
+                            <span className="font-mono text-sm text-muted-foreground text-right self-center">
+                              {formatNumber(program.subdomain_count)}
+                            </span>
+                            {/* Server Count */}
+                            <span className="font-mono text-sm text-muted-foreground text-right self-center">
+                              {formatNumber(program.server_count)}
+                            </span>
+                          </div>
+                        ))}
+                        
+                        {/* More programs teaser row */}
+                        <div className="grid grid-cols-[auto_1fr_100px_100px] gap-4 px-4 py-3 opacity-50">
+                          <div className="h-8 w-8 rounded-full bg-muted/30 flex items-center justify-center text-sm font-mono text-muted-foreground">
+                            +
+                          </div>
+                          <span className="font-mono text-sm text-muted-foreground self-center">more programs...</span>
+                          <span></span>
+                          <span></span>
                         </div>
-                        <span className="font-mono text-sm text-muted-foreground">more programs...</span>
                       </div>
                     )}
-                  </div>
-                  
-                  {/* Bottom fade gradient */}
-                  <div className="absolute bottom-0 left-0 right-0 h-24 bg-gradient-to-t from-background via-background/80 to-transparent pointer-events-none" />
-                </div>
-
-                {/* Programs Mode: Stats */}
-                <div className="flex justify-center items-center gap-8 py-4 font-mono">
-                  <div className="text-center">
-                    <div className={`text-2xl sm:text-3xl font-bold text-[--terminal-green] ${isDataLoading ? 'animate-pulse' : ''}`}>
-                      {isDataLoading ? '...' : stats?.total_programs || 0}
-                    </div>
-                    <div className="text-xs text-muted-foreground uppercase tracking-wider mt-1">programs</div>
-                  </div>
-                  <div className="h-8 w-px bg-border" />
-                  <div className="text-center">
-                    <div className={`text-2xl sm:text-3xl font-bold text-foreground ${isDataLoading ? 'animate-pulse' : ''}`}>
-                      {isDataLoading ? '...' : formatNumber(stats?.total_subdomains || 0)}
-                    </div>
-                    <div className="text-xs text-muted-foreground uppercase tracking-wider mt-1">subdomains</div>
                   </div>
                 </div>
 
                 {/* Programs Mode: CTA */}
-                <div className="text-center">
+                <div className="text-center pt-4">
                   <Button 
                     variant="link" 
                     className="text-[--terminal-green] hover:text-[--terminal-green]/80 font-bold font-mono"
