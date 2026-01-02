@@ -185,7 +185,7 @@ The `/urls` page is the only page with paywall UI:
 ---
 
 ### Phase 6: Testing
-**Time:** 1-2 hours | **Status:** ⬜ Pending
+**Time:** 1-2 hours | **Status:** ✅ Complete
 
 - [ ] Test Stripe checkout flow (test mode)
 - [ ] Verify webhook updates user tier
