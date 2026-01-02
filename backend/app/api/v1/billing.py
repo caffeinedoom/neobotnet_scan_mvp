@@ -14,7 +14,7 @@ from app.schemas.billing import (
     BillingStatusResponse,
     WebhookResponse,
 )
-from app.dependencies.auth import get_current_user
+from app.core.dependencies import get_current_user
 from app.dependencies.tier_check import (
     get_user_tier,
     get_user_urls_viewed,
