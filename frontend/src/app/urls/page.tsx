@@ -9,7 +9,9 @@ import {
   Copy, 
   ExternalLink, 
   ChevronLeft, 
-  ChevronRight
+  ChevronRight,
+  Lock,
+  Zap
 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -480,13 +482,32 @@ function URLsPageContent() {
         </div>
       ) : urls.length === 0 ? (
         <div className="text-center py-12">
-          <Link2 className="mx-auto h-12 w-12 text-muted-foreground opacity-50" />
-          <h3 className="mt-4 text-lg font-semibold">No URLs found</h3>
-          <p className="text-muted-foreground mt-2">
-            {searchQuery || assetIdParam || statusCodeParam
-              ? 'Try adjusting your filters or search query'
-              : 'Run a Katana scan to discover URLs'}
-          </p>
+          {quota?.upgrade_required ? (
+            <>
+              <Lock className="mx-auto h-12 w-12 text-amber-500 opacity-70" />
+              <h3 className="mt-4 text-lg font-semibold text-amber-400">URL Quota Reached</h3>
+              <p className="text-muted-foreground mt-2">
+                You&apos;ve viewed all {quota.urls_limit} free URLs.
+              </p>
+              <Button
+                onClick={() => router.push('/upgrade')}
+                className="mt-4 border-2 border-white bg-transparent text-white font-bold hover:bg-white hover:text-black transition-all"
+              >
+                <Zap className="mr-2 h-4 w-4" />
+                Upgrade for Unlimited Access
+              </Button>
+            </>
+          ) : (
+            <>
+              <Link2 className="mx-auto h-12 w-12 text-muted-foreground opacity-50" />
+              <h3 className="mt-4 text-lg font-semibold">No URLs found</h3>
+              <p className="text-muted-foreground mt-2">
+                {searchQuery || assetIdParam || statusCodeParam
+                  ? 'Try adjusting your filters or search query'
+                  : 'No URLs discovered yet'}
+              </p>
+            </>
+          )}
         </div>
       ) : (
         <>
