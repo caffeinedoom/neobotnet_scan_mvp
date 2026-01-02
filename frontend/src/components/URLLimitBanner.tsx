@@ -1,54 +1,31 @@
 'use client';
 
-import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
-import { Lock, Zap, ArrowRight, Loader2 } from 'lucide-react';
-import { getBillingStatus, BillingStatus } from '@/lib/api/billing';
+import { Lock, Zap, ArrowRight } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 
+interface URLQuota {
+  plan_type: string;
+  urls_limit: number;
+  urls_viewed: number;
+  urls_remaining: number;
+  is_limited: boolean;
+  upgrade_required: boolean;
+}
+
 interface URLLimitBannerProps {
+  quota?: URLQuota | null;
   className?: string;
 }
 
-export function URLLimitBanner({ className = '' }: URLLimitBannerProps) {
+export function URLLimitBanner({ quota, className = '' }: URLLimitBannerProps) {
   const router = useRouter();
   const { user } = useAuth();
-  const [status, setStatus] = useState<BillingStatus | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-
-  useEffect(() => {
-    async function loadStatus() {
-      if (!user) {
-        setIsLoading(false);
-        return;
-      }
-
-      try {
-        const billingStatus = await getBillingStatus();
-        setStatus(billingStatus);
-      } catch (error) {
-        console.error('Failed to load billing status:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    }
-
-    loadStatus();
-  }, [user]);
-
-  // Don't show if loading
-  if (isLoading) {
-    return (
-      <div className={`flex items-center justify-center py-3 px-4 bg-muted/30 rounded-lg ${className}`}>
-        <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-      </div>
-    );
-  }
 
   // Don't show for paid users
-  if (status?.is_paid) {
+  if (quota && quota.plan_type !== 'free') {
     return null;
   }
 
@@ -74,9 +51,18 @@ export function URLLimitBanner({ className = '' }: URLLimitBannerProps) {
     );
   }
 
-  const limit = status?.urls_limit ?? 250;
-  const viewed = status?.urls_viewed ?? 0;
-  const remaining = status?.urls_remaining ?? limit;
+  // No quota data yet - show loading state
+  if (!quota) {
+    return (
+      <div className={`flex items-center justify-between py-2 px-4 bg-muted/30 border border-border/50 rounded-lg ${className}`}>
+        <span className="text-xs text-muted-foreground">Loading quota...</span>
+      </div>
+    );
+  }
+
+  const limit = quota.urls_limit ?? 250;
+  const viewed = quota.urls_viewed ?? 0;
+  const remaining = quota.urls_remaining ?? limit;
   const percentage = Math.min(100, (viewed / limit) * 100);
   const isNearLimit = remaining <= 50;
   const isAtLimit = remaining <= 0;
@@ -98,7 +84,7 @@ export function URLLimitBanner({ className = '' }: URLLimitBannerProps) {
         </div>
         <Button
           onClick={() => router.push('/upgrade')}
-          className="bg-[--terminal-green] text-black hover:bg-[--terminal-green]/90 whitespace-nowrap"
+          className="border-2 border-white bg-transparent text-white font-bold hover:bg-white hover:text-black transition-all"
         >
           <Zap className="mr-2 h-4 w-4" />
           Upgrade $13.37
@@ -128,17 +114,16 @@ export function URLLimitBanner({ className = '' }: URLLimitBannerProps) {
         <Button
           onClick={() => router.push('/upgrade')}
           size="sm"
-          variant="outline"
-          className="border-amber-500/50 text-amber-400 hover:bg-amber-500/10"
+          className="border-2 border-white bg-transparent text-white font-bold hover:bg-white hover:text-black transition-all"
         >
-          Unlock Unlimited
+          Upgrade
           <ArrowRight className="ml-2 h-4 w-4" />
         </Button>
       </div>
     );
   }
 
-  // Normal state - subtle reminder
+  // Normal state - with prominent upgrade button
   return (
     <div className={`flex items-center justify-between py-2 px-4 bg-muted/30 border border-border/50 rounded-lg ${className}`}>
       <div className="flex items-center gap-3 flex-1">
@@ -157,8 +142,7 @@ export function URLLimitBanner({ className = '' }: URLLimitBannerProps) {
       <Button
         onClick={() => router.push('/upgrade')}
         size="sm"
-        variant="ghost"
-        className="text-xs text-muted-foreground hover:text-[--terminal-green]"
+        className="ml-4 border-2 border-white bg-transparent text-white font-bold hover:bg-white hover:text-black transition-all"
       >
         Upgrade
       </Button>
