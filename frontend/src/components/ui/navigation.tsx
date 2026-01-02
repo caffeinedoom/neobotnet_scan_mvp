@@ -168,10 +168,10 @@ export const Navigation: React.FC = () => {
                 <Button
                   size="sm"
                   asChild
-                  className="hidden sm:flex bg-[--terminal-green] text-black hover:bg-[--terminal-green]/90"
+                  className="hidden sm:flex border-2 border-white bg-transparent text-white font-bold hover:bg-white hover:text-black transition-all duration-200 shadow-[0_0_10px_rgba(255,255,255,0.3)] hover:shadow-[0_0_20px_rgba(255,255,255,0.5)]"
                 >
                   <Link href="/upgrade">
-                    <Zap className="h-3.5 w-3.5 mr-1.5" />
+                    <Zap className="h-4 w-4 mr-1.5" />
                     Upgrade
                   </Link>
                 </Button>

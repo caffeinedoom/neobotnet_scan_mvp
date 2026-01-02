@@ -13,6 +13,9 @@ import type { URLRecord, URLStats, URLQueryParams } from '@/types/urls';
  */
 interface URLsApiResponse {
   urls: URLRecord[];
+  total: number;
+  limit: number;
+  offset: number;
   quota: {
     plan_type: string;
     urls_limit: number;
@@ -25,9 +28,9 @@ interface URLsApiResponse {
 
 /**
  * Fetch URLs with filtering and pagination via backend API
- * Returns both URLs and quota information
+ * Returns URLs, total count, and quota information
  */
-export async function fetchURLs(params: URLQueryParams = {}): Promise<{ urls: URLRecord[]; quota: URLsApiResponse['quota'] }> {
+export async function fetchURLs(params: URLQueryParams = {}): Promise<{ urls: URLRecord[]; total: number; quota: URLsApiResponse['quota'] }> {
   const queryParams = new URLSearchParams();
   
   if (params.asset_id) queryParams.append('asset_id', params.asset_id);
@@ -46,6 +49,7 @@ export async function fetchURLs(params: URLQueryParams = {}): Promise<{ urls: UR
   const response = await apiClient.get<URLsApiResponse>(endpoint);
   return {
     urls: response.data.urls || [],
+    total: response.data.total || 0,
     quota: response.data.quota
   };
 }

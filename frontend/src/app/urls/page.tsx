@@ -184,10 +184,10 @@ function URLsPageContent() {
         if (searchQuery) queryParams.search = searchQuery;
 
         // Fetch URLs
-        const { urls: urlsData } = await fetchURLs(queryParams);
+        const { urls: urlsData, total } = await fetchURLs(queryParams);
 
         setURLs(urlsData);
-        setTotalURLs(urlsData.length);
+        setTotalURLs(total);
       } catch (err) {
         console.error('Error fetching URLs:', err);
         setError('Failed to load URLs. Please try again.');

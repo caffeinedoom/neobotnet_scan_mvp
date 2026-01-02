@@ -181,15 +181,41 @@ async def get_urls(
         urls_data = result.data or []
         urls_count = len(urls_data)
         
+        # Get total count (separate query without pagination)
+        count_query = supabase.table("urls").select("id", count="exact")
+        if asset_id:
+            count_query = count_query.eq("asset_id", asset_id)
+        if scan_job_id:
+            count_query = count_query.eq("scan_job_id", scan_job_id)
+        if is_alive is not None:
+            count_query = count_query.eq("is_alive", is_alive)
+        if status_code:
+            count_query = count_query.eq("status_code", status_code)
+        if has_params is not None:
+            count_query = count_query.eq("has_params", has_params)
+        if file_extension:
+            count_query = count_query.eq("file_extension", file_extension)
+        if domain:
+            count_query = count_query.ilike("domain", f"%{domain}%")
+        if search:
+            count_query = count_query.or_(
+                f"url.ilike.%{search}%,domain.ilike.%{search}%,title.ilike.%{search}%"
+            )
+        count_result = count_query.execute()
+        total_count = count_result.count if count_result.count is not None else len(urls_data)
+        
         # For free tier: track URLs viewed
         if is_limited and urls_count > 0:
             await increment_urls_viewed(user_id, urls_count)
             urls_viewed += urls_count
             urls_remaining = max(0, urls_limit - urls_viewed)
         
-        # Return with quota info
+        # Return with quota info and total count
         return {
             "urls": urls_data,
+            "total": total_count,
+            "limit": limit,
+            "offset": offset,
             "quota": {
                 "plan_type": plan_type,
                 "urls_limit": urls_limit,
