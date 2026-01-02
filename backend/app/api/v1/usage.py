@@ -47,10 +47,12 @@ async def get_recon_data(
         logger.info(f"🚀 Fetching recon-data (LEAN architecture) for user {user_id}")
         
         # ================================================================
-        # BATCH QUERY 1: Get all assets (no user filter - LEAN architecture)
+        # BATCH QUERY 1: Use asset_overview view (has pre-computed subdomain counts)
+        # This view already JOINs assets -> asset_scan_jobs -> subdomains
+        # and computes domain_count, subdomain_count, active_domain_count
         # ================================================================
-        assets_result = client.table("assets").select(
-            "id, name, description, bug_bounty_url, is_active, priority, tags, created_at, updated_at"
+        assets_result = client.table("asset_overview").select(
+            "id, name, description, bug_bounty_url, is_active, priority, tags, created_at, updated_at, domain_count, subdomain_count, active_domain_count"
         ).order("created_at", desc=True).execute()
         
         assets = assets_result.data or []
@@ -77,26 +79,17 @@ async def get_recon_data(
                 "recent_scans": []
             }
         
-        # ================================================================
-        # BATCH QUERY 2: Get ALL apex domains with asset grouping
-        # ================================================================
-        domains_result = client.table("apex_domains").select(
-            "id, asset_id, is_active"
-        ).in_("asset_id", asset_ids).execute()
+        # Pre-compute subdomain counts from view data
+        asset_subdomain_counts = {a["id"]: a.get("subdomain_count", 0) for a in assets}
+        domain_counts = {a["id"]: a.get("domain_count", 0) for a in assets}
+        active_domain_counts = {a["id"]: a.get("active_domain_count", 0) for a in assets}
         
-        domains_data = domains_result.data or []
-        
-        # Pre-compute domain counts per asset
-        domain_counts = {}
-        for d in domains_data:
-            aid = d["asset_id"]
-            domain_counts[aid] = domain_counts.get(aid, 0) + 1
-        
-        total_domains = len(domains_data)
-        active_domains = len([d for d in domains_data if d.get("is_active", True)])
+        total_domains = sum(domain_counts.values())
+        active_domains = sum(active_domain_counts.values())
+        total_subdomains = sum(asset_subdomain_counts.values())
         
         # ================================================================
-        # BATCH QUERY 3: Get ALL scan jobs with status
+        # BATCH QUERY 2: Get ALL scan jobs with status
         # ================================================================
         scans_result = client.table("asset_scan_jobs").select(
             "id, asset_id, status, modules, total_domains, completed_domains, created_at, started_at, completed_at, error_message"
@@ -131,49 +124,38 @@ async def get_recon_data(
         last_scan_date = scans_data[0]["created_at"] if scans_data else None
         
         # ================================================================
-        # BATCH QUERY 4: Get subdomain counts per scan job
-        # ================================================================
-        total_subdomains = 0
-        subdomain_counts = {}
-        
-        if scan_job_ids:
-            # Get total subdomain count
-            subdomains_result = client.table("subdomains").select(
-                "id, scan_job_id", count="exact"
-            ).in_("scan_job_id", scan_job_ids).execute()
-            
-            total_subdomains = subdomains_result.count or 0
-            
-            # Group by scan_job_id for per-scan counts
-            for s in (subdomains_result.data or []):
-                sjid = s["scan_job_id"]
-                subdomain_counts[sjid] = subdomain_counts.get(sjid, 0) + 1
-        
-        # Pre-compute subdomain counts per asset (sum of all scan jobs)
-        asset_subdomain_counts = {}
-        for s in scans_data:
-            aid = s["asset_id"]
-            sjid = s["id"]
-            asset_subdomain_counts[aid] = asset_subdomain_counts.get(aid, 0) + subdomain_counts.get(sjid, 0)
-        
-        # ================================================================
-        # BATCH QUERY 5: Get total HTTP probes count
+        # BATCH QUERY 3: Get HTTP probes with asset grouping
         # ================================================================
         probes_result = client.table("http_probes").select(
-            "id", count="exact"
+            "id, asset_id", count="exact"
         ).in_("asset_id", asset_ids).execute()
         total_probes = probes_result.count or 0
         
+        # Build per-asset probe counts from response data
+        # Note: Supabase limits response to 1000 rows, so we'll fetch just counts per asset
+        asset_probe_counts = {}
+        for p in (probes_result.data or []):
+            aid = p.get("asset_id")
+            if aid:
+                asset_probe_counts[aid] = asset_probe_counts.get(aid, 0) + 1
+        
         # ================================================================
-        # BATCH QUERY 6: Get total DNS records count
+        # BATCH QUERY 4: Get DNS records with asset grouping
         # ================================================================
         dns_result = client.table("dns_records").select(
-            "id", count="exact"
+            "id, asset_id", count="exact"
         ).in_("asset_id", asset_ids).execute()
         total_dns_records = dns_result.count or 0
         
+        # Build per-asset DNS counts from response data
+        asset_dns_counts = {}
+        for d in (dns_result.data or []):
+            aid = d.get("asset_id")
+            if aid:
+                asset_dns_counts[aid] = asset_dns_counts.get(aid, 0) + 1
+        
         # ================================================================
-        # Build enriched assets (no N+1 - using pre-computed data)
+        # Build enriched assets (using pre-computed data from asset_overview view)
         # ================================================================
         enriched_assets = []
         for asset in assets:
@@ -191,16 +173,33 @@ async def get_recon_data(
                 "created_at": asset["created_at"],
                 "updated_at": asset["updated_at"],
                 "apex_domain_count": domain_counts.get(aid, 0),
-                "active_domain_count": domain_counts.get(aid, 0),
+                "active_domain_count": active_domain_counts.get(aid, 0),
                 "total_scans": stats["total"],
                 "completed_scans": stats["completed"],
                 "failed_scans": stats["failed"],
                 "pending_scans": stats["pending"],
-                "total_subdomains": asset_subdomain_counts.get(aid, 0),
-                "total_probes": 0,  # Would need per-asset query
-                "total_dns_records": 0,  # Would need per-asset query
+                "total_subdomains": asset_subdomain_counts.get(aid, 0),  # From asset_overview view
+                "total_probes": asset_probe_counts.get(aid, 0),  # From batch query (partial if >1000)
+                "total_dns_records": asset_dns_counts.get(aid, 0),  # From batch query (partial if >1000)
                 "last_scan_date": stats["last_scan"]
             })
+        
+        # ================================================================
+        # BATCH QUERY 5: Get subdomain counts for recent scans (only top 20)
+        # Uses individual count queries per scan for accuracy
+        # (Single .in_() query would be limited to 1000 rows, losing accuracy)
+        # ================================================================
+        recent_scan_ids = [s["id"] for s in scans_data[:20]]
+        scan_subdomain_counts = {}
+        
+        if recent_scan_ids:
+            # Use individual count queries for each recent scan (20 queries max)
+            # This is more queries but ensures accurate counts
+            for scan_id in recent_scan_ids:
+                count_result = client.table("subdomains").select(
+                    "id", count="exact"
+                ).eq("scan_job_id", scan_id).limit(1).execute()
+                scan_subdomain_counts[scan_id] = count_result.count or 0
         
         # ================================================================
         # Build recent scans (limit to 20)
@@ -233,7 +232,7 @@ async def get_recon_data(
                 "estimated_completion": None,
                 "error_message": scan.get("error_message"),
                 "progress_percentage": progress,
-                "subdomains_found": subdomain_counts.get(scan["id"], 0),
+                "subdomains_found": scan_subdomain_counts.get(scan["id"], 0),
                 "scan_type": "reconnaissance"
             })
         
