@@ -88,7 +88,7 @@ TIER_LIMITS = {
 ---
 
 ### Phase 3: Backend - Rate Limiting
-**Time:** 1 hour | **Status:** ⬜ Pending
+**Time:** 1 hour | **Status:** ✅ Complete
 
 Apply tiered rate limits to all authenticated endpoints:
 
@@ -97,17 +97,15 @@ Apply tiered rate limits to all authenticated endpoints:
 | Free | 30/minute | Generous for exploration |
 | Paid | 100/minute | Power user workflows |
 
-```python
-def get_rate_limit_for_user(user) -> str:
-    if user and user.tier == "paid":
-        return "100/minute"
-    return "30/minute"
-```
+Implemented via middleware that:
+- Checks user tier from JWT/API key
+- Applies rate limit per user or IP
+- Returns X-RateLimit-* headers
 
 **Files:**
-- [ ] `backend/app/main.py` - Global rate limit handler
-- [ ] `backend/app/dependencies/rate_limit.py` - Tiered limiter
-- [ ] Apply to: subdomains, dns, http_probes, urls, programs endpoints
+- [x] `backend/app/main.py` - Global rate limit middleware
+- [x] `backend/app/dependencies/rate_limit.py` - Tiered limiter utilities
+- [x] `backend/app/middleware/rate_limit.py` - Rate limit middleware
 
 ---
 
