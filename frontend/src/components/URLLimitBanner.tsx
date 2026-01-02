@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Lock, Zap, ArrowRight, Loader2 } from 'lucide-react';
 import { getBillingStatus, BillingStatus } from '@/lib/api/billing';
-import { useAuth } from '@/context/AuthContext';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface URLLimitBannerProps {
   className?: string;

@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Zap, Check, Lock, Loader2, ArrowRight } from 'lucide-react';
-import { useAuth } from '@/context/AuthContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { getBillingStatus, createCheckoutSession, getSpotsRemaining, BillingStatus, SpotsRemaining } from '@/lib/api/billing';
 import { toast } from 'sonner';
 
