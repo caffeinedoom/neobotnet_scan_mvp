@@ -88,69 +88,13 @@ async function fetchPaginatedSubdomains(params: {
     );
 
     return response.data;
-     } catch {
-     console.warn('New paginated endpoint not available, using fallback approach');
+  } catch (error) {
+    // Log the actual error for debugging
+    console.error('Paginated subdomains API error:', error);
     
-    // Fallback: Use existing endpoint with manual pagination
-    // This ensures the page works even if backend hasn't been deployed yet
-    const { assetAPI } = await import('@/lib/api/assets');
-    const limit = params.per_page || 50;
-    const offset = ((params.page || 1) - 1) * limit;
-    
-    const allSubdomains = await assetAPI.getAllUserSubdomains({ 
-      limit: limit + 100, // Get a bit more to estimate total
-      offset: offset 
-    });
-    
-    // Manual filtering for fallback
-    let filtered = allSubdomains;
-    if (params.search) {
-      filtered = filtered.filter(sub => 
-        sub.subdomain.toLowerCase().includes(params.search!.toLowerCase())
-      );
-    }
-    if (params.parent_domain) {
-      filtered = filtered.filter(sub => sub.parent_domain === params.parent_domain);
-    }
-    if (params.source_module) {
-      filtered = filtered.filter(sub => sub.source_module === params.source_module);
-    }
-    
-    // Simulate pagination response
-    const page = params.page || 1;
-    const per_page = params.per_page || 50;
-    const total = Math.min(filtered.length, 1000); // Estimate
-    const total_pages = Math.ceil(total / per_page);
-    
-    return {
-      subdomains: filtered.slice(0, per_page).map(sub => ({
-        ...sub,
-        asset_id: sub.asset_id || '',
-        asset_name: sub.asset_name || '',
-        scan_job_domain: sub.scan_job_domain || sub.parent_domain,
-        scan_job_type: sub.scan_job_type || 'subdomain',
-        scan_job_status: sub.scan_job_status || 'completed',
-        scan_job_created_at: sub.scan_job_created_at || sub.discovered_at,
-      })),
-      pagination: {
-        total,
-        page,
-        per_page,
-        total_pages,
-        has_next: page < total_pages,
-        has_prev: page > 1,
-      },
-      filters: {
-        asset_id: params.asset_id,
-        parent_domain: params.parent_domain,
-        source_module: params.source_module,
-        search: params.search,
-      },
-      stats: {
-        total_assets: 1,
-        filtered_count: filtered.length,
-      }
-    };
+    // Re-throw to let the caller handle it properly
+    // This ensures users see the actual error instead of silently falling back
+    throw error;
   }
 }
 
