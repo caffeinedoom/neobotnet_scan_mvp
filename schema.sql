@@ -2371,7 +2371,23 @@ CREATE INDEX "idx_subdomains_subdomain" ON "public"."subdomains" USING "btree" (
 
 
 
+CREATE INDEX "idx_urls_asset_alive" ON "public"."urls" USING "btree" ("asset_id", "is_alive");
+
+
+
+CREATE INDEX "idx_urls_asset_discovered" ON "public"."urls" USING "btree" ("asset_id", "first_discovered_at" DESC);
+
+
+
 CREATE INDEX "idx_urls_asset_id" ON "public"."urls" USING "btree" ("asset_id");
+
+
+
+CREATE INDEX "idx_urls_asset_params" ON "public"."urls" USING "btree" ("asset_id", "has_params");
+
+
+
+CREATE INDEX "idx_urls_asset_status" ON "public"."urls" USING "btree" ("asset_id", "status_code");
 
 
 

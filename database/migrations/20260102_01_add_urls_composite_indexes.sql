@@ -35,10 +35,6 @@ ON public.http_probes (asset_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_http_probes_asset_status 
 ON public.http_probes (asset_id, status_code);
 
--- Composite index for asset_id + probed_at (ordering)
-CREATE INDEX IF NOT EXISTS idx_http_probes_asset_probed 
-ON public.http_probes (asset_id, probed_at DESC);
-
 -- ================================================================
 -- SUBDOMAINS TABLE INDEXES
 -- ================================================================
@@ -63,9 +59,9 @@ ON public.dns_records (asset_id, resolved_at DESC);
 CREATE INDEX IF NOT EXISTS idx_dns_records_asset_type 
 ON public.dns_records (asset_id, record_type);
 
--- Index for subdomain_name searches + ordering
+-- Index for subdomain searches + ordering
 CREATE INDEX IF NOT EXISTS idx_dns_records_subdomain_resolved 
-ON public.dns_records (subdomain_name, resolved_at DESC);
+ON public.dns_records (subdomain, resolved_at DESC);
 
 -- ================================================================
 -- ASSET_SCAN_JOBS TABLE INDEXES (used in subdomains join)
