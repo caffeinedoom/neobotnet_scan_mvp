@@ -31,7 +31,6 @@ import { formatDistanceToNow } from 'date-fns';
 // URLs API and Types
 import { fetchURLs, fetchURLStats } from '@/lib/api/urls';
 import type { URLRecord, URLStats } from '@/types/urls';
-import { URLLimitBanner } from '@/components/URLLimitBanner';
 
 // Assets API
 import { assetAPI } from '@/lib/api/assets';
@@ -287,20 +286,37 @@ function URLsPageContent() {
 
   return (
     <div className="container mx-auto p-6 space-y-6">
-      {/* Header - Minimalistic like /probes */}
-      <div className="flex items-center space-x-3">
-        <h1 className="text-2xl font-bold tracking-tight font-mono text-foreground">
-          urls
-        </h1>
-        {stats && (
-          <span className="text-muted-foreground text-xl font-mono">
-            {stats.total_urls.toLocaleString()}
-          </span>
+      {/* Header - Minimalistic with integrated quota */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center space-x-3">
+          <h1 className="text-2xl font-bold tracking-tight font-mono text-foreground">
+            urls
+          </h1>
+          {stats && (
+            <span className="text-muted-foreground text-xl font-mono">
+              {stats.total_urls.toLocaleString()}
+            </span>
+          )}
+        </div>
+
+        {/* Compact Quota Display */}
+        {quota && quota.is_limited && (
+          <div className="flex items-center gap-3">
+            <span className="text-sm text-muted-foreground">
+              <span className="font-mono">{quota.urls_remaining}</span>
+              <span className="text-muted-foreground/60">/{quota.urls_limit}</span>
+              <span className="ml-1">remaining</span>
+            </span>
+            <Button
+              onClick={() => router.push('/upgrade')}
+              size="sm"
+              className="border-2 border-white bg-transparent text-white font-bold hover:bg-white hover:text-black transition-all text-xs px-3 py-1 h-7"
+            >
+              Upgrade
+            </Button>
+          </div>
         )}
       </div>
-
-      {/* URL Limit Banner for Free Users */}
-      <URLLimitBanner quota={quota} />
 
       {/* Filters - Styled like /probes */}
       <Card className="border border-border bg-card">
