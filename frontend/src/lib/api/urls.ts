@@ -9,9 +9,25 @@ import { apiClient } from '@/lib/api/client';
 import type { URLRecord, URLStats, URLQueryParams } from '@/types/urls';
 
 /**
- * Fetch URLs with filtering and pagination via backend API
+ * Response structure from the /api/v1/urls endpoint
  */
-export async function fetchURLs(params: URLQueryParams = {}): Promise<URLRecord[]> {
+interface URLsApiResponse {
+  urls: URLRecord[];
+  quota: {
+    plan_type: string;
+    urls_limit: number;
+    urls_viewed: number;
+    urls_remaining: number;
+    is_limited: boolean;
+    upgrade_required: boolean;
+  };
+}
+
+/**
+ * Fetch URLs with filtering and pagination via backend API
+ * Returns both URLs and quota information
+ */
+export async function fetchURLs(params: URLQueryParams = {}): Promise<{ urls: URLRecord[]; quota: URLsApiResponse['quota'] }> {
   const queryParams = new URLSearchParams();
   
   if (params.asset_id) queryParams.append('asset_id', params.asset_id);
@@ -27,8 +43,11 @@ export async function fetchURLs(params: URLQueryParams = {}): Promise<URLRecord[
   const queryString = queryParams.toString();
   const endpoint = `/api/v1/urls${queryString ? `?${queryString}` : ''}`;
   
-  const response = await apiClient.get<URLRecord[]>(endpoint);
-  return response.data;
+  const response = await apiClient.get<URLsApiResponse>(endpoint);
+  return {
+    urls: response.data.urls || [],
+    quota: response.data.quota
+  };
 }
 
 /**

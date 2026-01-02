@@ -184,7 +184,7 @@ function URLsPageContent() {
         if (searchQuery) queryParams.search = searchQuery;
 
         // Fetch URLs
-        const urlsData = await fetchURLs(queryParams);
+        const { urls: urlsData } = await fetchURLs(queryParams);
 
         setURLs(urlsData);
         setTotalURLs(urlsData.length);
