@@ -25,6 +25,7 @@ from .api.v1.http_probes import router as http_probes_router
 from .api.v1.urls import router as urls_router
 from .api.v1.public import router as public_router, limiter  # PUBLIC: Unauthenticated showcase
 from .api.v1.billing import router as billing_router  # Stripe billing
+from .middleware.rate_limit import TieredRateLimitMiddleware  # Tiered rate limiting
 from .services.websocket_manager import websocket_manager, batch_progress_notifier
 
 # Configure logging for CloudWatch visibility
@@ -246,6 +247,11 @@ def create_application() -> FastAPI:
     # Add dynamic CORS middleware - supports pattern-based origins for Vercel
     # This handles ALL CORS including preflight OPTIONS requests
     app.add_middleware(DynamicCORSMiddleware)
+    
+    # Add tiered rate limiting middleware
+    # Free: 30 requests/minute, Paid: 100 requests/minute
+    app.add_middleware(TieredRateLimitMiddleware, free_limit=30, paid_limit=100)
+    logger.info("⏱️  Tiered rate limiting enabled (free: 30/min, paid: 100/min)")
     
     # Log CORS configuration for debugging
     logger.info(f"🔒 CORS configured with {len(settings.allowed_origins)} static origins")
