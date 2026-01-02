@@ -144,20 +144,20 @@ STRIPE_PRICE_ID=price_xxx
 ---
 
 ### Phase 5: Frontend - Upgrade Flow
-**Time:** 2 hours | **Status:** ⬜ Pending
+**Time:** 2 hours | **Status:** ✅ Complete
 
 #### 5a. New Pages
 
-- [ ] `/upgrade` - Pricing page with Stripe checkout button
-- [ ] `/upgrade/success` - Post-payment confirmation
-- [ ] `/upgrade/cancel` - Payment cancelled
+- [x] `/upgrade` - Pricing page with Stripe checkout button
+- [x] `/upgrade/success` - Post-payment confirmation with confetti
+- [x] `/upgrade/cancel` - Payment cancelled
 
 #### 5b. UI Components
 
-- [ ] Upgrade CTA button in header (for free users)
-- [ ] "X of 100 spots remaining" badge on upgrade page
-- [ ] URLs page: Show limit banner when approaching/at 250 limit
-- [ ] URLs page: "Upgrade to unlock all URLs" prompt
+- [x] Upgrade CTA button in header (for free users)
+- [x] "X of 100 spots remaining" badge on upgrade page
+- [x] URLs page: Show limit banner when approaching/at 250 limit
+- [x] URLs page: "Upgrade to unlock all URLs" prompt
 
 #### 5c. URLs Page Specific
 
