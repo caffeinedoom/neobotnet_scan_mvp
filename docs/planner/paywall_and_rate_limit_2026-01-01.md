@@ -30,23 +30,26 @@ Implement a $13.37 one-time payment for full access, limited to the first 100 us
 ## Implementation Phases
 
 ### Phase 1: Database Schema
-**Time:** 30 min | **Status:** ⬜ Pending
+**Time:** 30 min | **Status:** ✅ Complete
+
+Uses existing `user_quotas` and `user_usage` tables (no separate profiles table exists).
 
 ```sql
--- Add to profiles table
-ALTER TABLE profiles ADD COLUMN tier TEXT DEFAULT 'free' CHECK (tier IN ('free', 'paid'));
-ALTER TABLE profiles ADD COLUMN paid_at TIMESTAMPTZ;
-ALTER TABLE profiles ADD COLUMN stripe_customer_id TEXT;
+-- Extend user_quotas with Stripe fields
+ALTER TABLE user_quotas ADD COLUMN stripe_customer_id TEXT;
+ALTER TABLE user_quotas ADD COLUMN stripe_payment_id TEXT;
+ALTER TABLE user_quotas ADD COLUMN paid_at TIMESTAMPTZ;
 
--- Track paid user count
-CREATE OR REPLACE FUNCTION get_paid_user_count() 
-RETURNS INTEGER AS $$
-  SELECT COUNT(*) FROM profiles WHERE tier = 'paid';
-$$ LANGUAGE SQL;
+-- Add URL tracking to user_usage
+ALTER TABLE user_usage ADD COLUMN urls_viewed_count INTEGER DEFAULT 0;
+
+-- Helper functions for 100 user cap
+CREATE FUNCTION get_paid_user_count() ...
+CREATE FUNCTION has_paid_spots_available(max_spots) ...
 ```
 
 **Files:**
-- [ ] `backend/migrations/001_add_user_tiers.sql`
+- [x] `backend/migrations/001_add_user_tiers.sql`
 
 ---
 
