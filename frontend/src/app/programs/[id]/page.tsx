@@ -119,7 +119,7 @@ export default function ProgramDetailPage() {
             <div className="w-14 h-14 bg-muted animate-pulse rounded-lg" />
             <div className="space-y-2 flex-1">
               <div className="h-8 bg-muted animate-pulse rounded w-1/3" />
-              <div className="h-4 bg-muted animate-pulse rounded w-1/2" />
+          <div className="h-4 bg-muted animate-pulse rounded w-1/2" />
             </div>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -186,7 +186,7 @@ export default function ProgramDetailPage() {
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-3">
               <h1 className="text-2xl font-bold tracking-tight font-mono text-foreground truncate">
-                {program.name}
+              {program.name}
               </h1>
               {program.bug_bounty_url && (
                 <a 
@@ -208,13 +208,13 @@ export default function ProgramDetailPage() {
             
             {/* Tags + Last Scan inline */}
             <div className="flex flex-wrap items-center gap-2 mt-3">
-              {program.tags && program.tags.length > 0 && (
+            {program.tags && program.tags.length > 0 && (
                 <>
-                  {program.tags.map((tag) => (
+                {program.tags.map((tag) => (
                     <Badge key={tag} variant="secondary" className="font-mono text-xs">
-                      {tag}
-                    </Badge>
-                  ))}
+                    {tag}
+                  </Badge>
+                ))}
                   <span className="text-muted-foreground">·</span>
                 </>
               )}
@@ -224,7 +224,7 @@ export default function ProgramDetailPage() {
                   : 'no scans yet'
                 }
               </span>
-            </div>
+              </div>
           </div>
         </div>
 
@@ -239,19 +239,19 @@ export default function ProgramDetailPage() {
                   <div className="flex items-center justify-between mb-3">
                     <card.icon className="h-4 w-4 text-muted-foreground group-hover:text-[--terminal-green] transition-colors" />
                     <ChevronRight className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
-                  </div>
+              </div>
                   <div className="text-2xl font-bold font-mono text-foreground mb-1">
                     {card.count !== null ? card.count.toLocaleString() : '—'}
-                  </div>
+        </div>
                   <div className="text-xs text-muted-foreground uppercase tracking-wider font-mono">
                     {card.label}
-                  </div>
+              </div>
                   <div className="text-[10px] text-muted-foreground/70 font-mono mt-1">
                     {card.subtitle}
-                  </div>
-                </CardContent>
-              </Card>
-            </Link>
+              </div>
+            </CardContent>
+          </Card>
+                </Link>
           ))}
         </div>
       </div>

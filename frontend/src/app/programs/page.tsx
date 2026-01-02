@@ -126,7 +126,7 @@ export default function ProgramsPage() {
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <h1 className="text-2xl font-bold tracking-tight font-mono text-foreground">
             programs
-          </h1>
+            </h1>
           
           {/* Search */}
           <div className="relative w-full sm:w-80">

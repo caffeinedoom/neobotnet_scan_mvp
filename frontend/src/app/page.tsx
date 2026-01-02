@@ -522,7 +522,7 @@ export default function Home() {
             <h1 className="text-6xl sm:text-7xl lg:text-8xl font-bold tracking-tight font-mono text-foreground">
               {typedTitle}
               <span className={`${typingPhase === 'done' ? 'text-[--terminal-green]' : ''} ${showCursor ? 'opacity-100' : 'opacity-0'} transition-opacity`}>_</span>
-            </h1>
+        </h1>
         
             {/* Mode Toggle: Web | API | Programs - Framed for visual clarity */}
             <div className="flex justify-center pt-2">
@@ -576,7 +576,7 @@ export default function Home() {
               >
                 <GoogleIcon />
                 <span className="ml-2">Sign in with Google</span>
-              </Button>
+          </Button>
               <Button 
                 size="lg" 
                 onClick={() => signInWithTwitter()}
@@ -584,8 +584,8 @@ export default function Home() {
               >
                 <XIcon />
                 <span className="ml-2">Sign in with X</span>
-              </Button>
-            </div>
+          </Button>
+        </div>
       </div>
 
           {/* Content Area - Switches based on viewMode */}
@@ -611,8 +611,8 @@ export default function Home() {
                         {tab.label}
                       </button>
                     ))}
-                  </div>
-                </div>
+        </div>
+        </div>
 
                 {/* Web Mode: Card Display - Fixed height container to prevent page jumping */}
                 <div className="relative h-[420px] overflow-hidden">
@@ -644,7 +644,7 @@ export default function Home() {
                       <div className="flex flex-col items-center justify-center h-full py-16 text-center">
                         <div className="rounded-full bg-muted/50 p-6 mb-6">
                           <Lock className="h-12 w-12 text-[--terminal-green]" />
-                        </div>
+        </div>
                         <h3 className="text-2xl font-bold font-mono text-foreground mb-2">
                           {isDataLoading ? '...' : formatNumber(showcaseData?.stats.total_urls || 0)} URLs Discovered
                         </h3>
@@ -660,8 +660,8 @@ export default function Home() {
                         </Button>
                       </div>
                     )}
-                  </div>
-                  
+          </div>
+
                   {/* Bottom fade gradient - only show for non-locked tabs */}
                   {activeTab !== 'urls' && (
                     <div className="absolute bottom-0 left-0 right-0 h-24 bg-gradient-to-t from-background via-background/80 to-transparent pointer-events-none" />
@@ -679,17 +679,17 @@ export default function Home() {
                     </div>
                   </div>
                   <div className="h-8 w-px bg-border" />
-                  <div className="text-center">
+            <div className="text-center">
                     <div className={`text-2xl sm:text-3xl font-bold text-foreground ${isDataLoading ? 'animate-pulse' : ''}`}>
                       {isDataLoading ? '...' : stats?.total_programs || 0}
                     </div>
                     <div className="text-xs text-muted-foreground uppercase tracking-wider mt-1">programs</div>
-                  </div>
-                </div>
+              </div>
+            </div>
 
                 {/* Web Mode: CTA - only show for non-locked tabs */}
                 {activeTab !== 'urls' && (
-                  <div className="text-center">
+            <div className="text-center">
                     <Button 
                       variant="link" 
                       className="text-[--terminal-green] hover:text-[--terminal-green]/80 font-bold font-mono"
@@ -823,7 +823,7 @@ export default function Home() {
                       </div>
                     )}
                   </div>
-                </div>
+              </div>
 
                 {/* Programs Mode: CTA */}
                 <div className="text-center pt-4">
@@ -834,7 +834,7 @@ export default function Home() {
                   >
                     Sign up to explore all programs →
                   </Button>
-                </div>
+            </div>
               </>
             )}
           </div>

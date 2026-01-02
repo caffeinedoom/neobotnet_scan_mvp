@@ -289,11 +289,11 @@ function URLsPageContent() {
           <h1 className="text-2xl font-bold tracking-tight font-mono text-foreground">
             urls
           </h1>
-          {stats && (
+            {stats && (
             <span className="text-muted-foreground text-xl font-mono">
-              {stats.total_urls.toLocaleString()}
-            </span>
-          )}
+                {stats.total_urls.toLocaleString()}
+              </span>
+            )}
         </div>
 
         {/* Compact Quota Display */}
@@ -326,15 +326,15 @@ function URLsPageContent() {
             <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
               Search
             </label>
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                type="text"
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              type="text"
                 placeholder="search by URL, domain, or title..."
-                value={searchQuery}
-                onChange={(e) => updateURLParams({ search: e.target.value })}
+              value={searchQuery}
+              onChange={(e) => updateURLParams({ search: e.target.value })}
                 className="pl-10 font-mono bg-background border-border hover:border-[--terminal-green]/50 focus:border-[--terminal-green] transition-colors"
-              />
+            />
             </div>
           </div>
 
@@ -345,24 +345,24 @@ function URLsPageContent() {
               <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
                 Program
               </label>
-              <Select
-                value={assetIdParam || 'all'}
-                onValueChange={(value) =>
-                  updateURLParams({ asset_id: value === 'all' ? null : value })
-                }
-              >
+            <Select
+              value={assetIdParam || 'all'}
+              onValueChange={(value) =>
+                updateURLParams({ asset_id: value === 'all' ? null : value })
+              }
+            >
                 <SelectTrigger className="font-mono bg-background border-border hover:border-[--terminal-green]/50 focus:border-[--terminal-green] transition-colors">
                   <SelectValue placeholder="all programs" />
-                </SelectTrigger>
-                <SelectContent>
+              </SelectTrigger>
+              <SelectContent>
                   <SelectItem value="all">all programs</SelectItem>
-                  {availableAssets.map((asset) => (
-                    <SelectItem key={asset.id} value={asset.id}>
-                      {asset.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                {availableAssets.map((asset) => (
+                  <SelectItem key={asset.id} value={asset.id}>
+                    {asset.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             </div>
 
             {/* Alive Status Filter */}
@@ -370,21 +370,21 @@ function URLsPageContent() {
               <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
                 Status
               </label>
-              <Select
-                value={isAliveParam || 'all'}
-                onValueChange={(value) =>
-                  updateURLParams({ is_alive: value === 'all' ? null : value })
-                }
-              >
+            <Select
+              value={isAliveParam || 'all'}
+              onValueChange={(value) =>
+                updateURLParams({ is_alive: value === 'all' ? null : value })
+              }
+            >
                 <SelectTrigger className="font-mono bg-background border-border hover:border-[--terminal-green]/50 focus:border-[--terminal-green] transition-colors">
                   <SelectValue placeholder="all status" />
-                </SelectTrigger>
-                <SelectContent>
+              </SelectTrigger>
+              <SelectContent>
                   <SelectItem value="all">all status</SelectItem>
                   <SelectItem value="true">alive</SelectItem>
                   <SelectItem value="false">dead</SelectItem>
-                </SelectContent>
-              </Select>
+              </SelectContent>
+            </Select>
             </div>
 
             {/* Status Code Filter */}
@@ -392,25 +392,25 @@ function URLsPageContent() {
               <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
                 HTTP Code
               </label>
-              <Select
-                value={statusCodeParam || 'all'}
-                onValueChange={(value) =>
-                  updateURLParams({ status_code: value === 'all' ? null : value })
-                }
-              >
+            <Select
+              value={statusCodeParam || 'all'}
+              onValueChange={(value) =>
+                updateURLParams({ status_code: value === 'all' ? null : value })
+              }
+            >
                 <SelectTrigger className="font-mono bg-background border-border hover:border-[--terminal-green]/50 focus:border-[--terminal-green] transition-colors">
                   <SelectValue placeholder="all codes" />
-                </SelectTrigger>
-                <SelectContent>
+              </SelectTrigger>
+              <SelectContent>
                   <SelectItem value="all">all codes</SelectItem>
-                  <SelectItem value="200">200 (OK)</SelectItem>
+                <SelectItem value="200">200 (OK)</SelectItem>
                   <SelectItem value="301">301 (Redirect)</SelectItem>
-                  <SelectItem value="302">302 (Found)</SelectItem>
-                  <SelectItem value="403">403 (Forbidden)</SelectItem>
-                  <SelectItem value="404">404 (Not Found)</SelectItem>
+                <SelectItem value="302">302 (Found)</SelectItem>
+                <SelectItem value="403">403 (Forbidden)</SelectItem>
+                <SelectItem value="404">404 (Not Found)</SelectItem>
                   <SelectItem value="500">500 (Error)</SelectItem>
-                </SelectContent>
-              </Select>
+              </SelectContent>
+            </Select>
             </div>
 
             {/* Per Page Selector */}
@@ -418,23 +418,23 @@ function URLsPageContent() {
               <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
                 Per Page
               </label>
-              <Select
+            <Select
                 value={String(perPage)}
-                onValueChange={(value) =>
+              onValueChange={(value) =>
                   updateURLParams({ per_page: value, page: '1' })
-                }
-              >
+              }
+            >
                 <SelectTrigger className="font-mono bg-background border-border hover:border-[--terminal-green]/50 focus:border-[--terminal-green] transition-colors">
                   <SelectValue placeholder="100" />
-                </SelectTrigger>
-                <SelectContent>
+              </SelectTrigger>
+              <SelectContent>
                   <SelectItem value="10">10</SelectItem>
                   <SelectItem value="20">20</SelectItem>
                   <SelectItem value="50">50</SelectItem>
                   <SelectItem value="100">100</SelectItem>
                   <SelectItem value="250">250</SelectItem>
-                </SelectContent>
-              </Select>
+              </SelectContent>
+            </Select>
             </div>
           </div>
 
@@ -487,13 +487,13 @@ function URLsPageContent() {
             </>
           ) : (
             <>
-              <Link2 className="mx-auto h-12 w-12 text-muted-foreground opacity-50" />
-              <h3 className="mt-4 text-lg font-semibold">No URLs found</h3>
-              <p className="text-muted-foreground mt-2">
-                {searchQuery || assetIdParam || statusCodeParam
-                  ? 'Try adjusting your filters or search query'
+          <Link2 className="mx-auto h-12 w-12 text-muted-foreground opacity-50" />
+          <h3 className="mt-4 text-lg font-semibold">No URLs found</h3>
+          <p className="text-muted-foreground mt-2">
+            {searchQuery || assetIdParam || statusCodeParam
+              ? 'Try adjusting your filters or search query'
                   : 'No URLs discovered yet'}
-              </p>
+          </p>
             </>
           )}
         </div>
@@ -582,23 +582,23 @@ function URLsPageContent() {
 
                   {/* Server & Response - Clean */}
                   {(urlRecord.webserver || urlRecord.content_type) && (
-                    <div className="flex items-center gap-4 text-xs text-muted-foreground flex-wrap">
-                      {urlRecord.webserver && (
-                        <span>
-                          <span className="font-semibold">Server:</span>{' '}
-                          <code className="font-mono bg-muted px-1 rounded">{urlRecord.webserver}</code>
-                        </span>
-                      )}
-                      {urlRecord.content_type && (
-                        <span>
-                          <span className="font-semibold">Type:</span>{' '}
-                          <code className="font-mono bg-muted px-1 rounded">{urlRecord.content_type}</code>
-                        </span>
-                      )}
-                      {urlRecord.response_time_ms && (
+                  <div className="flex items-center gap-4 text-xs text-muted-foreground flex-wrap">
+                    {urlRecord.webserver && (
+                      <span>
+                        <span className="font-semibold">Server:</span>{' '}
+                        <code className="font-mono bg-muted px-1 rounded">{urlRecord.webserver}</code>
+                      </span>
+                    )}
+                    {urlRecord.content_type && (
+                      <span>
+                        <span className="font-semibold">Type:</span>{' '}
+                        <code className="font-mono bg-muted px-1 rounded">{urlRecord.content_type}</code>
+                      </span>
+                    )}
+                    {urlRecord.response_time_ms && (
                         <span className="font-mono">{urlRecord.response_time_ms}ms</span>
-                      )}
-                    </div>
+                    )}
+                  </div>
                   )}
 
                   {/* Technologies - Simplified */}

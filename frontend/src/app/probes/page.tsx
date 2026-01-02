@@ -282,11 +282,11 @@ function ProbesPageContent() {
         <h1 className="text-2xl font-bold tracking-tight font-mono text-foreground">
           servers
         </h1>
-        {stats && (
+            {stats && (
           <span className="text-muted-foreground text-xl font-mono">
-            {stats.total_probes.toLocaleString()}
-          </span>
-        )}
+                {stats.total_probes.toLocaleString()}
+              </span>
+            )}
       </div>
 
       {/* Filters */}
@@ -300,15 +300,15 @@ function ProbesPageContent() {
             <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
               Search
             </label>
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                type="text"
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              type="text"
                 placeholder="search by URL, subdomain, title, or server..."
-                value={searchQuery}
-                onChange={(e) => updateURLParams({ search: e.target.value })}
+              value={searchQuery}
+              onChange={(e) => updateURLParams({ search: e.target.value })}
                 className="pl-10 font-mono bg-background border-border hover:border-[--terminal-green]/50 focus:border-[--terminal-green] transition-colors"
-              />
+            />
             </div>
           </div>
 
@@ -319,24 +319,24 @@ function ProbesPageContent() {
               <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
                 Program
               </label>
-              <Select
-                value={assetIdParam || 'all'}
-                onValueChange={(value) =>
-                  updateURLParams({ asset_id: value === 'all' ? null : value })
-                }
-              >
+            <Select
+              value={assetIdParam || 'all'}
+              onValueChange={(value) =>
+                updateURLParams({ asset_id: value === 'all' ? null : value })
+              }
+            >
                 <SelectTrigger className="font-mono bg-background border-border hover:border-[--terminal-green]/50 focus:border-[--terminal-green] transition-colors">
                   <SelectValue placeholder="all programs" />
-                </SelectTrigger>
-                <SelectContent>
+              </SelectTrigger>
+              <SelectContent>
                   <SelectItem value="all">all programs</SelectItem>
-                  {availableAssets.map((asset) => (
-                    <SelectItem key={asset.id} value={asset.id}>
-                      {asset.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                {availableAssets.map((asset) => (
+                  <SelectItem key={asset.id} value={asset.id}>
+                    {asset.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             </div>
 
             {/* Status Code Filter */}
@@ -344,27 +344,27 @@ function ProbesPageContent() {
               <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
                 Status
               </label>
-              <Select
-                value={statusCodeParam || 'all'}
-                onValueChange={(value) =>
-                  updateURLParams({ status_code: value === 'all' ? null : value })
-                }
-              >
+            <Select
+              value={statusCodeParam || 'all'}
+              onValueChange={(value) =>
+                updateURLParams({ status_code: value === 'all' ? null : value })
+              }
+            >
                 <SelectTrigger className="font-mono bg-background border-border hover:border-[--terminal-green]/50 focus:border-[--terminal-green] transition-colors">
                   <SelectValue placeholder="all status" />
-                </SelectTrigger>
-                <SelectContent>
+              </SelectTrigger>
+              <SelectContent>
                   <SelectItem value="all">all status</SelectItem>
-                  <SelectItem value="200">200 (OK)</SelectItem>
+                <SelectItem value="200">200 (OK)</SelectItem>
                   <SelectItem value="301">301 (Redirect)</SelectItem>
-                  <SelectItem value="302">302 (Found)</SelectItem>
-                  <SelectItem value="403">403 (Forbidden)</SelectItem>
-                  <SelectItem value="404">404 (Not Found)</SelectItem>
+                <SelectItem value="302">302 (Found)</SelectItem>
+                <SelectItem value="403">403 (Forbidden)</SelectItem>
+                <SelectItem value="404">404 (Not Found)</SelectItem>
                   <SelectItem value="500">500 (Error)</SelectItem>
-                  <SelectItem value="502">502 (Bad Gateway)</SelectItem>
+                <SelectItem value="502">502 (Bad Gateway)</SelectItem>
                   <SelectItem value="503">503 (Unavailable)</SelectItem>
-                </SelectContent>
-              </Select>
+              </SelectContent>
+            </Select>
             </div>
 
             {/* Technology Filter */}
@@ -372,24 +372,24 @@ function ProbesPageContent() {
               <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
                 Technology
               </label>
-              <Select
-                value={technologyParam || 'all'}
-                onValueChange={(value) =>
-                  updateURLParams({ technology: value === 'all' ? null : value })
-                }
-              >
+            <Select
+              value={technologyParam || 'all'}
+              onValueChange={(value) =>
+                updateURLParams({ technology: value === 'all' ? null : value })
+              }
+            >
                 <SelectTrigger className="font-mono bg-background border-border hover:border-[--terminal-green]/50 focus:border-[--terminal-green] transition-colors">
                   <SelectValue placeholder="all tech" />
-                </SelectTrigger>
-                <SelectContent>
+              </SelectTrigger>
+              <SelectContent>
                   <SelectItem value="all">all tech</SelectItem>
-                  {availableTechnologies.slice(0, 20).map((tech) => (
-                    <SelectItem key={tech} value={tech}>
-                      {tech}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                {availableTechnologies.slice(0, 20).map((tech) => (
+                  <SelectItem key={tech} value={tech}>
+                    {tech}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             </div>
 
             {/* Per Page Selector */}

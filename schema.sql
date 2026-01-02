@@ -2087,6 +2087,10 @@ CREATE INDEX "idx_api_keys_user_id" ON "public"."api_keys" USING "btree" ("user_
 
 
 
+CREATE INDEX "idx_asset_scan_jobs_asset_created" ON "public"."asset_scan_jobs" USING "btree" ("asset_id", "created_at" DESC);
+
+
+
 CREATE INDEX "idx_asset_scan_jobs_asset_id" ON "public"."asset_scan_jobs" USING "btree" ("asset_id");
 
 
@@ -2219,6 +2223,14 @@ CREATE INDEX "idx_dns_records_asset_id" ON "public"."dns_records" USING "btree" 
 
 
 
+CREATE INDEX "idx_dns_records_asset_resolved" ON "public"."dns_records" USING "btree" ("asset_id", "resolved_at" DESC);
+
+
+
+CREATE INDEX "idx_dns_records_asset_type" ON "public"."dns_records" USING "btree" ("asset_id", "record_type");
+
+
+
 CREATE INDEX "idx_dns_records_batch_scan_id" ON "public"."dns_records" USING "btree" ("batch_scan_id");
 
 
@@ -2244,6 +2256,10 @@ CREATE INDEX "idx_dns_records_scan_job_id" ON "public"."dns_records" USING "btre
 
 
 CREATE INDEX "idx_dns_records_subdomain" ON "public"."dns_records" USING "btree" ("subdomain");
+
+
+
+CREATE INDEX "idx_dns_records_subdomain_resolved" ON "public"."dns_records" USING "btree" ("subdomain", "resolved_at" DESC);
 
 
 
@@ -2275,7 +2291,15 @@ CREATE INDEX "idx_historical_urls_source" ON "public"."historical_urls" USING "b
 
 
 
+CREATE INDEX "idx_http_probes_asset_created" ON "public"."http_probes" USING "btree" ("asset_id", "created_at" DESC);
+
+
+
 CREATE INDEX "idx_http_probes_asset_id" ON "public"."http_probes" USING "btree" ("asset_id");
+
+
+
+CREATE INDEX "idx_http_probes_asset_status" ON "public"."http_probes" USING "btree" ("asset_id", "status_code");
 
 
 
@@ -2347,6 +2371,10 @@ CREATE INDEX "idx_subdomains_discovered_at" ON "public"."subdomains" USING "btre
 
 
 
+CREATE INDEX "idx_subdomains_parent_discovered" ON "public"."subdomains" USING "btree" ("parent_domain", "discovered_at" DESC);
+
+
+
 CREATE INDEX "idx_subdomains_parent_domain" ON "public"."subdomains" USING "btree" ("parent_domain");
 
 
@@ -2360,6 +2388,10 @@ CREATE INDEX "idx_subdomains_scan_job_asset_relation" ON "public"."subdomains" U
 
 
 CREATE INDEX "idx_subdomains_scan_job_id" ON "public"."subdomains" USING "btree" ("scan_job_id");
+
+
+
+CREATE INDEX "idx_subdomains_scanjob_discovered" ON "public"."subdomains" USING "btree" ("scan_job_id", "discovered_at" DESC);
 
 
 

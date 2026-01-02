@@ -225,8 +225,8 @@ export const Navigation: React.FC = () => {
                             <span className="text-sm text-muted-foreground">Free Tier</span>
                             <span className="text-xs text-muted-foreground">
                               {billingStatus?.urls_viewed ?? 0}/{billingStatus?.urls_limit ?? 250} URLs
-                            </span>
-                          </div>
+                </span>
+              </div>
                           <Link
                             href="/upgrade"
                             onClick={() => setDropdownOpen(false)}
@@ -242,10 +242,10 @@ export const Navigation: React.FC = () => {
                     {/* Actions */}
                     <div className="py-1">
                       <button
-                        onClick={handleLogout}
+                onClick={handleLogout}
                         className="flex items-center gap-2 w-full px-4 py-2 text-sm text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
-                      >
-                        <LogOut className="h-4 w-4" />
+              >
+                <LogOut className="h-4 w-4" />
                         Sign out
                       </button>
                     </div>

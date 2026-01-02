@@ -472,14 +472,14 @@ function SubdomainsContent() {
                 <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
                   Search
                 </label>
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
                     placeholder="search subdomains..."
-                    value={searchTerm}
-                    onChange={(e) => handleSearchChange(e.target.value)}
+                  value={searchTerm}
+                  onChange={(e) => handleSearchChange(e.target.value)}
                     className="pl-10 font-mono bg-background border-border hover:border-[--terminal-green]/50 focus:border-[--terminal-green] transition-colors"
-                  />
+                />
                 </div>
               </div>
 
@@ -488,17 +488,17 @@ function SubdomainsContent() {
                 <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
                   Program
                 </label>
-                <Select value={selectedAsset} onValueChange={(value) => handleFilterChange('asset', value)}>
+              <Select value={selectedAsset} onValueChange={(value) => handleFilterChange('asset', value)}>
                   <SelectTrigger className="font-mono bg-background border-border hover:border-[--terminal-green]/50 focus:border-[--terminal-green] transition-colors">
                     <SelectValue placeholder="all programs" />
-                  </SelectTrigger>
-                  <SelectContent>
+                </SelectTrigger>
+                <SelectContent>
                     <SelectItem value="all">all programs</SelectItem>
-                    {availableAssets.map(asset => (
-                      <SelectItem key={asset.id} value={asset.id}>{asset.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  {availableAssets.map(asset => (
+                    <SelectItem key={asset.id} value={asset.id}>{asset.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               </div>
 
               {/* Domain Filter */}
@@ -506,17 +506,17 @@ function SubdomainsContent() {
                 <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
                   Domain
                 </label>
-                <Select value={selectedDomain} onValueChange={(value) => handleFilterChange('parent_domain', value)}>
+              <Select value={selectedDomain} onValueChange={(value) => handleFilterChange('parent_domain', value)}>
                   <SelectTrigger className="font-mono bg-background border-border hover:border-[--terminal-green]/50 focus:border-[--terminal-green] transition-colors">
                     <SelectValue placeholder="all domains" />
-                  </SelectTrigger>
-                  <SelectContent>
+                </SelectTrigger>
+                <SelectContent>
                     <SelectItem value="all">all domains</SelectItem>
-                    {availableDomains.map(domain => (
-                      <SelectItem key={domain} value={domain}>{domain}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  {availableDomains.map(domain => (
+                    <SelectItem key={domain} value={domain}>{domain}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               </div>
 
               {/* Per Page */}
@@ -524,16 +524,16 @@ function SubdomainsContent() {
                 <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
                   Per Page
                 </label>
-                <Select value={perPage.toString()} onValueChange={(value) => handlePerPageChange(parseInt(value))}>
+              <Select value={perPage.toString()} onValueChange={(value) => handlePerPageChange(parseInt(value))}>
                   <SelectTrigger className="font-mono bg-background border-border hover:border-[--terminal-green]/50 focus:border-[--terminal-green] transition-colors">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
                     <SelectItem value="25">25</SelectItem>
                     <SelectItem value="50">50</SelectItem>
                     <SelectItem value="100">100</SelectItem>
-                  </SelectContent>
-                </Select>
+                </SelectContent>
+              </Select>
               </div>
             </div>
 

@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Zap, Check, Lock, Loader2, ArrowRight } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { getBillingStatus, createCheckoutSession, getSpotsRemaining, BillingStatus, SpotsRemaining } from '@/lib/api/billing';
@@ -107,41 +106,30 @@ export default function UpgradePage() {
   }
 
   const spotsLeft = spotsRemaining?.spots_remaining ?? 100;
-  const urgencyLevel = spotsLeft <= 20 ? 'high' : spotsLeft <= 50 ? 'medium' : 'low';
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="container mx-auto px-4 py-16 max-w-4xl">
+      <div className="container mx-auto px-4 py-16 max-w-xl">
         {/* Header */}
-        <div className="text-center mb-12">
-          <Badge 
-            variant="outline" 
-            className={`mb-4 ${
-              urgencyLevel === 'high' 
-                ? 'border-red-500 text-red-400 animate-pulse' 
-                : urgencyLevel === 'medium'
-                ? 'border-yellow-500 text-yellow-400'
-                : 'border-[--terminal-green] text-[--terminal-green]'
-            }`}
-          >
-            {spotsLeft} of 100 spots remaining
-          </Badge>
-          <h1 className="text-4xl font-bold mb-4">
-            Unlock <span className="text-[--terminal-green]">Unlimited URLs</span>
+        <div className="text-center mb-10">
+          <h1 className="text-3xl md:text-4xl font-bold mb-4">
+            Lifetime Access for <span className="text-[--terminal-green]">Early Adopters</span>
           </h1>
-          <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
-            Get full access to all discovered URLs, endpoints, and parameters. 
-            One-time payment, lifetime access.
+          <p className="text-muted-foreground text-lg mb-4">
+            Pay once, use forever. No subscriptions, no recurring fees.
+          </p>
+          <p className="text-sm text-muted-foreground/80 font-mono">
+            {spotsLeft}/100 spots available
           </p>
         </div>
 
         {/* Pricing Card */}
-        <Card className="border-[--terminal-green]/50 bg-gradient-to-b from-[--terminal-green]/5 to-transparent max-w-md mx-auto">
+        <Card className="border-[--terminal-green]/50 bg-gradient-to-b from-[--terminal-green]/5 to-transparent">
           <CardHeader className="text-center pb-4">
             <div className="mx-auto w-12 h-12 rounded-full bg-[--terminal-green]/20 flex items-center justify-center mb-4">
               <Zap className="h-6 w-6 text-[--terminal-green]" />
             </div>
-            <CardTitle className="text-xl">Early Supporter</CardTitle>
+            <CardTitle className="text-xl">Early Adopter</CardTitle>
             <div className="mt-4">
               <span className="text-5xl font-bold text-[--terminal-green]">$13.37</span>
               <span className="text-muted-foreground ml-2">one-time</span>
@@ -151,11 +139,9 @@ export default function UpgradePage() {
             {/* Features */}
             <ul className="space-y-3">
               {[
-                'Unlimited URL access (no 250 limit)',
-                '100 API requests per minute (vs 30)',
-                'All discovered endpoints & parameters',
-                'Historical URLs from Wayback Machine',
-                'Export to CSV/JSON without limits',
+                'Unlimited URL access',
+                '100 API requests per minute',
+                'Full data export (CSV/JSON)',
                 'Priority support',
               ].map((feature, i) => (
                 <li key={i} className="flex items-center gap-3">
@@ -169,7 +155,7 @@ export default function UpgradePage() {
             <Button
               onClick={handleUpgrade}
               disabled={isCheckingOut || spotsLeft <= 0}
-              className="w-full bg-[--terminal-green] text-black hover:bg-[--terminal-green]/90 h-12 text-lg font-semibold"
+              className="w-full bg-[--terminal-green] text-black hover:bg-[--terminal-green]/90 h-14 text-lg font-semibold"
             >
               {isCheckingOut ? (
                 <>
@@ -183,13 +169,12 @@ export default function UpgradePage() {
                 </>
               ) : !user ? (
                 <>
-                  Sign in to upgrade
+                  Sign in to continue
                   <ArrowRight className="ml-2 h-5 w-5" />
                 </>
               ) : (
                 <>
-                  Upgrade Now
-                  <ArrowRight className="ml-2 h-5 w-5" />
+                  Become an Early Adopter — $13.37
                 </>
               )}
             </Button>
@@ -204,35 +189,6 @@ export default function UpgradePage() {
             </div>
           </CardContent>
         </Card>
-
-        {/* FAQ / Comparison */}
-        <div className="mt-16 grid md:grid-cols-2 gap-8">
-          <Card className="border-border/50 bg-card/30">
-            <CardHeader>
-              <CardTitle className="text-lg">Free Tier</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2 text-sm text-muted-foreground">
-              <p>✓ Unlimited subdomains</p>
-              <p>✓ Unlimited DNS records</p>
-              <p>✓ Unlimited web servers</p>
-              <p className="text-yellow-400">⚠ 250 URLs limit</p>
-              <p>30 API requests/minute</p>
-            </CardContent>
-          </Card>
-
-          <Card className="border-[--terminal-green]/30 bg-[--terminal-green]/5">
-            <CardHeader>
-              <CardTitle className="text-lg text-[--terminal-green]">Early Supporter</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2 text-sm">
-              <p>✓ Unlimited subdomains</p>
-              <p>✓ Unlimited DNS records</p>
-              <p>✓ Unlimited web servers</p>
-              <p className="text-[--terminal-green] font-semibold">✓ Unlimited URLs</p>
-              <p className="text-[--terminal-green]">100 API requests/minute</p>
-            </CardContent>
-          </Card>
-        </div>
       </div>
     </div>
   );
