@@ -95,7 +95,6 @@ function URLsPageContent() {
   const assetIdParam = searchParams.get('asset_id');
   const isAliveParam = searchParams.get('is_alive');
   const statusCodeParam = searchParams.get('status_code');
-  const sourceParam = searchParams.get('source');
   const searchQuery = searchParams.get('search') || '';
 
   // Component state
@@ -189,7 +188,6 @@ function URLsPageContent() {
         if (assetIdParam) queryParams.asset_id = assetIdParam;
         if (isAliveParam) queryParams.is_alive = isAliveParam === 'true';
         if (statusCodeParam) queryParams.status_code = parseInt(statusCodeParam);
-        if (sourceParam) queryParams.source = sourceParam;
         if (searchQuery) queryParams.search = searchQuery;
 
         // Fetch URLs
@@ -215,7 +213,6 @@ function URLsPageContent() {
     assetIdParam,
     isAliveParam,
     statusCodeParam,
-    sourceParam,
     searchQuery,
   ]);
 
@@ -341,8 +338,8 @@ function URLsPageContent() {
             </div>
           </div>
 
-          {/* Filter Row - 5 columns with per-page selector */}
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+          {/* Filter Row - 4 columns with per-page selector */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             {/* Asset Filter */}
             <div className="space-y-2">
               <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
@@ -416,30 +413,6 @@ function URLsPageContent() {
               </Select>
             </div>
 
-            {/* Source Filter */}
-            <div className="space-y-2">
-              <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                Source
-              </label>
-              <Select
-                value={sourceParam || 'all'}
-                onValueChange={(value) =>
-                  updateURLParams({ source: value === 'all' ? null : value })
-                }
-              >
-                <SelectTrigger className="font-mono bg-background border-border hover:border-[--terminal-green]/50 focus:border-[--terminal-green] transition-colors">
-                  <SelectValue placeholder="all sources" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">all sources</SelectItem>
-                  <SelectItem value="katana">katana</SelectItem>
-                  <SelectItem value="waymore">waymore</SelectItem>
-                  <SelectItem value="gau">gau</SelectItem>
-                  <SelectItem value="httpx">httpx</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
             {/* Per Page Selector */}
             <div className="space-y-2">
               <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
@@ -466,7 +439,7 @@ function URLsPageContent() {
           </div>
 
           {/* Clear Filters Button */}
-          {(assetIdParam || isAliveParam || statusCodeParam || sourceParam || searchQuery) && (
+          {(assetIdParam || isAliveParam || statusCodeParam || searchQuery) && (
             <Button
               variant="outline"
               size="sm"
@@ -475,7 +448,6 @@ function URLsPageContent() {
                   asset_id: null,
                   is_alive: null,
                   status_code: null,
-                  source: null,
                   search: null,
                 })
               }

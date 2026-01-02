@@ -17,9 +17,7 @@ export interface URLRecord {
   path: string;
   query_params: Record<string, string> | null;
   
-  // Discovery tracking
-  sources: string[];  // ["katana", "waymore", "gau"]
-  first_discovered_by: string;
+  // Discovery tracking (sources not exposed via API)
   first_discovered_at: string;
   
   // Resolution metadata
@@ -53,7 +51,6 @@ export interface URLStats {
   pending_urls: number;
   urls_with_params: number;
   unique_domains: number;
-  top_sources: { source: string; count: number }[];
   top_status_codes: { status_code: number; count: number }[];
   top_technologies: { name: string; count: number }[];
   top_file_extensions: { extension: string; count: number }[];
@@ -65,7 +62,6 @@ export interface URLQueryParams {
   asset_id?: string;
   is_alive?: boolean;
   status_code?: number;
-  source?: string;
   has_params?: boolean;
   file_extension?: string;
   search?: string;

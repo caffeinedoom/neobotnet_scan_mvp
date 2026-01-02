@@ -26,9 +26,7 @@ class URLResponse(BaseModel):
     path: Optional[str] = None
     query_params: Optional[Dict[str, Any]] = None
     
-    # Discovery tracking
-    sources: List[str] = []
-    first_discovered_by: Optional[str] = None
+    # Discovery tracking (sources excluded from API for security)
     first_discovered_at: Optional[datetime] = None
     
     # Resolution metadata
@@ -66,7 +64,6 @@ class URLStatsResponse(BaseModel):
     pending_urls: int = 0
     urls_with_params: int = 0
     unique_domains: int = 0
-    top_sources: List[Dict[str, Any]] = []
     top_status_codes: List[Dict[str, Any]] = []
     top_technologies: List[Dict[str, Any]] = []
     top_file_extensions: List[Dict[str, Any]] = []

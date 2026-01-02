@@ -36,7 +36,6 @@ export async function fetchURLs(params: URLQueryParams = {}): Promise<{ urls: UR
   if (params.asset_id) queryParams.append('asset_id', params.asset_id);
   if (params.is_alive !== undefined) queryParams.append('is_alive', String(params.is_alive));
   if (params.status_code) queryParams.append('status_code', String(params.status_code));
-  if (params.source) queryParams.append('source', params.source);
   if (params.has_params !== undefined) queryParams.append('has_params', String(params.has_params));
   if (params.file_extension) queryParams.append('file_extension', params.file_extension);
   if (params.search) queryParams.append('search', params.search);

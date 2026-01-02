@@ -674,11 +674,6 @@ X-API-Key: nb_live_your_key_here`}
                           <td className="py-2">Filter by HTTP status code</td>
                         </tr>
                         <tr className="border-b">
-                          <td className="py-2"><code>source</code></td>
-                          <td className="py-2">string</td>
-                          <td className="py-2">Filter by discovery source (katana, waymore, gau)</td>
-                        </tr>
-                        <tr className="border-b">
                           <td className="py-2"><code>has_params</code></td>
                           <td className="py-2">boolean</td>
                           <td className="py-2">Filter by URLs with query parameters</td>
@@ -714,7 +709,6 @@ X-API-Key: nb_live_your_key_here`}
     "domain": "example.com",
     "is_alive": true,
     "status_code": 200,
-    "sources": ["katana", "waymore"],
     "technologies": ["React", "nginx"],
     "has_params": false,
     "first_discovered_at": "2025-12-28T10:00:00Z"
@@ -752,10 +746,6 @@ X-API-Key: nb_live_your_key_here`}
   "pending_urls": 500,
   "urls_with_params": 4230,
   "unique_domains": 156,
-  "top_sources": [
-    {"source": "katana", "count": 8500},
-    {"source": "waymore", "count": 4200}
-  ],
   "top_status_codes": [
     {"status_code": 200, "count": 10500},
     {"status_code": 404, "count": 1200}

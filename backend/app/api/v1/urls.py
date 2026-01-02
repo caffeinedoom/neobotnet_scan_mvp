@@ -34,7 +34,6 @@ async def get_urls(
     scan_job_id: Optional[str] = Query(None, description="Filter by scan job ID"),
     is_alive: Optional[bool] = Query(None, description="Filter by alive status"),
     status_code: Optional[int] = Query(None, description="Filter by HTTP status code"),
-    source: Optional[str] = Query(None, description="Filter by discovery source (katana, waymore, gau)"),
     has_params: Optional[bool] = Query(None, description="Filter by whether URL has query parameters"),
     file_extension: Optional[str] = Query(None, description="Filter by file extension"),
     domain: Optional[str] = Query(None, description="Filter by domain (partial match)"),
@@ -102,10 +101,10 @@ async def get_urls(
         # Use service_client to bypass RLS - LEAN architecture allows all authenticated users
         supabase = supabase_client.service_client
         
-        # Start building the query
+        # Start building the query (sources excluded from API response)
         query = supabase.table("urls").select(
             "id, asset_id, scan_job_id, url, url_hash, domain, path, query_params, "
-            "sources, first_discovered_by, first_discovered_at, "
+            "first_discovered_at, "
             "resolved_at, is_alive, status_code, content_type, content_length, response_time_ms, "
             "title, final_url, redirect_chain, webserver, technologies, "
             "has_params, file_extension, created_at, updated_at"
@@ -123,11 +122,6 @@ async def get_urls(
         
         if status_code:
             query = query.eq("status_code", status_code)
-        
-        if source:
-            # Filter by source in array
-            import json
-            query = query.filter("sources", "cs", json.dumps([source]))
         
         if has_params is not None:
             query = query.eq("has_params", has_params)
