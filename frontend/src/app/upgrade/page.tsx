@@ -155,7 +155,7 @@ export default function UpgradePage() {
             <Button
               onClick={handleUpgrade}
               disabled={isCheckingOut || spotsLeft <= 0}
-              className="w-full bg-[--terminal-green] text-black hover:bg-[--terminal-green]/90 h-14 text-lg font-semibold"
+              className="w-full bg-[#00ff00] text-black hover:bg-[#00dd00] h-14 text-lg font-semibold border-0"
             >
               {isCheckingOut ? (
                 <>

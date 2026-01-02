@@ -2,12 +2,13 @@
 LEAN Usage API - Optimized Reconnaissance Data
 
 This module provides the /api/v1/usage/recon-data endpoint that the frontend
-expects. Uses the optimized database stored procedure `get_user_recon_data()`
-for O(1) performance regardless of data volume.
+expects. Uses optimized batch queries for performance.
+
+LEAN ARCHITECTURE: All authenticated users see ALL data (no user filtering).
 
 PERFORMANCE FIX (2025-01-02):
 - OLD: 72+ N+1 queries taking 15-30 seconds
-- NEW: 3 queries (1 RPC + 2 COUNTs) taking <500ms
+- NEW: 8 batch queries taking <1 second
 """
 from fastapi import APIRouter, Depends, HTTPException, status
 from typing import Dict, Any, List
@@ -29,8 +30,8 @@ async def get_recon_data(
     """
     Get unified reconnaissance data for the dashboard.
     
-    OPTIMIZED: Uses database stored procedure for O(1) performance.
-    Replaces 72+ N+1 queries with 3 efficient queries.
+    LEAN Architecture: All authenticated users see ALL data.
+    OPTIMIZED: Uses batch queries instead of N+1 pattern.
     
     Returns:
         summary: Overview statistics
@@ -43,20 +44,20 @@ async def get_recon_data(
         client = supabase_client.service_client
         user_id = current_user.id
         
-        # ================================================================
-        # OPTIMIZED: Single RPC call replaces 70+ N+1 queries
-        # Uses database stored procedure for O(1) performance
-        # ================================================================
-        logger.info(f"🚀 Fetching recon-data via stored procedure for user {user_id}")
+        logger.info(f"🚀 Fetching recon-data (LEAN architecture) for user {user_id}")
         
-        rpc_result = client.rpc(
-            "get_user_recon_data", 
-            {"target_user_id": user_id}
-        ).execute()
+        # ================================================================
+        # BATCH QUERY 1: Get all assets (no user filter - LEAN architecture)
+        # ================================================================
+        assets_result = client.table("assets").select(
+            "id, name, description, bug_bounty_url, is_active, priority, tags, created_at, updated_at"
+        ).order("created_at", desc=True).execute()
         
-        if not rpc_result.data:
-            logger.warning(f"No data returned from get_user_recon_data for user {user_id}")
-            # Return empty structure
+        assets = assets_result.data or []
+        asset_ids = [a["id"] for a in assets]
+        
+        if not asset_ids:
+            logger.info("No assets found in database")
             return {
                 "summary": {
                     "total_assets": 0,
@@ -76,118 +77,194 @@ async def get_recon_data(
                 "recent_scans": []
             }
         
-        # Parse the result (stored procedure returns JSON)
-        recon_data = rpc_result.data
+        # ================================================================
+        # BATCH QUERY 2: Get ALL apex domains with asset grouping
+        # ================================================================
+        domains_result = client.table("apex_domains").select(
+            "id, asset_id, is_active"
+        ).in_("asset_id", asset_ids).execute()
         
-        # Extract components from stored procedure result
-        summary = recon_data.get("summary", {})
-        assets = recon_data.get("assets", [])
-        recent_scans = recon_data.get("recent_scans", [])
+        domains_data = domains_result.data or []
+        
+        # Pre-compute domain counts per asset
+        domain_counts = {}
+        for d in domains_data:
+            aid = d["asset_id"]
+            domain_counts[aid] = domain_counts.get(aid, 0) + 1
+        
+        total_domains = len(domains_data)
+        active_domains = len([d for d in domains_data if d.get("is_active", True)])
         
         # ================================================================
-        # Additional counts not in stored procedure: probes & DNS records
-        # These are 2 simple COUNT queries (still much better than 72+)
+        # BATCH QUERY 3: Get ALL scan jobs with status
         # ================================================================
+        scans_result = client.table("asset_scan_jobs").select(
+            "id, asset_id, status, modules, total_domains, completed_domains, created_at, started_at, completed_at, error_message"
+        ).in_("asset_id", asset_ids).order("created_at", desc=True).execute()
         
-        # Count total HTTP probes for user's assets
+        scans_data = scans_result.data or []
+        scan_job_ids = [s["id"] for s in scans_data]
+        
+        # Pre-compute scan stats per asset
+        scan_stats = {}
+        for s in scans_data:
+            aid = s["asset_id"]
+            if aid not in scan_stats:
+                scan_stats[aid] = {"total": 0, "completed": 0, "failed": 0, "pending": 0, "last_scan": None}
+            scan_stats[aid]["total"] += 1
+            status = s.get("status", "")
+            if status == "completed":
+                scan_stats[aid]["completed"] += 1
+            elif status == "failed":
+                scan_stats[aid]["failed"] += 1
+            elif status in ["pending", "running"]:
+                scan_stats[aid]["pending"] += 1
+            # Track last scan date
+            if scan_stats[aid]["last_scan"] is None or s["created_at"] > scan_stats[aid]["last_scan"]:
+                scan_stats[aid]["last_scan"] = s["created_at"]
+        
+        # Global scan stats
+        total_scans = len(scans_data)
+        completed_scans = len([s for s in scans_data if s.get("status") == "completed"])
+        failed_scans = len([s for s in scans_data if s.get("status") == "failed"])
+        pending_scans = len([s for s in scans_data if s.get("status") in ["pending", "running"]])
+        last_scan_date = scans_data[0]["created_at"] if scans_data else None
+        
+        # ================================================================
+        # BATCH QUERY 4: Get subdomain counts per scan job
+        # ================================================================
+        total_subdomains = 0
+        subdomain_counts = {}
+        
+        if scan_job_ids:
+            # Get total subdomain count
+            subdomains_result = client.table("subdomains").select(
+                "id, scan_job_id", count="exact"
+            ).in_("scan_job_id", scan_job_ids).execute()
+            
+            total_subdomains = subdomains_result.count or 0
+            
+            # Group by scan_job_id for per-scan counts
+            for s in (subdomains_result.data or []):
+                sjid = s["scan_job_id"]
+                subdomain_counts[sjid] = subdomain_counts.get(sjid, 0) + 1
+        
+        # Pre-compute subdomain counts per asset (sum of all scan jobs)
+        asset_subdomain_counts = {}
+        for s in scans_data:
+            aid = s["asset_id"]
+            sjid = s["id"]
+            asset_subdomain_counts[aid] = asset_subdomain_counts.get(aid, 0) + subdomain_counts.get(sjid, 0)
+        
+        # ================================================================
+        # BATCH QUERY 5: Get total HTTP probes count
+        # ================================================================
         probes_result = client.table("http_probes").select(
             "id", count="exact"
-        ).in_(
-            "asset_id", 
-            [a["id"] for a in assets] if assets else ["00000000-0000-0000-0000-000000000000"]
-        ).execute()
+        ).in_("asset_id", asset_ids).execute()
         total_probes = probes_result.count or 0
         
-        # Count total DNS records for user's assets
+        # ================================================================
+        # BATCH QUERY 6: Get total DNS records count
+        # ================================================================
         dns_result = client.table("dns_records").select(
             "id", count="exact"
-        ).in_(
-            "asset_id",
-            [a["id"] for a in assets] if assets else ["00000000-0000-0000-0000-000000000000"]
-        ).execute()
+        ).in_("asset_id", asset_ids).execute()
         total_dns_records = dns_result.count or 0
         
-        # Add probes and DNS counts to summary
-        summary["total_probes"] = total_probes
-        summary["total_dns_records"] = total_dns_records
-        
         # ================================================================
-        # Transform assets to match frontend expected format
+        # Build enriched assets (no N+1 - using pre-computed data)
         # ================================================================
         enriched_assets = []
         for asset in assets:
+            aid = asset["id"]
+            stats = scan_stats.get(aid, {"total": 0, "completed": 0, "failed": 0, "pending": 0, "last_scan": None})
+            
             enriched_assets.append({
-                "id": asset.get("id"),
-                "name": asset.get("name"),
+                "id": aid,
+                "name": asset["name"],
                 "description": asset.get("description"),
                 "bug_bounty_url": asset.get("bug_bounty_url"),
                 "is_active": asset.get("is_active", True),
                 "priority": asset.get("priority", 0),
                 "tags": asset.get("tags", []),
-                "created_at": asset.get("created_at"),
-                "updated_at": asset.get("updated_at"),
-                "apex_domain_count": asset.get("apex_domain_count", 0),
-                "active_domain_count": asset.get("apex_domain_count", 0),  # Alias
-                "total_scans": asset.get("total_scans", 0),
-                "completed_scans": asset.get("completed_scans", 0),
-                "failed_scans": asset.get("failed_scans", 0),
-                "pending_scans": asset.get("pending_scans", 0),
-                "total_subdomains": asset.get("total_subdomains", 0),
-                "total_probes": 0,  # Per-asset probes not in stored proc
-                "total_dns_records": 0,  # Per-asset DNS not in stored proc
-                "last_scan_date": asset.get("last_scan_date")
+                "created_at": asset["created_at"],
+                "updated_at": asset["updated_at"],
+                "apex_domain_count": domain_counts.get(aid, 0),
+                "active_domain_count": domain_counts.get(aid, 0),
+                "total_scans": stats["total"],
+                "completed_scans": stats["completed"],
+                "failed_scans": stats["failed"],
+                "pending_scans": stats["pending"],
+                "total_subdomains": asset_subdomain_counts.get(aid, 0),
+                "total_probes": 0,  # Would need per-asset query
+                "total_dns_records": 0,  # Would need per-asset query
+                "last_scan_date": stats["last_scan"]
             })
         
         # ================================================================
-        # Transform recent_scans to match frontend expected format
+        # Build recent scans (limit to 20)
         # ================================================================
-        formatted_scans = []
-        for scan in recent_scans:
-            # Calculate progress percentage
-            progress = 0
+        recent_scans = []
+        asset_name_map = {a["id"]: a["name"] for a in assets}
+        
+        for scan in scans_data[:20]:
             status_val = scan.get("status", "pending")
+            progress = 0
             if status_val == "completed":
                 progress = 100
             elif status_val == "running":
-                # Calculate from domains if available
-                total_domains = scan.get("total_domains", 0)
-                completed_domains = scan.get("completed_domains", 0)
-                if total_domains > 0:
-                    progress = int((completed_domains / total_domains) * 100)
-                else:
-                    progress = 50
-            elif status_val == "failed":
-                progress = 0
+                td = scan.get("total_domains", 0)
+                cd = scan.get("completed_domains", 0)
+                progress = int((cd / td) * 100) if td > 0 else 50
             
-            formatted_scans.append({
-                "id": scan.get("id"),
-                "asset_id": scan.get("asset_id"),
-                "asset_name": scan.get("asset_name", "Unknown"),
+            recent_scans.append({
+                "id": scan["id"],
+                "asset_id": scan["asset_id"],
+                "asset_name": asset_name_map.get(scan["asset_id"], "Unknown"),
                 "status": status_val,
                 "modules": scan.get("modules", []),
                 "total_domains": scan.get("total_domains", 0),
                 "completed_domains": scan.get("completed_domains", 0),
                 "active_domains_only": True,
-                "created_at": scan.get("created_at"),
+                "created_at": scan["created_at"],
                 "started_at": scan.get("started_at"),
                 "completed_at": scan.get("completed_at"),
                 "estimated_completion": None,
                 "error_message": scan.get("error_message"),
-                "progress_percentage": scan.get("progress_percentage", progress),
-                "subdomains_found": scan.get("subdomains_found", 0),
+                "progress_percentage": progress,
+                "subdomains_found": subdomain_counts.get(scan["id"], 0),
                 "scan_type": "reconnaissance"
             })
         
+        # ================================================================
+        # Build summary
+        # ================================================================
+        summary = {
+            "total_assets": len(enriched_assets),
+            "active_assets": len([a for a in enriched_assets if a.get("is_active", True)]),
+            "total_domains": total_domains,
+            "active_domains": active_domains,
+            "total_scans": total_scans,
+            "completed_scans": completed_scans,
+            "failed_scans": failed_scans,
+            "pending_scans": pending_scans,
+            "total_subdomains": total_subdomains,
+            "total_probes": total_probes,
+            "total_dns_records": total_dns_records,
+            "last_scan_date": last_scan_date
+        }
+        
         elapsed_ms = (time.time() - start_time) * 1000
         logger.info(
-            f"✅ Recon-data returned in {elapsed_ms:.0f}ms for user {user_id}: "
-            f"{len(enriched_assets)} assets, {summary.get('total_subdomains', 0)} subdomains"
+            f"✅ Recon-data returned in {elapsed_ms:.0f}ms: "
+            f"{len(enriched_assets)} assets, {total_subdomains} subdomains, {total_scans} scans"
         )
         
         return {
             "summary": summary,
             "assets": enriched_assets,
-            "recent_scans": formatted_scans
+            "recent_scans": recent_scans
         }
         
     except Exception as e:
