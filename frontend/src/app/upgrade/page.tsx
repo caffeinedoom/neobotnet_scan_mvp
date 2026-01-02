@@ -115,10 +115,10 @@ export default function UpgradePage() {
           <h1 className="text-3xl md:text-4xl font-bold mb-4">
             Lifetime Access for <span className="text-[--terminal-green]">Early Adopters</span>
           </h1>
-          <p className="text-muted-foreground text-lg mb-4">
+          <p className="text-white/90 text-lg mb-4">
             Pay once, use forever. No subscriptions, no recurring fees.
           </p>
-          <p className="text-sm text-muted-foreground/80 font-mono">
+          <p className="text-sm text-white/70 font-mono">
             {spotsLeft}/100 spots available
           </p>
         </div>
@@ -155,7 +155,7 @@ export default function UpgradePage() {
             <Button
               onClick={handleUpgrade}
               disabled={isCheckingOut || spotsLeft <= 0}
-              className="w-full bg-[#00ff00] text-black hover:bg-[#00dd00] h-14 text-lg font-semibold border-0"
+              className="w-full bg-white text-black hover:bg-white/90 h-14 text-lg font-semibold border-2 border-white rounded-lg shadow-[0_0_20px_rgba(0,255,0,0.5),0_0_40px_rgba(0,255,0,0.3),0_0_60px_rgba(0,255,0,0.1)] hover:shadow-[0_0_25px_rgba(0,255,0,0.6),0_0_50px_rgba(0,255,0,0.4),0_0_75px_rgba(0,255,0,0.2)] transition-shadow duration-300"
             >
               {isCheckingOut ? (
                 <>
