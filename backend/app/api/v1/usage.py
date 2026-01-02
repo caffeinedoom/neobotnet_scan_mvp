@@ -124,35 +124,32 @@ async def get_recon_data(
         last_scan_date = scans_data[0]["created_at"] if scans_data else None
         
         # ================================================================
-        # BATCH QUERY 3: Get HTTP probes with asset grouping
+        # BATCH QUERIES 3-4: Get per-asset HTTP probe and DNS record counts
+        # Uses individual count queries per asset for accuracy
+        # (Single .in_() query would be limited to 1000 rows, losing accuracy)
         # ================================================================
-        probes_result = client.table("http_probes").select(
-            "id, asset_id", count="exact"
-        ).in_("asset_id", asset_ids).execute()
-        total_probes = probes_result.count or 0
-        
-        # Build per-asset probe counts from response data
-        # Note: Supabase limits response to 1000 rows, so we'll fetch just counts per asset
         asset_probe_counts = {}
-        for p in (probes_result.data or []):
-            aid = p.get("asset_id")
-            if aid:
-                asset_probe_counts[aid] = asset_probe_counts.get(aid, 0) + 1
-        
-        # ================================================================
-        # BATCH QUERY 4: Get DNS records with asset grouping
-        # ================================================================
-        dns_result = client.table("dns_records").select(
-            "id, asset_id", count="exact"
-        ).in_("asset_id", asset_ids).execute()
-        total_dns_records = dns_result.count or 0
-        
-        # Build per-asset DNS counts from response data
         asset_dns_counts = {}
-        for d in (dns_result.data or []):
-            aid = d.get("asset_id")
-            if aid:
-                asset_dns_counts[aid] = asset_dns_counts.get(aid, 0) + 1
+        total_probes = 0
+        total_dns_records = 0
+        
+        # Query counts for each asset (25 assets = 50 queries, acceptable for accuracy)
+        for asset_id in asset_ids:
+            # Get probe count for this asset
+            probe_result = client.table("http_probes").select(
+                "id", count="exact"
+            ).eq("asset_id", asset_id).limit(1).execute()
+            probe_count = probe_result.count or 0
+            asset_probe_counts[asset_id] = probe_count
+            total_probes += probe_count
+            
+            # Get DNS count for this asset
+            dns_result = client.table("dns_records").select(
+                "id", count="exact"
+            ).eq("asset_id", asset_id).limit(1).execute()
+            dns_count = dns_result.count or 0
+            asset_dns_counts[asset_id] = dns_count
+            total_dns_records += dns_count
         
         # ================================================================
         # Build enriched assets (using pre-computed data from asset_overview view)
