@@ -89,9 +89,14 @@ export interface HTTPProbeQueryParams {
 /**
  * HTTP Probe List Response
  * 
- * Response from GET /api/v1/http-probes
+ * Response from GET /api/v1/http-probes (paginated)
  */
-export type HTTPProbeListResponse = HTTPProbe[];
+export interface HTTPProbeListResponse {
+  probes: HTTPProbe[];
+  total: number;
+  limit: number;
+  offset: number;
+}
 
 /**
  * HTTP Probe Cache Entry

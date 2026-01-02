@@ -9,7 +9,7 @@ Date: November 17, 2025
 Phase: HTTPx Frontend Implementation - Phase 1
 """
 
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from ...schemas.http_probes import HTTPProbeResponse, HTTPProbeStatsResponse
 from ...schemas.auth import UserResponse
@@ -20,7 +20,7 @@ from ...core.supabase_client import supabase_client
 router = APIRouter()
 
 
-@router.get("", response_model=List[HTTPProbeResponse])
+@router.get("")
 async def get_http_probes(
     asset_id: Optional[str] = Query(None, description="Filter by asset ID"),
     scan_job_id: Optional[str] = Query(None, description="Filter by scan job ID"),
@@ -30,7 +30,7 @@ async def get_http_probes(
     limit: int = Query(100, ge=1, le=1000, description="Maximum number of probes to return"),
     offset: int = Query(0, ge=0, description="Number of probes to skip (pagination)"),
     current_user: UserResponse = Depends(get_current_user)
-):
+) -> Dict[str, Any]:
     """
     Get HTTP probes with optional filtering and pagination.
     
@@ -43,18 +43,21 @@ async def get_http_probes(
     
     Pagination: Use `limit` and `offset` parameters (default: 100 items per page).
     
+    Returns probes array with total count for proper pagination.
+    
     LEAN Architecture: All authenticated users see ALL data.
     """
     try:
         # Use service_client to bypass RLS - LEAN architecture allows all authenticated users
         supabase = supabase_client.service_client
         
-        # Start building the query
+        # Start building the query with count for efficient pagination
         query = supabase.table("http_probes").select(
             "id, scan_job_id, asset_id, status_code, url, title, webserver, "
             "content_length, final_url, ip, technologies, cdn_name, content_type, "
             "asn, chain_status_codes, location, favicon_md5, subdomain, parent_domain, "
-            "scheme, port, created_at"
+            "scheme, port, created_at",
+            count="exact"
         )
         
         # Apply filters
@@ -73,26 +76,28 @@ async def get_http_probes(
         
         if technology:
             # Filter by technology in JSONB array
-            # Use Supabase's cs (contains) operator with proper JSON formatting
-            # This searches for an exact match within the JSONB array
             import json
             query = query.filter("technologies", "cs", json.dumps([technology]))
-        
-        # Apply pagination
-        query = query.range(offset, offset + limit - 1)
         
         # Order by created_at descending (most recent first)
         query = query.order("created_at", desc=True)
         
-        # Execute query
+        # Apply pagination
+        query = query.range(offset, offset + limit - 1)
+        
+        # Execute query (count included via count="exact")
         response = query.execute()
         
-        if not response.data:
-            return []
+        probes_data = response.data or []
+        total_count = response.count if response.count is not None else len(probes_data)
         
-        # LEAN Architecture: All authenticated users see ALL data
-        # No per-user filtering - authentication is sufficient for access
-        return response.data
+        # Return with pagination info
+        return {
+            "probes": probes_data,
+            "total": total_count,
+            "limit": limit,
+            "offset": offset
+        }
         
     except Exception as e:
         raise HTTPException(

@@ -162,8 +162,9 @@ function ProbesPageContent() {
         if (statusCodeParam) queryParams.status_code = parseInt(statusCodeParam);
         if (technologyParam) queryParams.technology = technologyParam;
 
-        // Fetch probes
-        const probesData = await fetchHTTPProbes(queryParams);
+        // Fetch probes (now returns { probes, total, limit, offset })
+        const response = await fetchHTTPProbes(queryParams);
+        const probesData = response.probes || [];
 
         // Filter by search query (client-side for now)
         let filteredProbes = probesData;
@@ -179,7 +180,8 @@ function ProbesPageContent() {
         }
 
         setProbes(filteredProbes);
-        setTotalProbes(filteredProbes.length); // Note: This is approximate for pagination
+        // Use total from API response for accurate pagination
+        setTotalProbes(searchQuery ? filteredProbes.length : response.total);
       } catch (err) {
         console.error('Error fetching HTTP probes:', err);
         setError('Failed to load HTTP probes. Please try again.');
