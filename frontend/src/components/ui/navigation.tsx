@@ -14,14 +14,17 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
-import { LogOut, User, Globe, Network, Server, Building2, Code2, Link2 } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { LogOut, User, Globe, Network, Server, Building2, Code2, Link2, Zap } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { getBillingStatus, BillingStatus } from '@/lib/api/billing';
 
 export const Navigation: React.FC = () => {
   const { user, isAuthenticated, signOut, isLoading } = useAuth();
   const pathname = usePathname();
   const [showCursor, setShowCursor] = useState(true);
+  const [billingStatus, setBillingStatus] = useState<BillingStatus | null>(null);
 
   // Blinking cursor effect
   useEffect(() => {
@@ -30,6 +33,20 @@ export const Navigation: React.FC = () => {
     }, 530);
     return () => clearInterval(interval);
   }, []);
+
+  // Fetch billing status for authenticated users
+  useEffect(() => {
+    async function loadBillingStatus() {
+      if (!isAuthenticated || !user) return;
+      try {
+        const status = await getBillingStatus();
+        setBillingStatus(status);
+      } catch (error) {
+        console.error('Failed to load billing status:', error);
+      }
+    }
+    loadBillingStatus();
+  }, [isAuthenticated, user]);
 
   // Hide navigation on landing page for unauthenticated users
   // The landing page has its own minimal UI
@@ -145,6 +162,28 @@ export const Navigation: React.FC = () => {
                 </Button>
                 ))}
               </div>
+
+              {/* Upgrade CTA for free users */}
+              {billingStatus && !billingStatus.is_paid && (
+                <Button
+                  size="sm"
+                  asChild
+                  className="hidden sm:flex bg-[--terminal-green] text-black hover:bg-[--terminal-green]/90"
+                >
+                  <Link href="/upgrade">
+                    <Zap className="h-3.5 w-3.5 mr-1.5" />
+                    Upgrade
+                  </Link>
+                </Button>
+              )}
+
+              {/* Paid badge */}
+              {billingStatus?.is_paid && (
+                <Badge variant="outline" className="hidden sm:flex border-[--terminal-green] text-[--terminal-green]">
+                  <Zap className="h-3 w-3 mr-1" />
+                  Pro
+                </Badge>
+              )}
 
               <div className="hidden sm:flex items-center space-x-2 text-sm">
                 <User className="h-4 w-4" />

@@ -29,6 +29,7 @@ import { formatDistanceToNow } from 'date-fns';
 // URLs API and Types
 import { fetchURLs, fetchURLStats } from '@/lib/api/urls';
 import type { URLRecord, URLStats } from '@/types/urls';
+import { URLLimitBanner } from '@/components/URLLimitBanner';
 
 // Assets API
 import { assetAPI } from '@/lib/api/assets';
@@ -286,6 +287,9 @@ function URLsPageContent() {
           </span>
         )}
       </div>
+
+      {/* URL Limit Banner for Free Users */}
+      <URLLimitBanner />
 
       {/* Filters - Styled like /probes */}
       <Card className="border border-border bg-card">
