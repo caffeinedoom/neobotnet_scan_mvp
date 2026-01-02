@@ -14,6 +14,7 @@ from app.schemas.billing import (
     BillingStatusResponse,
     WebhookResponse,
 )
+from app.schemas.auth import UserResponse
 from app.core.dependencies import get_current_user
 from app.dependencies.tier_check import (
     get_user_tier,
@@ -36,18 +37,12 @@ STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET")
 @router.post("/checkout", response_model=CheckoutSessionResponse)
 async def create_checkout_session(
     request: CheckoutSessionRequest,
-    user: dict = Depends(get_current_user),
+    user: UserResponse = Depends(get_current_user),
 ):
     """
     Create a Stripe Checkout session for upgrading to paid tier.
     """
-    user_id = user.get("id") or user.get("sub")
-    
-    if not user_id:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="User ID not found",
-        )
+    user_id = user.id
     
     # Check if already paid
     plan_type = await get_user_tier(user_id)
@@ -66,7 +61,7 @@ async def create_checkout_session(
     
     try:
         # Get user email for Stripe
-        user_email = user.get("email")
+        user_email = user.email
         
         # Create Stripe checkout session
         session = stripe.checkout.Session.create(
@@ -190,18 +185,12 @@ async def upgrade_user_to_paid(
 
 @router.get("/status", response_model=BillingStatusResponse)
 async def get_billing_status(
-    user: dict = Depends(get_current_user),
+    user: UserResponse = Depends(get_current_user),
 ):
     """
     Get the current user's billing status and URL quota.
     """
-    user_id = user.get("id") or user.get("sub")
-    
-    if not user_id:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="User ID not found",
-        )
+    user_id = user.id
     
     # Get tier and limits
     plan_type = await get_user_tier(user_id)
