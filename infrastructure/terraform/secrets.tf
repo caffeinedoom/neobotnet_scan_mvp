@@ -58,6 +58,27 @@ data "aws_ssm_parameter" "alienvault_api_key" {
 }
 
 # ================================================================
+# STRIPE BILLING API KEYS
+# ================================================================
+
+# Stripe Secret Key (for backend API calls)
+data "aws_ssm_parameter" "stripe_secret_key" {
+  name            = "/${local.name_prefix}/stripe-secret-key"
+  with_decryption = true
+}
+
+# Stripe Price ID (for checkout sessions)
+data "aws_ssm_parameter" "stripe_price_id" {
+  name = "/${local.name_prefix}/stripe-price-id"
+}
+
+# Stripe Webhook Secret (for verifying webhook signatures)
+data "aws_ssm_parameter" "stripe_webhook_secret" {
+  name            = "/${local.name_prefix}/stripe-webhook-secret"
+  with_decryption = true
+}
+
+# ================================================================
 # LOCAL VALUES - Reference secrets throughout Terraform
 # ================================================================
 

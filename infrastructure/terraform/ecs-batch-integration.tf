@@ -168,6 +168,21 @@ resource "aws_ecs_task_definition" "app_batch" {
         {
           name      = "JWT_SECRET_KEY"
           valueFrom = data.aws_ssm_parameter.jwt_secret_key.arn
+        },
+        # ================================================================
+        # Stripe Billing Integration
+        # ================================================================
+        {
+          name      = "STRIPE_SECRET_KEY"
+          valueFrom = data.aws_ssm_parameter.stripe_secret_key.arn
+        },
+        {
+          name      = "STRIPE_PRICE_ID"
+          valueFrom = data.aws_ssm_parameter.stripe_price_id.arn
+        },
+        {
+          name      = "STRIPE_WEBHOOK_SECRET"
+          valueFrom = data.aws_ssm_parameter.stripe_webhook_secret.arn
         }
       ]
 
