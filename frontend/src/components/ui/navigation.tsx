@@ -7,15 +7,15 @@
  * - Data browsers (Programs, Subdomains, DNS, Servers)
  * - API documentation
  * - Google/X SSO authentication
+ * - User dropdown with tier badge
  * 
  * Hidden on landing page for unauthenticated users for clean UX.
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { LogOut, User, Globe, Network, Server, Building2, Code2, Link2, Zap } from 'lucide-react';
+import { LogOut, User, Globe, Network, Server, Building2, Code2, Link2, Zap, ChevronDown, Crown } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { getBillingStatus, BillingStatus } from '@/lib/api/billing';
@@ -25,6 +25,8 @@ export const Navigation: React.FC = () => {
   const pathname = usePathname();
   const [showCursor, setShowCursor] = useState(true);
   const [billingStatus, setBillingStatus] = useState<BillingStatus | null>(null);
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
   // Blinking cursor effect
   useEffect(() => {
@@ -47,6 +49,17 @@ export const Navigation: React.FC = () => {
     }
     loadBillingStatus();
   }, [isAuthenticated, user]);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setDropdownOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   // Hide navigation on landing page for unauthenticated users
   // The landing page has its own minimal UI
@@ -74,6 +87,7 @@ export const Navigation: React.FC = () => {
   }
 
   const handleLogout = async () => {
+    setDropdownOpen(false);
     await signOut();
   };
 
@@ -117,6 +131,9 @@ export const Navigation: React.FC = () => {
     }
   ];
 
+  const isPaid = billingStatus?.is_paid;
+  const userName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'User';
+
   return (
     <nav className="border-b border-border/50 bg-background/80 backdrop-blur-xl supports-[backdrop-filter]:bg-background/60">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
@@ -150,7 +167,7 @@ export const Navigation: React.FC = () => {
 
           <div className="flex items-center space-x-4">
           {isAuthenticated ? (
-            // Authenticated state
+            // Authenticated state - User dropdown
             <>
               {/* Mobile Navigation Menu */}
               <div className="md:hidden flex items-center">
@@ -163,43 +180,78 @@ export const Navigation: React.FC = () => {
                 ))}
               </div>
 
-              {/* Upgrade CTA for free users */}
-              {billingStatus && !billingStatus.is_paid && (
-                <Button
-                  size="sm"
-                  asChild
-                  className="hidden sm:flex border-2 border-white bg-transparent text-white font-bold hover:bg-white hover:text-black transition-all duration-200 shadow-[0_0_10px_rgba(255,255,255,0.3)] hover:shadow-[0_0_20px_rgba(255,255,255,0.5)]"
+              {/* User Dropdown */}
+              <div className="relative" ref={dropdownRef}>
+                <button
+                  onClick={() => setDropdownOpen(!dropdownOpen)}
+                  className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-border/50 hover:border-border hover:bg-muted/50 transition-all"
                 >
-                  <Link href="/upgrade">
-                    <Zap className="h-4 w-4 mr-1.5" />
-                    Upgrade
-                  </Link>
-                </Button>
-              )}
+                  <User className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm font-medium hidden sm:inline">{userName}</span>
+                  
+                  {/* Tier Badge */}
+                  {isPaid ? (
+                    <span className="px-2 py-0.5 text-xs font-bold bg-[--terminal-green] text-black rounded">
+                      PRO
+                    </span>
+                  ) : (
+                    <span className="px-2 py-0.5 text-xs font-bold bg-muted text-muted-foreground rounded">
+                      FREE
+                    </span>
+                  )}
+                  
+                  <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${dropdownOpen ? 'rotate-180' : ''}`} />
+                </button>
 
-              {/* Paid badge */}
-              {billingStatus?.is_paid && (
-                <Badge variant="outline" className="hidden sm:flex border-[--terminal-green] text-[--terminal-green]">
-                  <Zap className="h-3 w-3 mr-1" />
-                  Pro
-                </Badge>
-              )}
+                {/* Dropdown Menu */}
+                {dropdownOpen && (
+                  <div className="absolute right-0 mt-2 w-56 bg-card border border-border rounded-lg shadow-lg py-1 z-50">
+                    {/* User Info */}
+                    <div className="px-4 py-3 border-b border-border">
+                      <p className="text-sm font-medium">{userName}</p>
+                      <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
+                    </div>
 
-              <div className="hidden sm:flex items-center space-x-2 text-sm">
-                <User className="h-4 w-4" />
-                <span className="truncate max-w-[150px]">
-                  {user?.user_metadata?.full_name || user?.email}
-                </span>
+                    {/* Tier Status */}
+                    <div className="px-4 py-3 border-b border-border">
+                      {isPaid ? (
+                        <div className="flex items-center gap-2">
+                          <Crown className="h-4 w-4 text-[--terminal-green]" />
+                          <span className="text-sm font-medium text-[--terminal-green]">Pro Member</span>
+                        </div>
+                      ) : (
+                        <div>
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="text-sm text-muted-foreground">Free Tier</span>
+                            <span className="text-xs text-muted-foreground">
+                              {billingStatus?.urls_viewed ?? 0}/{billingStatus?.urls_limit ?? 250} URLs
+                            </span>
+                          </div>
+                          <Link
+                            href="/upgrade"
+                            onClick={() => setDropdownOpen(false)}
+                            className="flex items-center justify-center gap-2 w-full px-3 py-2 text-sm font-bold border-2 border-white bg-transparent text-white hover:bg-white hover:text-black rounded transition-all"
+                          >
+                            <Zap className="h-4 w-4" />
+                            Upgrade to Pro
+                          </Link>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Actions */}
+                    <div className="py-1">
+                      <button
+                        onClick={handleLogout}
+                        className="flex items-center gap-2 w-full px-4 py-2 text-sm text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
+                      >
+                        <LogOut className="h-4 w-4" />
+                        Sign out
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={handleLogout}
-                className="flex items-center space-x-2"
-              >
-                <LogOut className="h-4 w-4" />
-                <span className="hidden sm:inline">Logout</span>
-              </Button>
             </>
           ) : (
             // Unauthenticated state - Google SSO only
