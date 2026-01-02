@@ -151,33 +151,56 @@ export default function UpgradePage() {
               ))}
             </ul>
 
-            {/* CTA Button */}
-            <Button
-              onClick={handleUpgrade}
-              disabled={isCheckingOut || spotsLeft <= 0}
-              className="w-full bg-white text-black hover:bg-white/90 h-14 text-lg font-semibold border-2 border-white rounded-lg shadow-[0_0_20px_rgba(0,255,0,0.5),0_0_40px_rgba(0,255,0,0.3),0_0_60px_rgba(0,255,0,0.1)] hover:shadow-[0_0_25px_rgba(0,255,0,0.6),0_0_50px_rgba(0,255,0,0.4),0_0_75px_rgba(0,255,0,0.2)] transition-shadow duration-300"
-            >
-              {isCheckingOut ? (
-                <>
-                  <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                  Redirecting to checkout...
-                </>
-              ) : spotsLeft <= 0 ? (
-                <>
-                  <Lock className="mr-2 h-5 w-5" />
-                  Sold Out
-                </>
-              ) : !user ? (
-                <>
-                  Sign in to continue
-                  <ArrowRight className="ml-2 h-5 w-5" />
-                </>
-              ) : (
-                <>
-                  Become an Early Adopter — $13.37
-                </>
-              )}
-            </Button>
+            {/* CTA Button with animated border */}
+            <div className="relative group w-full">
+              {/* Animated border wrapper */}
+              <div className="absolute -inset-[2px] rounded-lg bg-[conic-gradient(from_var(--angle),transparent_0%,white_10%,transparent_20%)] animate-[spin_3s_linear_infinite] [--angle:0deg]" 
+                   style={{ 
+                     animation: 'border-spin 3s linear infinite',
+                   }} 
+              />
+              {/* Static white border underneath */}
+              <div className="absolute -inset-[2px] rounded-lg border-2 border-white/40" />
+              {/* Button */}
+              <Button
+                onClick={handleUpgrade}
+                disabled={isCheckingOut || spotsLeft <= 0}
+                className="relative w-full bg-black text-white hover:bg-black/80 h-14 text-lg font-semibold rounded-lg border-0"
+              >
+                {isCheckingOut ? (
+                  <>
+                    <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                    Redirecting to checkout...
+                  </>
+                ) : spotsLeft <= 0 ? (
+                  <>
+                    <Lock className="mr-2 h-5 w-5" />
+                    Sold Out
+                  </>
+                ) : !user ? (
+                  <>
+                    Sign in to continue
+                    <ArrowRight className="ml-2 h-5 w-5" />
+                  </>
+                ) : (
+                  <>
+                    Become an Early Adopter — $13.37
+                  </>
+                )}
+              </Button>
+            </div>
+            {/* CSS for animated border */}
+            <style jsx>{`
+              @keyframes border-spin {
+                from { --angle: 0deg; }
+                to { --angle: 360deg; }
+              }
+              @property --angle {
+                syntax: '<angle>';
+                initial-value: 0deg;
+                inherits: false;
+              }
+            `}</style>
 
             {/* Trust badges */}
             <div className="flex items-center justify-center gap-4 text-xs text-muted-foreground pt-2">
