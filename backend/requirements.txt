@@ -18,4 +18,5 @@ redis[asyncio,hiredis]>=6.4.0  # Async support for FastAPI + C parser for perfor
 boto3
 slowapi
 docker
-websockets 
+websockets
+stripe 

@@ -24,6 +24,7 @@ from .api.v1.scans import router as scans_router
 from .api.v1.http_probes import router as http_probes_router
 from .api.v1.urls import router as urls_router
 from .api.v1.public import router as public_router, limiter  # PUBLIC: Unauthenticated showcase
+from .api.v1.billing import router as billing_router  # Stripe billing
 from .services.websocket_manager import websocket_manager, batch_progress_notifier
 
 # Configure logging for CloudWatch visibility
@@ -286,6 +287,10 @@ def create_application() -> FastAPI:
     app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
     app.include_router(public_router, prefix=f"{settings.api_v1_str}/public", tags=["public"])
     logger.info("🌐 Public showcase endpoint enabled at /api/v1/public/showcase (rate limited: 10/min)")
+    
+    # Billing: Stripe checkout and webhook endpoints
+    app.include_router(billing_router, prefix=f"{settings.api_v1_str}/billing", tags=["billing"])
+    logger.info("💳 Billing endpoints enabled at /api/v1/billing")
     
     return app
 

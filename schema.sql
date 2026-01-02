@@ -568,6 +568,16 @@ $$;
 ALTER FUNCTION "public"."get_optimal_batch_sizes"("p_module_name" "text", "p_total_domains" integer) OWNER TO "postgres";
 
 
+CREATE OR REPLACE FUNCTION "public"."get_paid_user_count"() RETURNS integer
+    LANGUAGE "sql" SECURITY DEFINER
+    AS $$
+  SELECT COUNT(*)::INTEGER FROM user_quotas WHERE plan_type = 'paid';
+$$;
+
+
+ALTER FUNCTION "public"."get_paid_user_count"() OWNER TO "postgres";
+
+
 CREATE OR REPLACE FUNCTION "public"."get_user_recon_data"("target_user_id" "uuid") RETURNS json
     LANGUAGE "plpgsql" SECURITY DEFINER
     AS $$
@@ -768,6 +778,16 @@ GUARANTEES DATA CONSISTENCY:
 - No risk of mismatched counters between pages
 - Real-time consistency across entire application';
 
+
+
+CREATE OR REPLACE FUNCTION "public"."has_paid_spots_available"("max_spots" integer DEFAULT 100) RETURNS boolean
+    LANGUAGE "sql" SECURITY DEFINER
+    AS $$
+  SELECT (SELECT COUNT(*) FROM user_quotas WHERE plan_type = 'paid') < max_spots;
+$$;
+
+
+ALTER FUNCTION "public"."has_paid_spots_available"("max_spots" integer) OWNER TO "postgres";
 
 
 CREATE OR REPLACE FUNCTION "public"."sync_subdomain_asset_id"() RETURNS "trigger"
@@ -1782,7 +1802,10 @@ CREATE TABLE IF NOT EXISTS "public"."user_quotas" (
     "plan_expires_at" timestamp with time zone,
     "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
     "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL,
-    CONSTRAINT "valid_plan_type" CHECK (("plan_type" = ANY (ARRAY['free'::"text", 'pro'::"text", 'enterprise'::"text"]))),
+    "stripe_customer_id" "text",
+    "stripe_payment_id" "text",
+    "paid_at" timestamp with time zone,
+    CONSTRAINT "valid_plan_type" CHECK (("plan_type" = ANY (ARRAY['free'::"text", 'paid'::"text", 'pro'::"text", 'enterprise'::"text"]))),
     CONSTRAINT "valid_quotas" CHECK ((("max_assets" > 0) AND ("max_domains_per_asset" > 0) AND ("max_scans_per_day" > 0) AND ("max_scans_per_month" > 0) AND ("max_concurrent_scans" > 0) AND ("max_subdomains_stored" > 0)))
 );
 
@@ -1803,6 +1826,7 @@ CREATE TABLE IF NOT EXISTS "public"."user_usage" (
     "scan_month_last_reset" "date" DEFAULT "date_trunc"('month'::"text", (CURRENT_DATE)::timestamp with time zone) NOT NULL,
     "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
     "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "urls_viewed_count" integer DEFAULT 0,
     CONSTRAINT "valid_usage" CHECK ((("current_assets" >= 0) AND ("current_domains" >= 0) AND ("current_active_scans" >= 0) AND ("current_subdomains" >= 0) AND ("scans_today" >= 0) AND ("scans_this_month" >= 0)))
 );
 
@@ -2392,6 +2416,10 @@ CREATE INDEX "idx_urls_scan_job_id" ON "public"."urls" USING "btree" ("scan_job_
 
 
 CREATE INDEX "idx_urls_status_code" ON "public"."urls" USING "btree" ("status_code");
+
+
+
+CREATE INDEX "idx_user_quotas_plan_type" ON "public"."user_quotas" USING "btree" ("plan_type");
 
 
 
@@ -3017,9 +3045,21 @@ GRANT ALL ON FUNCTION "public"."get_optimal_batch_sizes"("p_module_name" "text",
 
 
 
+GRANT ALL ON FUNCTION "public"."get_paid_user_count"() TO "anon";
+GRANT ALL ON FUNCTION "public"."get_paid_user_count"() TO "authenticated";
+GRANT ALL ON FUNCTION "public"."get_paid_user_count"() TO "service_role";
+
+
+
 GRANT ALL ON FUNCTION "public"."get_user_recon_data"("target_user_id" "uuid") TO "anon";
 GRANT ALL ON FUNCTION "public"."get_user_recon_data"("target_user_id" "uuid") TO "authenticated";
 GRANT ALL ON FUNCTION "public"."get_user_recon_data"("target_user_id" "uuid") TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."has_paid_spots_available"("max_spots" integer) TO "anon";
+GRANT ALL ON FUNCTION "public"."has_paid_spots_available"("max_spots" integer) TO "authenticated";
+GRANT ALL ON FUNCTION "public"."has_paid_spots_available"("max_spots" integer) TO "service_role";
 
 
 

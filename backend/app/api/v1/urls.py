@@ -9,19 +9,27 @@ Author: Pluckware Development Team
 Date: December 2025
 """
 
-from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from typing import List, Optional, Any, Dict
+from fastapi import APIRouter, Depends, HTTPException, Query, status, Response
 from ...schemas.urls import URLResponse, URLStatsResponse, PaginatedURLResponse
 from ...schemas.auth import UserResponse
 from ...core.dependencies import get_current_user
 from ...core.supabase_client import supabase_client
+from ...dependencies.tier_check import (
+    get_user_tier,
+    get_user_urls_viewed,
+    increment_urls_viewed,
+    get_remaining_url_quota,
+)
+from ...core.tier_limits import get_tier_limits
 
 
 router = APIRouter()
 
 
-@router.get("", response_model=List[URLResponse])
+@router.get("")
 async def get_urls(
+    response: Response,
     asset_id: Optional[str] = Query(None, description="Filter by asset/program ID"),
     scan_job_id: Optional[str] = Query(None, description="Filter by scan job ID"),
     is_alive: Optional[bool] = Query(None, description="Filter by alive status"),
@@ -34,7 +42,7 @@ async def get_urls(
     limit: int = Query(100, ge=1, le=1000, description="Maximum number of URLs to return"),
     offset: int = Query(0, ge=0, description="Number of URLs to skip (pagination)"),
     current_user: UserResponse = Depends(get_current_user)
-):
+) -> Dict[str, Any]:
     """
     Get URLs with optional filtering and pagination.
     
@@ -51,9 +59,46 @@ async def get_urls(
     
     Pagination: Use `limit` and `offset` parameters (default: 100 items per page).
     
+    **Free tier limit:** 250 total URLs. Upgrade to see all URLs.
+    
     LEAN Architecture: All authenticated users see ALL data.
     """
     try:
+        # Get user ID
+        user_id = current_user.id if hasattr(current_user, 'id') else current_user.get("id") or current_user.get("sub")
+        
+        # Get user tier and URL quota
+        urls_viewed, urls_limit = await get_remaining_url_quota(user_id)
+        plan_type = await get_user_tier(user_id)
+        
+        # Calculate remaining quota
+        is_limited = urls_limit is not None
+        urls_remaining = None
+        if is_limited:
+            urls_remaining = max(0, urls_limit - urls_viewed)
+        
+        # Add quota headers
+        if is_limited:
+            response.headers["X-URLs-Limit"] = str(urls_limit)
+            response.headers["X-URLs-Viewed"] = str(urls_viewed)
+            response.headers["X-URLs-Remaining"] = str(urls_remaining)
+        response.headers["X-Plan-Type"] = plan_type
+        
+        # Check if user has exhausted their free quota
+        if is_limited and urls_remaining <= 0:
+            return {
+                "urls": [],
+                "quota": {
+                    "plan_type": plan_type,
+                    "urls_limit": urls_limit,
+                    "urls_viewed": urls_viewed,
+                    "urls_remaining": 0,
+                    "is_limited": True,
+                    "upgrade_required": True,
+                },
+                "message": "You've reached your free tier limit of 250 URLs. Upgrade for unlimited access."
+            }
+        
         # Use service_client to bypass RLS - LEAN architecture allows all authenticated users
         supabase = supabase_client.service_client
         
@@ -103,17 +148,57 @@ async def get_urls(
         # Order by first_discovered_at descending (most recent first)
         query = query.order("first_discovered_at", desc=True)
         
+        # For free tier: limit results based on remaining quota
+        effective_limit = limit
+        effective_offset = offset
+        
+        if is_limited:
+            # Don't let user paginate beyond their limit
+            if offset >= urls_remaining:
+                return {
+                    "urls": [],
+                    "quota": {
+                        "plan_type": plan_type,
+                        "urls_limit": urls_limit,
+                        "urls_viewed": urls_viewed,
+                        "urls_remaining": urls_remaining,
+                        "is_limited": True,
+                        "upgrade_required": True,
+                    },
+                    "message": "You've reached your free tier limit of 250 URLs. Upgrade for unlimited access."
+                }
+            
+            # Cap the results to remaining quota
+            max_can_return = urls_remaining - offset
+            effective_limit = min(limit, max_can_return)
+        
         # Apply pagination
-        query = query.range(offset, offset + limit - 1)
+        query = query.range(effective_offset, effective_offset + effective_limit - 1)
         
         # Execute query
-        response = query.execute()
+        result = query.execute()
         
-        if not response.data:
-            return []
+        urls_data = result.data or []
+        urls_count = len(urls_data)
         
-        # LEAN Architecture: All authenticated users see ALL data
-        return response.data
+        # For free tier: track URLs viewed
+        if is_limited and urls_count > 0:
+            await increment_urls_viewed(user_id, urls_count)
+            urls_viewed += urls_count
+            urls_remaining = max(0, urls_limit - urls_viewed)
+        
+        # Return with quota info
+        return {
+            "urls": urls_data,
+            "quota": {
+                "plan_type": plan_type,
+                "urls_limit": urls_limit,
+                "urls_viewed": urls_viewed,
+                "urls_remaining": urls_remaining,
+                "is_limited": is_limited,
+                "upgrade_required": is_limited and urls_remaining <= 0,
+            },
+        }
         
     except Exception as e:
         raise HTTPException(
