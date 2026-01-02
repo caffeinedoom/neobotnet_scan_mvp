@@ -14,12 +14,16 @@ Implement a $13.37 one-time payment for full access, limited to the first 100 us
 
 ## Pricing Model
 
-| Tier | Price | Result Limit | API Calls/min |
-|------|-------|--------------|---------------|
-| Free | $0 | 25 per request | 10 |
-| Paid | $13.37 (one-time) | Unlimited | 100 |
+| Tier | Price | Subdomains | DNS | Servers | URLs | API Calls/min |
+|------|-------|------------|-----|---------|------|---------------|
+| Free | $0 | ✅ Unlimited | ✅ Unlimited | ✅ Unlimited | 250 total | 30 |
+| Paid | $13.37 (one-time) | ✅ Unlimited | ✅ Unlimited | ✅ Unlimited | ✅ Unlimited | 100 |
 
 **Cap:** First 100 paid users only (creates urgency)
+
+### Value Proposition
+- **Free tier:** Full access to reconnaissance data (subdomains, DNS, servers)
+- **Paid tier:** Unlock URLs — the crawled paths, parameters, and endpoints that matter for vuln hunting
 
 ---
 
@@ -46,47 +50,61 @@ $$ LANGUAGE SQL;
 
 ---
 
-### Phase 2: Backend - Result Limiting
-**Time:** 2 hours | **Status:** ⬜ Pending
+### Phase 2: Backend - URL Result Limiting
+**Time:** 1 hour | **Status:** ⬜ Pending
 
-Enforce limits at API level:
+Only the `/api/v1/urls` endpoint needs paywall logic:
 
 ```python
 # backend/app/core/tier_limits.py
 TIER_LIMITS = {
-    "free": {"result_limit": 25, "rate_limit": "10/minute"},
-    "paid": {"result_limit": None, "rate_limit": "100/minute"},
+    "free": {
+        "urls_limit": 250,        # Total URLs visible (not per-request)
+        "rate_limit": "30/minute"
+    },
+    "paid": {
+        "urls_limit": None,       # Unlimited
+        "rate_limit": "100/minute"
+    },
 }
 ```
 
+**Key behavior:**
+- Free users can browse URLs but total results capped at 250
+- Pagination works, but stops at 250 (e.g., page 3 of 25/page = last page)
+- API returns `X-URLs-Limit: 250` and `X-URLs-Remaining: 47` headers
+- When limit reached, return partial results + upgrade prompt in response
+
 **Files to modify:**
-- [ ] `backend/app/api/v1/subdomains.py` - Add limit enforcement
-- [ ] `backend/app/api/v1/dns.py` - Add limit enforcement
-- [ ] `backend/app/api/v1/http_probes.py` - Add limit enforcement
-- [ ] `backend/app/api/v1/urls.py` - Add limit enforcement
-- [ ] `backend/app/api/v1/programs.py` - Add limit enforcement
+- [ ] `backend/app/api/v1/urls.py` - Add 250 URL limit for free tier
 
 **New files:**
 - [ ] `backend/app/core/tier_limits.py` - Tier configuration
-- [ ] `backend/app/dependencies/rate_limit.py` - Tiered rate limiter
+- [ ] `backend/app/dependencies/tier_check.py` - Get user tier helper
 
 ---
 
 ### Phase 3: Backend - Rate Limiting
 **Time:** 1 hour | **Status:** ⬜ Pending
 
-Extend `slowapi` to all authenticated endpoints with tiered limits:
+Apply tiered rate limits to all authenticated endpoints:
+
+| Tier | Rate Limit | Purpose |
+|------|------------|---------|
+| Free | 30/minute | Generous for exploration |
+| Paid | 100/minute | Power user workflows |
 
 ```python
-def get_rate_limit_key(request: Request) -> str:
-    user = get_current_user(request)
-    tier = user.tier if user else "free"
-    return f"{tier}:{get_remote_address(request)}"
+def get_rate_limit_for_user(user) -> str:
+    if user and user.tier == "paid":
+        return "100/minute"
+    return "30/minute"
 ```
 
 **Files:**
 - [ ] `backend/app/main.py` - Global rate limit handler
 - [ ] `backend/app/dependencies/rate_limit.py` - Tiered limiter
+- [ ] Apply to: subdomains, dns, http_probes, urls, programs endpoints
 
 ---
 
@@ -136,16 +154,32 @@ STRIPE_PRICE_ID=price_xxx
 #### 5b. UI Components
 
 - [ ] Upgrade CTA button in header (for free users)
-- [ ] "X of 100 spots remaining" badge
-- [ ] Blur overlay on results beyond limit
-- [ ] "Upgrade to see all results" prompt
+- [ ] "X of 100 spots remaining" badge on upgrade page
+- [ ] URLs page: Show limit banner when approaching/at 250 limit
+- [ ] URLs page: "Upgrade to unlock all URLs" prompt
+
+#### 5c. URLs Page Specific
+
+The `/urls` page is the only page with paywall UI:
+
+```
+┌─────────────────────────────────────────────────────────┐
+│  🔓 You've viewed 250 of 47,832 URLs                    │
+│                                                         │
+│  Upgrade for $13.37 to unlock all URLs                  │
+│  [Upgrade Now]                                          │
+│                                                         │
+│  ⚡ Only 73 spots remaining at this price               │
+└─────────────────────────────────────────────────────────┘
+```
 
 **Files:**
 - [ ] `frontend/src/app/upgrade/page.tsx`
 - [ ] `frontend/src/app/upgrade/success/page.tsx`
 - [ ] `frontend/src/app/upgrade/cancel/page.tsx`
+- [ ] `frontend/src/app/urls/page.tsx` - Add limit UI
 - [ ] `frontend/src/components/UpgradeCTA.tsx`
-- [ ] `frontend/src/components/ResultLimit.tsx`
+- [ ] `frontend/src/components/URLLimitBanner.tsx`
 
 ---
 
@@ -172,7 +206,8 @@ backend/
 │   ├── core/
 │   │   └── tier_limits.py      # Tier configuration
 │   ├── dependencies/
-│   │   └── rate_limit.py       # Tiered rate limiter
+│   │   ├── rate_limit.py       # Tiered rate limiter
+│   │   └── tier_check.py       # Get user tier helper
 │   └── schemas/
 │       └── billing.py          # Billing schemas
 └── migrations/
@@ -184,12 +219,8 @@ backend/
 backend/
 ├── app/
 │   ├── api/v1/
-│   │   ├── subdomains.py       # Add limits
-│   │   ├── dns.py              # Add limits
-│   │   ├── http_probes.py      # Add limits
-│   │   ├── urls.py             # Add limits
-│   │   └── programs.py         # Add limits
-│   └── main.py                 # Register billing router
+│   │   └── urls.py             # Add 250 URL limit for free tier
+│   └── main.py                 # Register billing router, global rate limits
 └── requirements.txt            # Add stripe
 ```
 
@@ -202,8 +233,8 @@ frontend/src/
 │       ├── success/page.tsx    # Success page
 │       └── cancel/page.tsx     # Cancel page
 ├── components/
-│   ├── UpgradeCTA.tsx          # Upgrade button
-│   └── ResultLimit.tsx         # Limit enforcement UI
+│   ├── UpgradeCTA.tsx          # Upgrade button (header)
+│   └── URLLimitBanner.tsx      # URLs page limit banner
 └── lib/api/
     └── billing.ts              # Billing API client
 ```
@@ -212,12 +243,9 @@ frontend/src/
 ```
 frontend/src/
 ├── app/
-│   ├── subdomains/page.tsx     # Show limit UI
-│   ├── dns/page.tsx            # Show limit UI
-│   ├── probes/page.tsx         # Show limit UI
-│   └── urls/page.tsx           # Show limit UI
+│   └── urls/page.tsx           # Show limit UI (only page with paywall)
 └── components/
-    └── Header.tsx              # Add upgrade CTA
+    └── Header.tsx              # Add upgrade CTA for free users
 ```
 
 ---
@@ -249,14 +277,16 @@ NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_live_xxx
 
 ## Success Criteria
 
-- [ ] Free users limited to 25 results per request
-- [ ] Free users rate limited to 10 requests/minute
-- [ ] Paid users have unlimited results
+- [ ] Subdomains, DNS, Servers: Fully free, no limits
+- [ ] URLs: Free users limited to 250 total results
+- [ ] Free users rate limited to 30 requests/minute
+- [ ] Paid users have unlimited URL results
 - [ ] Paid users rate limited to 100 requests/minute
 - [ ] Stripe checkout works end-to-end
 - [ ] Webhook properly upgrades user tier
-- [ ] 100 user cap is enforced
+- [ ] 100 paid user cap is enforced
 - [ ] "Spots remaining" counter is accurate
+- [ ] URLs page shows upgrade prompt at limit
 - [ ] All existing functionality still works
 
 ---
@@ -276,12 +306,15 @@ NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_live_xxx
 
 | Day | Tasks | Hours |
 |-----|-------|-------|
-| 1 | Phase 1-2: Schema + Result limits | 2.5h |
+| 1 | Phase 1: Schema migration | 0.5h |
+| 1 | Phase 2: URL limit (single endpoint) | 1h |
 | 1 | Phase 3: Rate limiting | 1h |
 | 1 | Phase 4: Stripe backend | 2h |
-| 2 | Phase 5: Frontend upgrade flow | 2h |
-| 2 | Phase 6: Testing | 1.5h |
-| **Total** | | **~9h** |
+| 1 | Phase 5: Frontend upgrade flow | 2h |
+| 1 | Phase 6: Testing | 1h |
+| **Total** | | **~7.5h** |
+
+*Reduced from 9h due to simpler paywall model (URLs only)*
 
 ---
 
@@ -292,6 +325,8 @@ NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_live_xxx
 - 100 user cap creates scarcity/urgency
 - Can always raise cap or add tiers later
 - Keep it simple for MVP
+- **Strategic:** Free recon data (subs/dns/servers) hooks users, URLs are the paywall
+- URLs contain the real value: crawled paths, parameters, endpoints for vuln hunting
 
 ---
 
