@@ -302,9 +302,9 @@ function URLsPageContent() {
         {/* Compact Quota Display */}
         {quota && quota.is_limited && (
           <div className="flex items-center gap-3">
-            <span className="text-sm text-muted-foreground">
-              <span className="font-mono">{quota.urls_remaining}</span>
-              <span className="text-muted-foreground/60">/{quota.urls_limit}</span>
+            <span className="text-sm text-white">
+              <span className="font-mono font-medium">{quota.urls_remaining}</span>
+              <span className="text-white/60">/{quota.urls_limit}</span>
               <span className="ml-1">remaining</span>
             </span>
             <Button
