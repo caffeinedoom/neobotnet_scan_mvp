@@ -181,10 +181,10 @@ export const Navigation: React.FC = () => {
               </div>
 
               {/* User Dropdown */}
-              <div className="relative" ref={dropdownRef}>
+              <div className="relative z-50" ref={dropdownRef}>
                 <button
                   onClick={() => setDropdownOpen(!dropdownOpen)}
-                  className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-border/50 hover:border-border hover:bg-muted/50 transition-all"
+                  className="flex items-center gap-2 px-3 py-1.5 rounded-lg border-2 border-white/30 hover:border-white hover:bg-white/5 transition-all"
                 >
                   <User className="h-4 w-4 text-muted-foreground" />
                   <span className="text-sm font-medium hidden sm:inline">{userName}</span>
@@ -205,7 +205,7 @@ export const Navigation: React.FC = () => {
 
                 {/* Dropdown Menu */}
                 {dropdownOpen && (
-                  <div className="absolute right-0 mt-2 w-56 bg-card border border-border rounded-lg shadow-lg py-1 z-50">
+                  <div className="absolute right-0 mt-2 w-56 bg-card border border-border rounded-lg shadow-xl py-1 z-[100]">
                     {/* User Info */}
                     <div className="px-4 py-3 border-b border-border">
                       <p className="text-sm font-medium">{userName}</p>
