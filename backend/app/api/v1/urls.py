@@ -101,13 +101,15 @@ async def get_urls(
         # Use service_client to bypass RLS - LEAN architecture allows all authenticated users
         supabase = supabase_client.service_client
         
-        # Start building the query (sources excluded from API response)
+        # Start building the query with count (sources excluded from API response)
+        # Using count="exact" in select to get count in same query - more efficient
         query = supabase.table("urls").select(
             "id, asset_id, scan_job_id, url, url_hash, domain, path, query_params, "
             "first_discovered_at, "
             "resolved_at, is_alive, status_code, content_type, content_length, response_time_ms, "
             "title, final_url, redirect_chain, webserver, technologies, "
-            "has_params, file_extension, created_at, updated_at"
+            "has_params, file_extension, created_at, updated_at",
+            count="exact"
         )
         
         # Apply filters
@@ -169,34 +171,14 @@ async def get_urls(
         # Apply pagination
         query = query.range(effective_offset, effective_offset + effective_limit - 1)
         
-        # Execute query
+        # Execute query (count is included via count="exact" in select)
         result = query.execute()
         
         urls_data = result.data or []
         urls_count = len(urls_data)
         
-        # Get total count (separate query without pagination)
-        count_query = supabase.table("urls").select("id", count="exact")
-        if asset_id:
-            count_query = count_query.eq("asset_id", asset_id)
-        if scan_job_id:
-            count_query = count_query.eq("scan_job_id", scan_job_id)
-        if is_alive is not None:
-            count_query = count_query.eq("is_alive", is_alive)
-        if status_code:
-            count_query = count_query.eq("status_code", status_code)
-        if has_params is not None:
-            count_query = count_query.eq("has_params", has_params)
-        if file_extension:
-            count_query = count_query.eq("file_extension", file_extension)
-        if domain:
-            count_query = count_query.ilike("domain", f"%{domain}%")
-        if search:
-            count_query = count_query.or_(
-                f"url.ilike.%{search}%,domain.ilike.%{search}%,title.ilike.%{search}%"
-            )
-        count_result = count_query.execute()
-        total_count = count_result.count if count_result.count is not None else len(urls_data)
+        # Total count from the same query (more efficient than separate query)
+        total_count = result.count if result.count is not None else len(urls_data)
         
         # For free tier: track URLs viewed
         if is_limited and urls_count > 0:
