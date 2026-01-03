@@ -30,6 +30,7 @@ export default function DashboardPage() {
     total_subdomains: 0,
     total_probes: 0,
     total_dns_records: 0,
+    total_urls: 0,
     last_scan_date: undefined
   });
 
@@ -125,7 +126,7 @@ export default function DashboardPage() {
               {loading ? (
                 <div className="h-8 bg-muted animate-pulse rounded w-16" />
               ) : (
-                <div className="text-2xl font-bold">{stats.total_probes.toLocaleString()}</div>
+                <div className="text-2xl font-bold">{stats.total_urls.toLocaleString()}</div>
               )}
             </CardContent>
           </Card>
@@ -153,7 +154,7 @@ export default function DashboardPage() {
               {loading ? (
                 <div className="h-8 bg-muted animate-pulse rounded w-16" />
               ) : (
-                <div className="text-2xl font-bold">{stats.total_domains.toLocaleString()}</div>
+                <div className="text-2xl font-bold">{stats.total_probes.toLocaleString()}</div>
               )}
             </CardContent>
           </Card>

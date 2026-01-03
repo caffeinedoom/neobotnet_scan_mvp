@@ -15,8 +15,9 @@ export interface ReconSummary {
   failed_scans: number;
   pending_scans: number;
   total_subdomains: number;
-  total_probes: number;
+  total_probes: number;  // HTTP probes = live servers
   total_dns_records: number;
+  total_urls: number;    // Discovered URLs from crawlers
   last_scan_date?: string;
 }
 
@@ -37,8 +38,9 @@ export interface ReconAsset {
   failed_scans: number;
   pending_scans: number;
   total_subdomains: number;
-  total_probes: number;
+  total_probes: number;  // HTTP probes = live servers
   total_dns_records: number;
+  total_urls: number;    // Discovered URLs from crawlers
   last_scan_date?: string;
 }
 

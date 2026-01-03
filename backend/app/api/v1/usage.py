@@ -73,6 +73,7 @@ async def get_recon_data(
                     "total_subdomains": 0,
                     "total_probes": 0,
                     "total_dns_records": 0,
+                    "total_urls": 0,
                     "last_scan_date": None
                 },
                 "assets": [],
@@ -124,18 +125,20 @@ async def get_recon_data(
         last_scan_date = scans_data[0]["created_at"] if scans_data else None
         
         # ================================================================
-        # BATCH QUERIES 3-4: Get per-asset HTTP probe and DNS record counts
+        # BATCH QUERIES 3-5: Get per-asset HTTP probe, DNS record, and URL counts
         # Uses individual count queries per asset for accuracy
         # (Single .in_() query would be limited to 1000 rows, losing accuracy)
         # ================================================================
         asset_probe_counts = {}
         asset_dns_counts = {}
+        asset_url_counts = {}
         total_probes = 0
         total_dns_records = 0
+        total_urls = 0
         
-        # Query counts for each asset (25 assets = 50 queries, acceptable for accuracy)
+        # Query counts for each asset (25 assets = 75 queries, acceptable for accuracy)
         for asset_id in asset_ids:
-            # Get probe count for this asset
+            # Get probe count for this asset (HTTP probes = live servers)
             probe_result = client.table("http_probes").select(
                 "id", count="exact"
             ).eq("asset_id", asset_id).limit(1).execute()
@@ -150,6 +153,14 @@ async def get_recon_data(
             dns_count = dns_result.count or 0
             asset_dns_counts[asset_id] = dns_count
             total_dns_records += dns_count
+            
+            # Get URL count for this asset (discovered URLs from crawlers)
+            url_result = client.table("urls").select(
+                "id", count="exact"
+            ).eq("asset_id", asset_id).limit(1).execute()
+            url_count = url_result.count or 0
+            asset_url_counts[asset_id] = url_count
+            total_urls += url_count
         
         # ================================================================
         # Build enriched assets (using pre-computed data from asset_overview view)
@@ -176,8 +187,9 @@ async def get_recon_data(
                 "failed_scans": stats["failed"],
                 "pending_scans": stats["pending"],
                 "total_subdomains": asset_subdomain_counts.get(aid, 0),  # From asset_overview view
-                "total_probes": asset_probe_counts.get(aid, 0),  # From batch query (partial if >1000)
-                "total_dns_records": asset_dns_counts.get(aid, 0),  # From batch query (partial if >1000)
+                "total_probes": asset_probe_counts.get(aid, 0),  # HTTP probes = live servers
+                "total_dns_records": asset_dns_counts.get(aid, 0),
+                "total_urls": asset_url_counts.get(aid, 0),  # Discovered URLs from crawlers
                 "last_scan_date": stats["last_scan"]
             })
         
@@ -246,8 +258,9 @@ async def get_recon_data(
             "failed_scans": failed_scans,
             "pending_scans": pending_scans,
             "total_subdomains": total_subdomains,
-            "total_probes": total_probes,
+            "total_probes": total_probes,  # HTTP probes = live servers
             "total_dns_records": total_dns_records,
+            "total_urls": total_urls,  # Discovered URLs from crawlers
             "last_scan_date": last_scan_date
         }
         
