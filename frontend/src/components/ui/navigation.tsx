@@ -15,7 +15,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
-import { LogOut, User, Globe, Network, Server, Building2, Code2, Link2, Zap, ChevronDown, Crown } from 'lucide-react';
+import { LogOut, User, Globe, Network, Server, Building2, Code2, Link2, Zap, ChevronDown, Crown, LayoutDashboard } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { getBillingStatus, BillingStatus } from '@/lib/api/billing';
@@ -93,6 +93,12 @@ export const Navigation: React.FC = () => {
 
   // LEAN navigation - programs and data browsing
   const navItems = [
+    {
+      href: '/dashboard',
+      label: 'Dashboard',
+      icon: LayoutDashboard,
+      active: pathname === '/dashboard'
+    },
     {
       href: '/programs',
       label: 'Programs',
