@@ -1055,9 +1055,10 @@ class AssetService:
         """
         try:
             # LEAN Architecture: Get ALL assets (no user_id filter)
-            all_assets = self.supabase.table("assets").select("id, name").execute()
-            all_asset_ids = [asset["id"] for asset in all_assets.data] if all_assets.data else []
-            
+            all_assets_response = self.supabase.table("assets").select("id, name").order("name").execute()
+            all_assets_data = all_assets_response.data or []
+            all_asset_ids = [asset["id"] for asset in all_assets_data]
+
             if not all_asset_ids:
                 return {
                     "domains": [],
@@ -1099,37 +1100,27 @@ class AssetService:
                     }
                 }
             
-            # Extract and deduplicate comprehensive options
+            # Extract and deduplicate comprehensive options for domains and modules
             all_domains = set()
             all_modules = set()
-            all_assets = {}  # id -> name mapping
-            
+
             for item in filter_response.data:
                 # Add domain
                 if item.get("parent_domain"):
                     all_domains.add(item["parent_domain"])
-                
-                # Add module  
+
+                # Add module
                 if item.get("source_module"):
                     all_modules.add(item["source_module"])
-                
-                # Add asset info
-                scan_job = item.get("asset_scan_jobs", {})
-                if scan_job:
-                    asset_id = scan_job.get("asset_id")
-                    asset_info = scan_job.get("assets", {})
-                    if asset_id and asset_info:
-                        asset_name = asset_info.get("name", "Unknown Asset")
-                        all_assets[asset_id] = asset_name
             
             # Build response with comprehensive filter options
+            # Use ALL assets from initial query (not just those with subdomains)
             domains_list = sorted(list(all_domains))
             modules_list = sorted(list(all_modules))
             assets_list = [
-                {"id": asset_id, "name": asset_name} 
-                for asset_id, asset_name in all_assets.items()
+                {"id": asset["id"], "name": asset["name"]} 
+                for asset in all_assets_data
             ]
-            assets_list.sort(key=lambda x: x["name"])
             
             result = {
                 "domains": domains_list,
