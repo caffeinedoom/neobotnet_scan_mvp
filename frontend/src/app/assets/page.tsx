@@ -48,7 +48,8 @@ export default function AssetsPage() {
     pending_scans: 0,
     total_subdomains: 0,
     total_probes: 0,
-    total_dns_records: 0
+    total_dns_records: 0,
+    total_urls: 0
   });
 
   useEffect(() => {
@@ -89,7 +90,8 @@ export default function AssetsPage() {
         pending_scans: 0,
         total_subdomains: 0,
         total_probes: 0,
-        total_dns_records: 0
+        total_dns_records: 0,
+        total_urls: 0
       });
     } finally {
       setLoading(false);
