@@ -131,22 +131,37 @@ async def get_http_probe_stats(
         # Use service_client to bypass RLS - LEAN architecture allows all authenticated users
         supabase = supabase_client.service_client
         
-        # Build query with filters
-        query = supabase.table("http_probes").select("*")
-        
+        # Get accurate total count first (using count="exact")
+        count_query = supabase.table("http_probes").select("id", count="exact")
         if asset_id:
-            query = query.eq("asset_id", asset_id)
-        
+            count_query = count_query.eq("asset_id", asset_id)
         if scan_job_id:
-            query = query.eq("scan_job_id", scan_job_id)
+            count_query = count_query.eq("scan_job_id", scan_job_id)
+        count_result = count_query.limit(1).execute()
+        total_probes = count_result.count or 0
         
-        # Fetch all probes for statistics calculation
-        response = query.execute()
+        # Fetch probes in batches for statistics calculation
+        # Note: For large datasets, this should be replaced with database-level aggregation
+        probes = []
+        batch_size = 1000
+        offset = 0
         
-        probes = response.data if response.data else []
-        
-        # Calculate statistics
-        total_probes = len(probes)
+        while offset < total_probes:
+            query = supabase.table("http_probes").select(
+                "status_code, webserver, technologies, cdn_name, chain_status_codes"
+            )
+            if asset_id:
+                query = query.eq("asset_id", asset_id)
+            if scan_job_id:
+                query = query.eq("scan_job_id", scan_job_id)
+            
+            batch_response = query.range(offset, offset + batch_size - 1).execute()
+            batch_data = batch_response.data or []
+            probes.extend(batch_data)
+            
+            if len(batch_data) < batch_size:
+                break
+            offset += batch_size
         
         # Status code distribution
         status_code_dist = {}

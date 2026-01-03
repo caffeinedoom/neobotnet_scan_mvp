@@ -750,31 +750,56 @@ class DNSService:
             asset_map = {asset['id']: asset['name'] for asset in assets_response.data}
             all_asset_ids = list(asset_map.keys())
             
-            # Step 2: Fetch ALL DNS records with filters (no pagination yet - we paginate after grouping)
-            query = (self.supabase.table('dns_records')
-                    .select('*')
-                    .in_('asset_id', all_asset_ids))
-            
-            # Apply filters
+            # Step 2: Get accurate total count first
+            count_query = (self.supabase.table('dns_records')
+                          .select('id', count='exact')
+                          .in_('asset_id', all_asset_ids))
             if asset_id:
-                query = query.eq('asset_id', str(asset_id))
-            
+                count_query = count_query.eq('asset_id', str(asset_id))
             if parent_domain:
-                query = query.eq('parent_domain', parent_domain)
-            
+                count_query = count_query.eq('parent_domain', parent_domain)
             if record_type:
-                query = query.eq('record_type', record_type)
-            
+                count_query = count_query.eq('record_type', record_type)
             if search:
-                query = query.ilike('subdomain', f'%{search}%')
+                count_query = count_query.ilike('subdomain', f'%{search}%')
+            count_result = count_query.limit(1).execute()
+            total_dns_records_actual = count_result.count or 0
             
-            # Order by resolved_at for consistency
-            query = query.order('resolved_at', desc=True)
+            # Step 3: Fetch DNS records in batches (Supabase limits to 1000 per request)
+            all_records = []
+            batch_size = 1000
+            offset = 0
             
-            # Execute query (fetch all matching records)
-            response = query.execute()
+            while offset < total_dns_records_actual:
+                query = (self.supabase.table('dns_records')
+                        .select('*')
+                        .in_('asset_id', all_asset_ids))
+                
+                # Apply filters
+                if asset_id:
+                    query = query.eq('asset_id', str(asset_id))
+                if parent_domain:
+                    query = query.eq('parent_domain', parent_domain)
+                if record_type:
+                    query = query.eq('record_type', record_type)
+                if search:
+                    query = query.ilike('subdomain', f'%{search}%')
+                
+                # Order and paginate
+                query = query.order('resolved_at', desc=True).range(offset, offset + batch_size - 1)
+                
+                batch_response = query.execute()
+                batch_data = batch_response.data or []
+                all_records.extend(batch_data)
+                
+                if len(batch_data) < batch_size:
+                    break
+                offset += batch_size
             
-            if not response.data:
+            # Use fetched records for processing
+            response_data = all_records
+            
+            if not response_data:
                 # No records found
                 return {
                     'grouped_records': [],
@@ -800,7 +825,7 @@ class DNSService:
                     }
                 }
             
-            # Step 3: Group records by subdomain
+            # Step 4: Group records by subdomain
             # Structure: {subdomain: {metadata, records_by_type: {A: [], AAAA: [], ...}}}
             grouped = defaultdict(lambda: {
                 'subdomain': '',
@@ -821,7 +846,7 @@ class DNSService:
             total_dns_records = 0
             record_type_breakdown = defaultdict(int)
             
-            for record in response.data:
+            for record in response_data:
                 subdomain_key = record['subdomain']
                 record_type_key = record['record_type']
                 
@@ -853,11 +878,11 @@ class DNSService:
                 total_dns_records += 1
                 record_type_breakdown[record_type_key] += 1
             
-            # Step 4: Convert to list and sort by last_resolved (most recent first)
+            # Step 5: Convert to list and sort by last_resolved (most recent first)
             grouped_list = list(grouped.values())
             grouped_list.sort(key=lambda x: x['last_resolved'], reverse=True)
             
-            # Step 5: Apply pagination to grouped subdomains
+            # Step 6: Apply pagination to grouped subdomains
             total_subdomains = len(grouped_list)
             total_pages = (total_subdomains + per_page - 1) // per_page if total_subdomains > 0 else 1
             
@@ -865,7 +890,7 @@ class DNSService:
             offset = (page - 1) * per_page
             paginated_grouped = grouped_list[offset:offset + per_page]
             
-            # Step 6: Build pagination metadata
+            # Step 7: Build pagination metadata
             pagination = {
                 'total': total_subdomains,
                 'page': page,
