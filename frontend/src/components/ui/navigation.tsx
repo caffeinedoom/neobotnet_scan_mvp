@@ -226,22 +226,14 @@ export const Navigation: React.FC = () => {
                           <span className="text-sm font-medium text-[--terminal-green]">Pro Member</span>
                         </div>
                       ) : (
-                        <div>
-                          <div className="flex items-center justify-between mb-2">
-                            <span className="text-sm text-muted-foreground">Free Tier</span>
-                            <span className="text-xs text-muted-foreground">
-                              {billingStatus?.urls_viewed ?? 0}/{billingStatus?.urls_limit ?? 250} URLs
-                </span>
-              </div>
-                          <Link
-                            href="/upgrade"
-                            onClick={() => setDropdownOpen(false)}
-                            className="flex items-center justify-center gap-2 w-full px-3 py-2 text-sm font-bold border-2 border-white bg-transparent text-white hover:bg-white hover:text-black rounded transition-all"
-                          >
-                            <Zap className="h-4 w-4" />
-                            Upgrade to Pro
-                          </Link>
-                        </div>
+                        <Link
+                          href="/upgrade"
+                          onClick={() => setDropdownOpen(false)}
+                          className="flex items-center justify-center gap-2 w-full px-3 py-2 text-sm font-bold border-2 border-white bg-transparent text-white hover:bg-white hover:text-black rounded transition-all"
+                        >
+                          <Zap className="h-4 w-4" />
+                          Upgrade to Pro
+                        </Link>
                       )}
                     </div>
 
