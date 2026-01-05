@@ -26,6 +26,12 @@ import {
 } from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { toast } from 'sonner';
 import { formatDistanceToNow } from 'date-fns';
 
@@ -495,29 +501,45 @@ function URLsPageContent() {
                   </Button>
                 </>
               ) : (
-                // Free user - show locked export buttons
-                <>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled
-                    className="font-mono opacity-50"
-                    title="Upgrade to Pro for URL exports"
-                  >
-                    <Lock className="h-4 w-4 mr-2" />
-                    Export CSV
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled
-                    className="font-mono opacity-50"
-                    title="Upgrade to Pro for URL exports"
-                  >
-                    <Lock className="h-4 w-4 mr-2" />
-                    Export JSON
-                  </Button>
-                </>
+                // Free user - show locked export buttons with tooltip
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled
+                          className="font-mono opacity-50 cursor-not-allowed"
+                        >
+                          <Lock className="h-4 w-4 mr-2" />
+                          Export CSV
+                        </Button>
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Upgrade to Pro to export URLs</p>
+                    </TooltipContent>
+                  </Tooltip>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled
+                          className="font-mono opacity-50 cursor-not-allowed"
+                        >
+                          <Lock className="h-4 w-4 mr-2" />
+                          Export JSON
+                        </Button>
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Upgrade to Pro to export URLs</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
               )}
             </div>
           </div>
