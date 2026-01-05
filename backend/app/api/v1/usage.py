@@ -154,7 +154,8 @@ async def get_recon_data(
         asset_dns_counts = {}
         asset_url_counts = {}
         
-        loop = asyncio.get_event_loop()
+        # Use get_running_loop() for compatibility with FastAPI's event loop
+        loop = asyncio.get_running_loop()
         with ThreadPoolExecutor(max_workers=25) as executor:
             # Create all tasks (75 total: 25 assets × 3 count types)
             futures = []
