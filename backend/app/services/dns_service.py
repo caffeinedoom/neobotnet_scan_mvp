@@ -753,18 +753,33 @@ class DNSService:
             detailed_records = details_result.data or []
             
             # ================================================================
+            # QUERY 4: Get actual total DNS record count (with filters applied)
+            # This is a lightweight count query, not fetching all records
+            # ================================================================
+            count_query = self.supabase.table('dns_records').select('id', count='exact')
+            if asset_id:
+                count_query = count_query.eq('asset_id', str(asset_id))
+            if parent_domain:
+                count_query = count_query.eq('parent_domain', parent_domain)
+            if record_type:
+                count_query = count_query.eq('record_type', record_type)
+            if search:
+                count_query = count_query.ilike('subdomain', f'%{search}%')
+            count_query = count_query.limit(1)  # We only need the count, not data
+            count_result = count_query.execute()
+            total_dns_records = count_result.count or 0
+            
+            # ================================================================
             # Build grouped response (now using pre-grouped view data + details)
             # ================================================================
             
             # Index detailed records by subdomain for fast lookup
             records_by_subdomain = defaultdict(list)
             record_type_breakdown = defaultdict(int)
-            total_dns_records = 0
             
             for record in detailed_records:
                 records_by_subdomain[record['subdomain']].append(record)
                 record_type_breakdown[record['record_type']] += 1
-                total_dns_records += 1
             
             # Build grouped records for response
             grouped_records = []
