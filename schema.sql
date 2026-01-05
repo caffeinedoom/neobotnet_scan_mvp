@@ -1211,40 +1211,304 @@ CREATE OR REPLACE VIEW "public"."asset_overview" AS
 ALTER VIEW "public"."asset_overview" OWNER TO "postgres";
 
 
--- ================================================================
--- VIEW: asset_recon_counts
--- Pre-computed counts for probes, DNS records, and URLs per asset
--- Used by /usage/recon-data endpoint for performance optimization
--- Reduces 75+ sequential queries to a single query
--- ================================================================
+CREATE TABLE IF NOT EXISTS "public"."dns_records" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "subdomain" "text" NOT NULL,
+    "parent_domain" "text" NOT NULL,
+    "record_type" "text" NOT NULL,
+    "record_value" "text" NOT NULL,
+    "ttl" integer,
+    "priority" integer,
+    "resolved_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "resolver_used" "text",
+    "resolution_time_ms" integer,
+    "cloud_provider" "text",
+    "cloud_service" "text",
+    "cdn_provider" "text",
+    "cdn_detected" boolean DEFAULT false,
+    "scan_job_id" "uuid",
+    "batch_scan_id" "uuid",
+    "asset_id" "uuid",
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    CONSTRAINT "dns_records_record_type_check" CHECK (("record_type" = ANY (ARRAY['A'::"text", 'AAAA'::"text", 'CNAME'::"text", 'MX'::"text", 'TXT'::"text"])))
+);
+
+
+ALTER TABLE "public"."dns_records" OWNER TO "postgres";
+
+
+COMMENT ON TABLE "public"."dns_records" IS 'Stores DNS resolution results for all subdomains. Supports A, AAAA, CNAME, MX, and TXT record types.';
+
+
+
+COMMENT ON COLUMN "public"."dns_records"."subdomain" IS 'Full subdomain (e.g., "api.example.com")';
+
+
+
+COMMENT ON COLUMN "public"."dns_records"."parent_domain" IS 'Extracted parent domain (e.g., "example.com")';
+
+
+
+COMMENT ON COLUMN "public"."dns_records"."record_type" IS 'DNS record type: A, AAAA, CNAME, MX, or TXT';
+
+
+
+COMMENT ON COLUMN "public"."dns_records"."record_value" IS 'IP address (A/AAAA), hostname (CNAME/MX), or text content (TXT)';
+
+
+
+COMMENT ON COLUMN "public"."dns_records"."ttl" IS 'DNS Time To Live in seconds';
+
+
+
+COMMENT ON COLUMN "public"."dns_records"."priority" IS 'MX record priority (lower = higher priority). NULL for non-MX records.';
+
+
+
+COMMENT ON COLUMN "public"."dns_records"."resolved_at" IS 'When the DNS query was performed';
+
+
+
+COMMENT ON COLUMN "public"."dns_records"."cloud_provider" IS 'Detected cloud provider (aws, gcp, azure, cloudflare). Reserved for Phase 3+.';
+
+
+
+COMMENT ON COLUMN "public"."dns_records"."scan_job_id" IS 'References the scan job that discovered this record';
+
+
+
+COMMENT ON COLUMN "public"."dns_records"."batch_scan_id" IS 'Batch processing identifier';
+
+
+
+COMMENT ON COLUMN "public"."dns_records"."asset_id" IS 'Denormalized asset reference for fast queries';
+
+
+
+CREATE TABLE IF NOT EXISTS "public"."http_probes" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "scan_job_id" "uuid" NOT NULL,
+    "asset_id" "uuid" NOT NULL,
+    "status_code" integer,
+    "url" "text" NOT NULL,
+    "title" "text",
+    "webserver" "text",
+    "content_length" integer,
+    "final_url" "text",
+    "ip" "text",
+    "technologies" "jsonb" DEFAULT '[]'::"jsonb",
+    "cdn_name" "text",
+    "content_type" "text",
+    "asn" "text",
+    "chain_status_codes" "jsonb" DEFAULT '[]'::"jsonb",
+    "location" "text",
+    "favicon_md5" "text",
+    "subdomain" "text" NOT NULL,
+    "parent_domain" "text" NOT NULL,
+    "scheme" "text" NOT NULL,
+    "port" integer NOT NULL,
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    CONSTRAINT "http_probes_port_check" CHECK ((("port" > 0) AND ("port" <= 65535))),
+    CONSTRAINT "http_probes_scheme_check" CHECK (("scheme" = ANY (ARRAY['http'::"text", 'https'::"text"])))
+);
+
+
+ALTER TABLE "public"."http_probes" OWNER TO "postgres";
+
+
+COMMENT ON TABLE "public"."http_probes" IS 'Stores HTTP probe results from httpx module, including status codes, technologies, server info, and redirect chains';
+
+
+
+COMMENT ON COLUMN "public"."http_probes"."ip" IS 'Server IP address. Useful for correlating with DNS records, identifying CDN IPs, and detecting hosting patterns.';
+
+
+
+COMMENT ON COLUMN "public"."http_probes"."technologies" IS 'JSONB array of detected technologies (e.g., ["React", "Next.js"]). Use GIN index for fast containment queries.';
+
+
+
+COMMENT ON COLUMN "public"."http_probes"."chain_status_codes" IS 'JSONB array of HTTP status codes from redirect chain (e.g., [301, 302, 200])';
+
+
+
+CREATE TABLE IF NOT EXISTS "public"."urls" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "asset_id" "uuid" NOT NULL,
+    "scan_job_id" "uuid",
+    "url" "text" NOT NULL,
+    "url_hash" "text" NOT NULL,
+    "domain" "text" NOT NULL,
+    "path" "text",
+    "query_params" "jsonb" DEFAULT '{}'::"jsonb",
+    "sources" "jsonb" DEFAULT '[]'::"jsonb" NOT NULL,
+    "first_discovered_by" "text" NOT NULL,
+    "first_discovered_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "resolved_at" timestamp with time zone,
+    "is_alive" boolean,
+    "status_code" integer,
+    "content_type" "text",
+    "content_length" integer,
+    "response_time_ms" integer,
+    "title" "text",
+    "final_url" "text",
+    "redirect_chain" "jsonb" DEFAULT '[]'::"jsonb",
+    "webserver" "text",
+    "technologies" "jsonb" DEFAULT '[]'::"jsonb",
+    "has_params" boolean GENERATED ALWAYS AS (("query_params" <> '{}'::"jsonb")) STORED,
+    "file_extension" "text",
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    CONSTRAINT "urls_first_discovered_by_check" CHECK (("first_discovered_by" = ANY (ARRAY['katana'::"text", 'waymore'::"text", 'gau'::"text", 'gospider'::"text", 'hakrawler'::"text", 'manual'::"text"])))
+);
+
+
+ALTER TABLE "public"."urls" OWNER TO "postgres";
+
+
+COMMENT ON TABLE "public"."urls" IS 'Stores resolved URLs discovered by various tools (Katana, Waymore, GAU, etc.). Each URL is probed by the URL Resolver to determine if alive and extract metadata. Supports multi-source tracking and TTL-based re-resolution.';
+
+
+
+COMMENT ON COLUMN "public"."urls"."url" IS 'Full normalized URL. Example: https://example.com/api/users?id=123';
+
+
+
+COMMENT ON COLUMN "public"."urls"."url_hash" IS 'SHA256 hash of normalized URL for fast lookups and deduplication.';
+
+
+
+COMMENT ON COLUMN "public"."urls"."domain" IS 'Extracted domain for filtering. Example: example.com';
+
+
+
+COMMENT ON COLUMN "public"."urls"."path" IS 'URL path component. Example: /api/users';
+
+
+
+COMMENT ON COLUMN "public"."urls"."query_params" IS 'Parsed query string as JSON object. Example: {"id": "123", "page": "1"}';
+
+
+
+COMMENT ON COLUMN "public"."urls"."sources" IS 'Array of all tools that discovered this URL. Example: ["katana", "waymore"]';
+
+
+
+COMMENT ON COLUMN "public"."urls"."first_discovered_by" IS 'First tool to discover this URL. Used for attribution.';
+
+
+
+COMMENT ON COLUMN "public"."urls"."resolved_at" IS 'Timestamp of last resolution probe. NULL means never resolved. Used for TTL-based re-probing.';
+
+
+
+COMMENT ON COLUMN "public"."urls"."is_alive" IS 'Whether URL responded successfully. NULL=not checked, true=alive, false=dead.';
+
+
+
+COMMENT ON COLUMN "public"."urls"."status_code" IS 'HTTP response status code from last probe. Common: 200, 301, 404, 403, 500.';
+
+
+
+COMMENT ON COLUMN "public"."urls"."technologies" IS 'Detected technologies from response. Example: ["nginx", "php", "wordpress"]';
+
+
+
+COMMENT ON COLUMN "public"."urls"."has_params" IS 'Auto-computed: true if URL has query parameters. Useful for finding endpoints with inputs.';
+
+
+
+COMMENT ON COLUMN "public"."urls"."file_extension" IS 'Extracted file extension if present. Example: .php, .aspx, .js';
+
+
+
 CREATE OR REPLACE VIEW "public"."asset_recon_counts" AS
-SELECT 
-    a.id AS asset_id,
-    COALESCE(hp.probe_count, 0) AS probe_count,
-    COALESCE(dr.dns_count, 0) AS dns_count,
-    COALESCE(u.url_count, 0) AS url_count
-FROM "public"."assets" a
-LEFT JOIN (
-    SELECT asset_id, COUNT(*) AS probe_count 
-    FROM "public"."http_probes" 
-    GROUP BY asset_id
-) hp ON a.id = hp.asset_id
-LEFT JOIN (
-    SELECT asset_id, COUNT(*) AS dns_count 
-    FROM "public"."dns_records" 
-    GROUP BY asset_id
-) dr ON a.id = dr.asset_id
-LEFT JOIN (
-    SELECT asset_id, COUNT(*) AS url_count 
-    FROM "public"."urls" 
-    GROUP BY asset_id
-) u ON a.id = u.asset_id;
+ SELECT "a"."id" AS "asset_id",
+    COALESCE("hp"."probe_count", (0)::bigint) AS "probe_count",
+    COALESCE("dr"."dns_count", (0)::bigint) AS "dns_count",
+    COALESCE("u"."url_count", (0)::bigint) AS "url_count"
+   FROM ((("public"."assets" "a"
+     LEFT JOIN ( SELECT "http_probes"."asset_id",
+            "count"(*) AS "probe_count"
+           FROM "public"."http_probes"
+          GROUP BY "http_probes"."asset_id") "hp" ON (("a"."id" = "hp"."asset_id")))
+     LEFT JOIN ( SELECT "dns_records"."asset_id",
+            "count"(*) AS "dns_count"
+           FROM "public"."dns_records"
+          GROUP BY "dns_records"."asset_id") "dr" ON (("a"."id" = "dr"."asset_id")))
+     LEFT JOIN ( SELECT "urls"."asset_id",
+            "count"(*) AS "url_count"
+           FROM "public"."urls"
+          GROUP BY "urls"."asset_id") "u" ON (("a"."id" = "u"."asset_id")));
 
 
 ALTER VIEW "public"."asset_recon_counts" OWNER TO "postgres";
 
 
 COMMENT ON VIEW "public"."asset_recon_counts" IS 'Pre-computed reconnaissance counts per asset. Aggregates probe_count (http_probes), dns_count (dns_records), and url_count (urls) for each asset. Used for dashboard performance optimization.';
+
+
+-- ================================================================
+-- VIEW: http_probe_stats
+-- Pre-computed aggregate statistics for HTTP probes
+-- Used by /http-probes/stats/summary endpoint
+-- Replaces fetching all 22K+ rows with a single aggregated query
+-- ================================================================
+CREATE OR REPLACE VIEW "public"."http_probe_stats" AS
+SELECT 
+    COUNT(*) AS total_probes,
+    COUNT(DISTINCT asset_id) AS unique_assets,
+    COUNT(DISTINCT webserver) AS unique_webservers,
+    COUNT(CASE WHEN status_code >= 200 AND status_code < 300 THEN 1 END) AS status_2xx,
+    COUNT(CASE WHEN status_code >= 300 AND status_code < 400 THEN 1 END) AS status_3xx,
+    COUNT(CASE WHEN status_code >= 400 AND status_code < 500 THEN 1 END) AS status_4xx,
+    COUNT(CASE WHEN status_code >= 500 THEN 1 END) AS status_5xx,
+    COUNT(CASE WHEN cdn_name IS NOT NULL THEN 1 END) AS with_cdn,
+    COUNT(CASE WHEN jsonb_array_length(chain_status_codes) > 0 THEN 1 END) AS with_redirects
+FROM "public"."http_probes";
+
+ALTER VIEW "public"."http_probe_stats" OWNER TO "postgres";
+
+COMMENT ON VIEW "public"."http_probe_stats" IS 'Pre-computed HTTP probe statistics. Provides total counts, status code distributions, and CDN/redirect metrics in a single query.';
+
+
+-- ================================================================
+-- VIEW: http_probe_top_items
+-- Pre-computed top webservers and technologies
+-- Used by /http-probes/stats/summary endpoint
+-- ================================================================
+CREATE OR REPLACE VIEW "public"."http_probe_webserver_counts" AS
+SELECT 
+    webserver,
+    COUNT(*) AS count
+FROM "public"."http_probes"
+WHERE webserver IS NOT NULL
+GROUP BY webserver
+ORDER BY count DESC
+LIMIT 20;
+
+ALTER VIEW "public"."http_probe_webserver_counts" OWNER TO "postgres";
+
+
+-- ================================================================
+-- VIEW: scan_subdomain_counts
+-- Pre-computed subdomain counts per scan job
+-- Used by /usage/recon-data endpoint for recent scans
+-- Replaces 20 sequential queries with a single query
+-- ================================================================
+CREATE OR REPLACE VIEW "public"."scan_subdomain_counts" AS
+SELECT 
+    scan_job_id,
+    COUNT(*) AS subdomain_count
+FROM "public"."subdomains"
+WHERE scan_job_id IS NOT NULL
+GROUP BY scan_job_id;
+
+ALTER VIEW "public"."scan_subdomain_counts" OWNER TO "postgres";
+
+COMMENT ON VIEW "public"."scan_subdomain_counts" IS 'Pre-computed subdomain counts per scan job. Used for displaying subdomain counts in recent scans without N+1 queries.';
+
 
 
 CREATE TABLE IF NOT EXISTS "public"."batch_domain_assignments" (
@@ -1382,81 +1646,6 @@ COMMENT ON COLUMN "public"."crawled_endpoints"."times_discovered" IS 'Number of 
 
 
 
-CREATE TABLE IF NOT EXISTS "public"."dns_records" (
-    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
-    "subdomain" "text" NOT NULL,
-    "parent_domain" "text" NOT NULL,
-    "record_type" "text" NOT NULL,
-    "record_value" "text" NOT NULL,
-    "ttl" integer,
-    "priority" integer,
-    "resolved_at" timestamp with time zone DEFAULT "now"() NOT NULL,
-    "resolver_used" "text",
-    "resolution_time_ms" integer,
-    "cloud_provider" "text",
-    "cloud_service" "text",
-    "cdn_provider" "text",
-    "cdn_detected" boolean DEFAULT false,
-    "scan_job_id" "uuid",
-    "batch_scan_id" "uuid",
-    "asset_id" "uuid",
-    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
-    "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL,
-    CONSTRAINT "dns_records_record_type_check" CHECK (("record_type" = ANY (ARRAY['A'::"text", 'AAAA'::"text", 'CNAME'::"text", 'MX'::"text", 'TXT'::"text"])))
-);
-
-
-ALTER TABLE "public"."dns_records" OWNER TO "postgres";
-
-
-COMMENT ON TABLE "public"."dns_records" IS 'Stores DNS resolution results for all subdomains. Supports A, AAAA, CNAME, MX, and TXT record types.';
-
-
-
-COMMENT ON COLUMN "public"."dns_records"."subdomain" IS 'Full subdomain (e.g., "api.example.com")';
-
-
-
-COMMENT ON COLUMN "public"."dns_records"."parent_domain" IS 'Extracted parent domain (e.g., "example.com")';
-
-
-
-COMMENT ON COLUMN "public"."dns_records"."record_type" IS 'DNS record type: A, AAAA, CNAME, MX, or TXT';
-
-
-
-COMMENT ON COLUMN "public"."dns_records"."record_value" IS 'IP address (A/AAAA), hostname (CNAME/MX), or text content (TXT)';
-
-
-
-COMMENT ON COLUMN "public"."dns_records"."ttl" IS 'DNS Time To Live in seconds';
-
-
-
-COMMENT ON COLUMN "public"."dns_records"."priority" IS 'MX record priority (lower = higher priority). NULL for non-MX records.';
-
-
-
-COMMENT ON COLUMN "public"."dns_records"."resolved_at" IS 'When the DNS query was performed';
-
-
-
-COMMENT ON COLUMN "public"."dns_records"."cloud_provider" IS 'Detected cloud provider (aws, gcp, azure, cloudflare). Reserved for Phase 3+.';
-
-
-
-COMMENT ON COLUMN "public"."dns_records"."scan_job_id" IS 'References the scan job that discovered this record';
-
-
-
-COMMENT ON COLUMN "public"."dns_records"."batch_scan_id" IS 'Batch processing identifier';
-
-
-
-COMMENT ON COLUMN "public"."dns_records"."asset_id" IS 'Denormalized asset reference for fast queries';
-
-
-
 CREATE TABLE IF NOT EXISTS "public"."historical_urls" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
     "url" "text" NOT NULL,
@@ -1494,53 +1683,6 @@ COMMENT ON COLUMN "public"."historical_urls"."archive_timestamp" IS 'Original ar
 
 
 COMMENT ON COLUMN "public"."historical_urls"."metadata" IS 'Flexible JSON storage for source-specific metadata';
-
-
-
-CREATE TABLE IF NOT EXISTS "public"."http_probes" (
-    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
-    "scan_job_id" "uuid" NOT NULL,
-    "asset_id" "uuid" NOT NULL,
-    "status_code" integer,
-    "url" "text" NOT NULL,
-    "title" "text",
-    "webserver" "text",
-    "content_length" integer,
-    "final_url" "text",
-    "ip" "text",
-    "technologies" "jsonb" DEFAULT '[]'::"jsonb",
-    "cdn_name" "text",
-    "content_type" "text",
-    "asn" "text",
-    "chain_status_codes" "jsonb" DEFAULT '[]'::"jsonb",
-    "location" "text",
-    "favicon_md5" "text",
-    "subdomain" "text" NOT NULL,
-    "parent_domain" "text" NOT NULL,
-    "scheme" "text" NOT NULL,
-    "port" integer NOT NULL,
-    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
-    CONSTRAINT "http_probes_port_check" CHECK ((("port" > 0) AND ("port" <= 65535))),
-    CONSTRAINT "http_probes_scheme_check" CHECK (("scheme" = ANY (ARRAY['http'::"text", 'https'::"text"])))
-);
-
-
-ALTER TABLE "public"."http_probes" OWNER TO "postgres";
-
-
-COMMENT ON TABLE "public"."http_probes" IS 'Stores HTTP probe results from httpx module, including status codes, technologies, server info, and redirect chains';
-
-
-
-COMMENT ON COLUMN "public"."http_probes"."ip" IS 'Server IP address. Useful for correlating with DNS records, identifying CDN IPs, and detecting hosting patterns.';
-
-
-
-COMMENT ON COLUMN "public"."http_probes"."technologies" IS 'JSONB array of detected technologies (e.g., ["React", "Next.js"]). Use GIN index for fast containment queries.';
-
-
-
-COMMENT ON COLUMN "public"."http_probes"."chain_status_codes" IS 'JSONB array of HTTP status codes from redirect chain (e.g., [301, 302, 200])';
 
 
 
@@ -1732,96 +1874,6 @@ ALTER VIEW "public"."subdomain_current_dns" OWNER TO "postgres";
 
 
 COMMENT ON VIEW "public"."subdomain_current_dns" IS 'Aggregated view of current DNS records per subdomain. Shows latest IPs (IPv4/IPv6), CNAMEs, MX records (with priority), and TXT records. Use this for dashboard queries and frontend display.';
-
-
-
-CREATE TABLE IF NOT EXISTS "public"."urls" (
-    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
-    "asset_id" "uuid" NOT NULL,
-    "scan_job_id" "uuid",
-    "url" "text" NOT NULL,
-    "url_hash" "text" NOT NULL,
-    "domain" "text" NOT NULL,
-    "path" "text",
-    "query_params" "jsonb" DEFAULT '{}'::"jsonb",
-    "sources" "jsonb" DEFAULT '[]'::"jsonb" NOT NULL,
-    "first_discovered_by" "text" NOT NULL,
-    "first_discovered_at" timestamp with time zone DEFAULT "now"() NOT NULL,
-    "resolved_at" timestamp with time zone,
-    "is_alive" boolean,
-    "status_code" integer,
-    "content_type" "text",
-    "content_length" integer,
-    "response_time_ms" integer,
-    "title" "text",
-    "final_url" "text",
-    "redirect_chain" "jsonb" DEFAULT '[]'::"jsonb",
-    "webserver" "text",
-    "technologies" "jsonb" DEFAULT '[]'::"jsonb",
-    "has_params" boolean GENERATED ALWAYS AS (("query_params" <> '{}'::"jsonb")) STORED,
-    "file_extension" "text",
-    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
-    "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL,
-    CONSTRAINT "urls_first_discovered_by_check" CHECK (("first_discovered_by" = ANY (ARRAY['katana'::"text", 'waymore'::"text", 'gau'::"text", 'gospider'::"text", 'hakrawler'::"text", 'manual'::"text"])))
-);
-
-
-ALTER TABLE "public"."urls" OWNER TO "postgres";
-
-
-COMMENT ON TABLE "public"."urls" IS 'Stores resolved URLs discovered by various tools (Katana, Waymore, GAU, etc.). Each URL is probed by the URL Resolver to determine if alive and extract metadata. Supports multi-source tracking and TTL-based re-resolution.';
-
-
-
-COMMENT ON COLUMN "public"."urls"."url" IS 'Full normalized URL. Example: https://example.com/api/users?id=123';
-
-
-
-COMMENT ON COLUMN "public"."urls"."url_hash" IS 'SHA256 hash of normalized URL for fast lookups and deduplication.';
-
-
-
-COMMENT ON COLUMN "public"."urls"."domain" IS 'Extracted domain for filtering. Example: example.com';
-
-
-
-COMMENT ON COLUMN "public"."urls"."path" IS 'URL path component. Example: /api/users';
-
-
-
-COMMENT ON COLUMN "public"."urls"."query_params" IS 'Parsed query string as JSON object. Example: {"id": "123", "page": "1"}';
-
-
-
-COMMENT ON COLUMN "public"."urls"."sources" IS 'Array of all tools that discovered this URL. Example: ["katana", "waymore"]';
-
-
-
-COMMENT ON COLUMN "public"."urls"."first_discovered_by" IS 'First tool to discover this URL. Used for attribution.';
-
-
-
-COMMENT ON COLUMN "public"."urls"."resolved_at" IS 'Timestamp of last resolution probe. NULL means never resolved. Used for TTL-based re-probing.';
-
-
-
-COMMENT ON COLUMN "public"."urls"."is_alive" IS 'Whether URL responded successfully. NULL=not checked, true=alive, false=dead.';
-
-
-
-COMMENT ON COLUMN "public"."urls"."status_code" IS 'HTTP response status code from last probe. Common: 200, 301, 404, 403, 500.';
-
-
-
-COMMENT ON COLUMN "public"."urls"."technologies" IS 'Detected technologies from response. Example: ["nginx", "php", "wordpress"]';
-
-
-
-COMMENT ON COLUMN "public"."urls"."has_params" IS 'Auto-computed: true if URL has query parameters. Useful for finding endpoints with inputs.';
-
-
-
-COMMENT ON COLUMN "public"."urls"."file_extension" IS 'Extracted file extension if present. Example: .php, .aspx, .js';
 
 
 
@@ -3249,6 +3301,30 @@ GRANT ALL ON TABLE "public"."asset_overview" TO "service_role";
 
 
 
+GRANT ALL ON TABLE "public"."dns_records" TO "anon";
+GRANT ALL ON TABLE "public"."dns_records" TO "authenticated";
+GRANT ALL ON TABLE "public"."dns_records" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."http_probes" TO "anon";
+GRANT ALL ON TABLE "public"."http_probes" TO "authenticated";
+GRANT ALL ON TABLE "public"."http_probes" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."urls" TO "anon";
+GRANT ALL ON TABLE "public"."urls" TO "authenticated";
+GRANT ALL ON TABLE "public"."urls" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."asset_recon_counts" TO "anon";
+GRANT ALL ON TABLE "public"."asset_recon_counts" TO "authenticated";
+GRANT ALL ON TABLE "public"."asset_recon_counts" TO "service_role";
+
+
+
 GRANT ALL ON TABLE "public"."batch_domain_assignments" TO "anon";
 GRANT ALL ON TABLE "public"."batch_domain_assignments" TO "authenticated";
 GRANT ALL ON TABLE "public"."batch_domain_assignments" TO "service_role";
@@ -3267,21 +3343,9 @@ GRANT ALL ON TABLE "public"."crawled_endpoints" TO "service_role";
 
 
 
-GRANT ALL ON TABLE "public"."dns_records" TO "anon";
-GRANT ALL ON TABLE "public"."dns_records" TO "authenticated";
-GRANT ALL ON TABLE "public"."dns_records" TO "service_role";
-
-
-
 GRANT ALL ON TABLE "public"."historical_urls" TO "anon";
 GRANT ALL ON TABLE "public"."historical_urls" TO "authenticated";
 GRANT ALL ON TABLE "public"."historical_urls" TO "service_role";
-
-
-
-GRANT ALL ON TABLE "public"."http_probes" TO "anon";
-GRANT ALL ON TABLE "public"."http_probes" TO "authenticated";
-GRANT ALL ON TABLE "public"."http_probes" TO "service_role";
 
 
 
@@ -3312,12 +3376,6 @@ GRANT ALL ON TABLE "public"."scans_with_assets" TO "service_role";
 GRANT ALL ON TABLE "public"."subdomain_current_dns" TO "anon";
 GRANT ALL ON TABLE "public"."subdomain_current_dns" TO "authenticated";
 GRANT ALL ON TABLE "public"."subdomain_current_dns" TO "service_role";
-
-
-
-GRANT ALL ON TABLE "public"."urls" TO "anon";
-GRANT ALL ON TABLE "public"."urls" TO "authenticated";
-GRANT ALL ON TABLE "public"."urls" TO "service_role";
 
 
 
