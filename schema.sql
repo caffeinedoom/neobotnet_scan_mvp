@@ -1211,6 +1211,42 @@ CREATE OR REPLACE VIEW "public"."asset_overview" AS
 ALTER VIEW "public"."asset_overview" OWNER TO "postgres";
 
 
+-- ================================================================
+-- VIEW: asset_recon_counts
+-- Pre-computed counts for probes, DNS records, and URLs per asset
+-- Used by /usage/recon-data endpoint for performance optimization
+-- Reduces 75+ sequential queries to a single query
+-- ================================================================
+CREATE OR REPLACE VIEW "public"."asset_recon_counts" AS
+SELECT 
+    a.id AS asset_id,
+    COALESCE(hp.probe_count, 0) AS probe_count,
+    COALESCE(dr.dns_count, 0) AS dns_count,
+    COALESCE(u.url_count, 0) AS url_count
+FROM "public"."assets" a
+LEFT JOIN (
+    SELECT asset_id, COUNT(*) AS probe_count 
+    FROM "public"."http_probes" 
+    GROUP BY asset_id
+) hp ON a.id = hp.asset_id
+LEFT JOIN (
+    SELECT asset_id, COUNT(*) AS dns_count 
+    FROM "public"."dns_records" 
+    GROUP BY asset_id
+) dr ON a.id = dr.asset_id
+LEFT JOIN (
+    SELECT asset_id, COUNT(*) AS url_count 
+    FROM "public"."urls" 
+    GROUP BY asset_id
+) u ON a.id = u.asset_id;
+
+
+ALTER VIEW "public"."asset_recon_counts" OWNER TO "postgres";
+
+
+COMMENT ON VIEW "public"."asset_recon_counts" IS 'Pre-computed reconnaissance counts per asset. Aggregates probe_count (http_probes), dns_count (dns_records), and url_count (urls) for each asset. Used for dashboard performance optimization.';
+
+
 CREATE TABLE IF NOT EXISTS "public"."batch_domain_assignments" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
     "batch_scan_id" "uuid" NOT NULL,

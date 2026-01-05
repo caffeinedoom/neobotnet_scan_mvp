@@ -71,7 +71,7 @@ export async function exportURLs(
     toast.loading('Preparing URL export...', { id: 'url-export' });
     
     const queryString = buildQueryString({ format, ...filters });
-    const response = await apiClient.get<Blob>(`/exports/urls?${queryString}`, {
+    const response = await apiClient.get<Blob>(`/api/v1/exports/urls?${queryString}`, {
       responseType: 'blob',
     });
     
@@ -106,7 +106,7 @@ export async function exportSubdomains(
     toast.loading('Preparing subdomain export...', { id: 'subdomain-export' });
     
     const queryString = buildQueryString({ format, ...filters });
-    const response = await apiClient.get<Blob>(`/exports/subdomains?${queryString}`, {
+    const response = await apiClient.get<Blob>(`/api/v1/exports/subdomains?${queryString}`, {
       responseType: 'blob',
     });
     
@@ -131,7 +131,7 @@ export async function exportDNSRecords(
     toast.loading('Preparing DNS export...', { id: 'dns-export' });
     
     const queryString = buildQueryString({ format, ...filters });
-    const response = await apiClient.get<Blob>(`/exports/dns?${queryString}`, {
+    const response = await apiClient.get<Blob>(`/api/v1/exports/dns?${queryString}`, {
       responseType: 'blob',
     });
     
@@ -156,7 +156,7 @@ export async function exportHTTPProbes(
     toast.loading('Preparing HTTP probes export...', { id: 'probe-export' });
     
     const queryString = buildQueryString({ format, ...filters });
-    const response = await apiClient.get<Blob>(`/exports/probes?${queryString}`, {
+    const response = await apiClient.get<Blob>(`/api/v1/exports/probes?${queryString}`, {
       responseType: 'blob',
     });
     
