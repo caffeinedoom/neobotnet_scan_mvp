@@ -117,7 +117,6 @@ export const reconAPI = {
           id: `${jobId}-${index}`,
           subdomain,
           scan_job_id: jobId,
-          source_module: 'subfinder', // Default assumption
           discovered_at: scanJob.created_at,
         })) as EnhancedSubdomain[];
       }

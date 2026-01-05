@@ -679,7 +679,6 @@ async def get_paginated_subdomains(
     per_page: int = Query(50, ge=1, le=1000, description="Items per page"),
     asset_id: Optional[str] = Query(None, description="Filter by asset ID"),
     parent_domain: Optional[str] = Query(None, description="Filter by apex domain"),
-    source_module: Optional[str] = Query(None, description="Filter by discovery module"),
     search: Optional[str] = Query(None, description="Search subdomain names"),
     current_user: UserResponse = Depends(get_current_user)
 ):
@@ -700,6 +699,8 @@ async def get_paginated_subdomains(
     - Use per_page=25-100 for optimal performance
     - Implement infinite scroll or traditional pagination
     - Use asset_id filter when navigating from asset detail pages
+    
+    Note: source_module filter removed for production - tool names not exposed.
     """
     
     return await asset_service.get_paginated_user_subdomains(
@@ -708,7 +709,6 @@ async def get_paginated_subdomains(
         per_page=per_page,
         asset_id=asset_id,
         parent_domain=parent_domain,
-        source_module=source_module,
         search=search
     )
 

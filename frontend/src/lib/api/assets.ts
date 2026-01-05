@@ -293,7 +293,6 @@ export interface AssetSubdomain {
   subdomain: string;
   ip_addresses: string[];
   status_code?: number;
-  source_module: string;
   discovered_at: string;
   ssl_subject_cn?: string;
   cloud_provider?: string;

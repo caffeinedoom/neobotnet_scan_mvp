@@ -210,12 +210,12 @@ async def get_recon_data(
                 cd = scan.get("completed_domains", 0)
                 progress = int((cd / td) * 100) if td > 0 else 50
             
+            # Note: modules field removed for production - tool names not exposed via API
             recent_scans.append({
                 "id": scan["id"],
                 "asset_id": scan["asset_id"],
                 "asset_name": asset_name_map.get(scan["asset_id"], "Unknown"),
                 "status": status_val,
-                "modules": scan.get("modules", []),
                 "total_domains": scan.get("total_domains", 0),
                 "completed_domains": scan.get("completed_domains", 0),
                 "active_domains_only": True,

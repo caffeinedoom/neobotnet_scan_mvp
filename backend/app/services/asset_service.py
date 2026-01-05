@@ -983,15 +983,7 @@ class AssetService:
                         elif scan_status in ["running", "pending"]:
                             running_scans += 1
                 
-                # Get modules used for subdomains of this domain
-                modules_response = self.supabase.table("subdomains").select(
-                    "source_module"
-                ).eq("parent_domain", domain_name).execute()
-                
-                used_modules = list(set([
-                    item.get("source_module") for item in modules_response.data 
-                    if item.get("source_module")
-                ])) if modules_response.data else []
+                # Note: used_modules removed for production - tool names not exposed via API
                 
                 # Build domain object with real statistics
                 domain_data = {
@@ -1000,8 +992,7 @@ class AssetService:
                     "total_scans": total_scans,
                     "completed_scans": completed_scans,
                     "running_scans": running_scans, 
-                    "total_subdomains": total_subdomains,
-                    "used_modules": used_modules
+                    "total_subdomains": total_subdomains
                 }
                 domains.append(domain_data)
             
@@ -1077,10 +1068,10 @@ class AssetService:
             
             # Get all unique filter options from ALL reconnaissance data
             # Query all subdomains for comprehensive scope
+            # Note: source_module removed for production - tool names not exposed via API
             filter_query = self.supabase.table("subdomains").select(
                 """
                 parent_domain,
-                source_module,
                 asset_scan_jobs!inner(
                     asset_id,
                     assets!inner(name)
@@ -1093,33 +1084,26 @@ class AssetService:
             if not filter_response.data:
                 return {
                     "domains": [],
-                    "modules": [],
                     "assets": [],
                     "stats": {
                         "total_assets": len(all_asset_ids),
                         "total_domains": 0,
-                        "total_modules": 0,
                         "load_time_ms": "< 50"
                     }
                 }
             
-            # Extract and deduplicate comprehensive options for domains and modules
+            # Extract and deduplicate comprehensive options for domains
             all_domains = set()
-            all_modules = set()
 
             for item in filter_response.data:
                 # Add domain
                 if item.get("parent_domain"):
                     all_domains.add(item["parent_domain"])
-
-                # Add module
-                if item.get("source_module"):
-                    all_modules.add(item["source_module"])
             
             # Build response with comprehensive filter options
             # Use ALL assets from initial query (not just those with subdomains)
+            # Note: modules removed for production - tool names not exposed via API
             domains_list = sorted(list(all_domains))
-            modules_list = sorted(list(all_modules))
             assets_list = [
                 {"id": asset["id"], "name": asset["name"]} 
                 for asset in all_assets_data
@@ -1127,17 +1111,15 @@ class AssetService:
             
             result = {
                 "domains": domains_list,
-                "modules": modules_list, 
                 "assets": assets_list,
                 "stats": {
                     "total_assets": len(all_asset_ids),
                     "total_domains": len(domains_list),
-                    "total_modules": len(modules_list),
                     "load_time_ms": "< 100"
                 }
             }
             
-            self.logger.info(f"Retrieved comprehensive filters: {len(domains_list)} domains, {len(modules_list)} modules, {len(assets_list)} assets")
+            self.logger.info(f"Retrieved comprehensive filters: {len(domains_list)} domains, {len(assets_list)} assets")
             return result
             
         except Exception as e:

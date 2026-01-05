@@ -32,7 +32,6 @@ interface PaginationInfo {
 interface SubdomainFilters {
   asset_id?: string;
   parent_domain?: string;
-  source_module?: string;
   search?: string;
 }
 
@@ -40,7 +39,6 @@ interface SubdomainWithAssetInfo {
   id: string;
   subdomain: string;
   discovered_at: string;
-  source_module: string;
   parent_domain: string;
   scan_job_id: string;
   asset_id: string;
@@ -67,7 +65,6 @@ async function fetchPaginatedSubdomains(params: {
   per_page?: number;
   asset_id?: string;
   parent_domain?: string;
-  source_module?: string;
   search?: string;
 }): Promise<PaginatedSubdomainResponse> {
   const searchParams = new URLSearchParams();
@@ -76,7 +73,6 @@ async function fetchPaginatedSubdomains(params: {
   if (params.per_page) searchParams.append('per_page', params.per_page.toString());
   if (params.asset_id) searchParams.append('asset_id', params.asset_id);
   if (params.parent_domain) searchParams.append('parent_domain', params.parent_domain);
-  if (params.source_module) searchParams.append('source_module', params.source_module);
   if (params.search) searchParams.append('search', params.search);
 
   // Use centralized API client with JWT authentication

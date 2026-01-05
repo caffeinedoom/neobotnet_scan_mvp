@@ -51,8 +51,7 @@ export interface EnhancedSubdomain {
   last_checked?: string;
   scan_job_id: string;
   
-  // Source Attribution
-  source_module: string;
+  // Cloud/Network Attribution (source_module removed for production)
   source_ip_range?: string;
   cloud_provider?: string;
   discovery_method?: string;
@@ -74,7 +73,6 @@ export interface SubdomainResult {
   ip_addresses: string[];
   discovered_at: string;
   scan_job_id: string;
-  source_module?: string;
   metadata?: Record<string, unknown>;
 }
 
