@@ -360,7 +360,7 @@ async def get_url_stats(
 
 
 # Dynamic route MUST be after static routes
-@router.get("/{url_id}", response_model=URLResponse)
+@router.get("/{url_id}")
 async def get_url_by_id(
     url_id: str,
     current_user: UserResponse = Depends(get_current_user)
@@ -370,16 +370,45 @@ async def get_url_by_id(
     
     Returns detailed information for a single URL record.
     
+    **Free tier limit:** Counts against the 250 URL limit.
+    
     Args:
         url_id: UUID of the URL record
         
     Returns:
-        URLResponse: Full URL details
+        URLResponse: Full URL details (or quota exhausted message)
         
     Raises:
         404: If URL not found
     """
     try:
+        # Get user ID
+        user_id = current_user.id if hasattr(current_user, 'id') else current_user.get("id") or current_user.get("sub")
+        
+        # Check quota before allowing access
+        urls_viewed, urls_limit = await get_remaining_url_quota(user_id)
+        plan_type = await get_user_tier(user_id)
+        
+        is_limited = urls_limit is not None
+        if is_limited:
+            urls_remaining = max(0, urls_limit - urls_viewed)
+            
+            # Block if quota exhausted
+            if urls_remaining <= 0:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail={
+                        "message": "You've reached your free tier limit of 250 URLs. Upgrade for unlimited access.",
+                        "quota": {
+                            "plan_type": plan_type,
+                            "urls_limit": urls_limit,
+                            "urls_viewed": urls_viewed,
+                            "urls_remaining": 0,
+                            "upgrade_required": True
+                        }
+                    }
+                )
+        
         # Use service_client to bypass RLS
         supabase = supabase_client.service_client
         
@@ -393,6 +422,10 @@ async def get_url_by_id(
             )
         
         url = response.data[0]
+        
+        # Track this URL view for free tier
+        if is_limited:
+            await increment_urls_viewed(user_id, 1)
         
         # LEAN Architecture: All authenticated users see ALL data
         return url
