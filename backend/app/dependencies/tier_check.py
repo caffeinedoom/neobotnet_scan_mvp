@@ -46,16 +46,19 @@ async def increment_urls_viewed(user_id: str, count: int) -> None:
     """
     Increment the URLs viewed count for a user.
     Called when a free user fetches URLs.
+    
+    Uses UPSERT to handle users who don't have a user_usage record yet.
     """
     try:
         # Get current count
         current = await get_user_urls_viewed(user_id)
         new_count = current + count
         
-        # Update count
-        supabase_client.service_client.table("user_usage").update({
+        # Use upsert to create record if it doesn't exist
+        supabase_client.service_client.table("user_usage").upsert({
+            "user_id": user_id,
             "urls_viewed_count": new_count
-        }).eq("user_id", user_id).execute()
+        }, on_conflict="user_id").execute()
     except Exception:
         pass  # Don't fail the request if tracking fails
 
