@@ -62,17 +62,19 @@ function buildQueryString(filters: Record<string, unknown>): string {
 
 /**
  * Export URLs (PRO ONLY)
+ * Note: Extended timeout for large datasets
  */
 export async function exportURLs(
   format: ExportFormat,
   filters: URLExportFilters = {}
 ): Promise<void> {
   try {
-    toast.loading('Preparing URL export...', { id: 'url-export' });
+    toast.loading('Preparing URL export (this may take a minute)...', { id: 'url-export' });
     
     const queryString = buildQueryString({ format, ...filters });
     const response = await apiClient.get<Blob>(`/api/v1/exports/urls?${queryString}`, {
       responseType: 'blob',
+      timeout: 300000, // 5 minute timeout for large exports
     });
     
     const filename = `urls-export.${format}`;
@@ -97,17 +99,19 @@ export async function exportURLs(
 
 /**
  * Export Subdomains (FREE)
+ * Note: Extended timeout for large datasets
  */
 export async function exportSubdomains(
   format: ExportFormat,
   filters: SubdomainExportFilters = {}
 ): Promise<void> {
   try {
-    toast.loading('Preparing subdomain export...', { id: 'subdomain-export' });
+    toast.loading('Preparing subdomain export (this may take a minute)...', { id: 'subdomain-export' });
     
     const queryString = buildQueryString({ format, ...filters });
     const response = await apiClient.get<Blob>(`/api/v1/exports/subdomains?${queryString}`, {
       responseType: 'blob',
+      timeout: 300000, // 5 minute timeout for large exports
     });
     
     const filename = `subdomains-export.${format}`;
@@ -122,17 +126,19 @@ export async function exportSubdomains(
 
 /**
  * Export DNS Records (FREE)
+ * Note: DNS exports can be large and take longer, so we use extended timeout
  */
 export async function exportDNSRecords(
   format: ExportFormat,
   filters: DNSExportFilters = {}
 ): Promise<void> {
   try {
-    toast.loading('Preparing DNS export...', { id: 'dns-export' });
+    toast.loading('Preparing DNS export (this may take a minute)...', { id: 'dns-export' });
     
     const queryString = buildQueryString({ format, ...filters });
     const response = await apiClient.get<Blob>(`/api/v1/exports/dns?${queryString}`, {
       responseType: 'blob',
+      timeout: 300000, // 5 minute timeout for large DNS exports
     });
     
     const filename = `dns-records-export.${format}`;
@@ -141,23 +147,25 @@ export async function exportDNSRecords(
     toast.success(`DNS records exported as ${format.toUpperCase()}`, { id: 'dns-export' });
   } catch (error) {
     console.error('DNS export failed:', error);
-    toast.error('Failed to export DNS records', { id: 'dns-export' });
+    toast.error('Failed to export DNS records. Try filtering by program first.', { id: 'dns-export' });
   }
 }
 
 /**
  * Export HTTP Probes (FREE)
+ * Note: Extended timeout for large datasets
  */
 export async function exportHTTPProbes(
   format: ExportFormat,
   filters: ProbeExportFilters = {}
 ): Promise<void> {
   try {
-    toast.loading('Preparing HTTP probes export...', { id: 'probe-export' });
+    toast.loading('Preparing HTTP probes export (this may take a minute)...', { id: 'probe-export' });
     
     const queryString = buildQueryString({ format, ...filters });
     const response = await apiClient.get<Blob>(`/api/v1/exports/probes?${queryString}`, {
       responseType: 'blob',
+      timeout: 300000, // 5 minute timeout for large exports
     });
     
     const filename = `http-probes-export.${format}`;
