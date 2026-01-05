@@ -69,7 +69,7 @@ export const Navigation: React.FC = () => {
 
   if (isLoading) {
     return (
-      <nav className="border-b border-border/50 bg-background/80 backdrop-blur-xl supports-[backdrop-filter]:bg-background/60">
+      <nav className="sticky top-0 z-50 border-b border-border/50 bg-background/80 backdrop-blur-xl supports-[backdrop-filter]:bg-background/60">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="flex h-14 items-center justify-between">
             <div className="flex items-center">
@@ -141,7 +141,7 @@ export const Navigation: React.FC = () => {
   const userName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'User';
 
   return (
-    <nav className="border-b border-border/50 bg-background/80 backdrop-blur-xl supports-[backdrop-filter]:bg-background/60">
+    <nav className="sticky top-0 z-50 border-b border-border/50 bg-background/80 backdrop-blur-xl supports-[backdrop-filter]:bg-background/60">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="flex h-14 items-center justify-between">
           <div className="flex items-center space-x-8">
@@ -211,7 +211,7 @@ export const Navigation: React.FC = () => {
 
                 {/* Dropdown Menu */}
                 {dropdownOpen && (
-                  <div className="absolute right-0 mt-2 w-56 bg-card border border-border rounded-lg shadow-xl py-1 z-[100]">
+                  <div className="absolute right-0 mt-2 w-56 bg-card border border-border rounded-lg shadow-2xl py-1 z-[9999]">
                     {/* User Info */}
                     <div className="px-4 py-3 border-b border-border">
                       <p className="text-sm font-medium">{userName}</p>
