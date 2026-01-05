@@ -6,6 +6,8 @@ In the LEAN model:
 - All authenticated users can read ALL program data
 - No user-specific filtering (data is public within the platform)
 - API keys or JWT tokens are required for authentication
+
+NOTE: Internal tool names (subfinder, dnsx, httpx, etc.) are NOT exposed to users.
 """
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from typing import List, Dict, Any, Optional
@@ -80,6 +82,72 @@ async def list_programs(
         )
 
 
+# ================================================================
+# Global Endpoints - MUST be defined BEFORE /{program_id} routes
+# to prevent route matching conflicts
+# ================================================================
+
+@router.get("/all/subdomains", response_model=Dict[str, Any])
+async def get_all_subdomains(
+    page: int = Query(1, ge=1, description="Page number"),
+    per_page: int = Query(100, ge=1, le=1000, description="Items per page"),
+    search: Optional[str] = Query(None, description="Search subdomain names"),
+    current_user: UserResponse = Depends(get_current_user)
+):
+    """
+    Get all subdomains across all programs with pagination.
+    
+    Returns:
+        Paginated list of all subdomains
+    """
+    try:
+        client = supabase_client.service_client
+        
+        # Build subdomains query - NOTE: source_module NOT exposed to users
+        query = client.table("subdomains").select(
+            "id, subdomain, parent_domain, discovered_at, scan_job_id",
+            count="exact"
+        )
+        
+        # Apply search filter
+        if search:
+            query = query.ilike("subdomain", f"%{search}%")
+        
+        # Apply pagination
+        offset = (page - 1) * per_page
+        query = query.range(offset, offset + per_page - 1)
+        query = query.order("discovered_at", desc=True)
+        
+        result = query.execute()
+        total = result.count or 0
+        total_pages = (total + per_page - 1) // per_page if total > 0 else 0
+        
+        logger.info(f"Returning {len(result.data or [])} subdomains (all programs)")
+        
+        return {
+            "subdomains": result.data or [],
+            "pagination": {
+                "total": total,
+                "page": page,
+                "per_page": per_page,
+                "total_pages": total_pages,
+                "has_next": page < total_pages,
+                "has_prev": page > 1
+            }
+        }
+        
+    except Exception as e:
+        logger.error(f"Error getting all subdomains: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to get subdomains"
+        )
+
+
+# ================================================================
+# Single Program Endpoint
+# ================================================================
+
 @router.get("/{program_id}", response_model=Dict[str, Any])
 async def get_program(
     program_id: str,
@@ -132,7 +200,6 @@ async def get_program_subdomains(
     page: int = Query(1, ge=1, description="Page number"),
     per_page: int = Query(100, ge=1, le=1000, description="Items per page"),
     search: Optional[str] = Query(None, description="Search subdomain names"),
-    source_module: Optional[str] = Query(None, description="Filter by discovery module"),
     current_user: UserResponse = Depends(get_current_user)
 ):
     """
@@ -140,6 +207,8 @@ async def get_program_subdomains(
     
     Returns:
         Paginated list of subdomains with metadata
+        
+    Note: source_module filter removed - internal tool names not exposed.
     """
     try:
         client = supabase_client.service_client
@@ -169,17 +238,15 @@ async def get_program_subdomains(
                 }
             }
         
-        # Build subdomains query
+        # Build subdomains query - NOTE: source_module NOT exposed to users
         query = client.table("subdomains").select(
-            "id, subdomain, parent_domain, source_module, discovered_at, scan_job_id",
+            "id, subdomain, parent_domain, discovered_at, scan_job_id",
             count="exact"
         ).in_("scan_job_id", scan_job_ids)
         
-        # Apply filters
+        # Apply search filter only
         if search:
             query = query.ilike("subdomain", f"%{search}%")
-        if source_module:
-            query = query.eq("source_module", source_module)
         
         # Apply pagination
         offset = (page - 1) * per_page
@@ -244,9 +311,9 @@ async def get_program_dns_records(
                 detail=f"Program {program_id} not found"
             )
         
-        # Build DNS records query
+        # Build DNS records query - FIXED: use correct column names
         query = client.table("dns_records").select(
-            "id, subdomain_name, record_type, record_value, ttl, resolved_at, cloud_provider",
+            "id, subdomain, parent_domain, record_type, record_value, ttl, resolved_at, cloud_provider, cdn_provider",
             count="exact"
         ).eq("asset_id", program_id)
         
@@ -254,7 +321,7 @@ async def get_program_dns_records(
         if record_type:
             query = query.eq("record_type", record_type.upper())
         if subdomain:
-            query = query.ilike("subdomain_name", f"%{subdomain}%")
+            query = query.ilike("subdomain", f"%{subdomain}%")
         
         # Apply pagination
         offset = (page - 1) * per_page
@@ -319,9 +386,9 @@ async def get_program_http_probes(
                 detail=f"Program {program_id} not found"
             )
         
-        # Build HTTP probes query
+        # Build HTTP probes query - FIXED: use correct column names (cdn_name, created_at)
         query = client.table("http_probes").select(
-            "id, url, status_code, title, content_length, content_type, technologies, webserver, cdn, probed_at",
+            "id, url, status_code, title, content_length, content_type, technologies, webserver, cdn_name, created_at",
             count="exact"
         ).eq("asset_id", program_id)
         
@@ -335,7 +402,7 @@ async def get_program_http_probes(
         # Apply pagination
         offset = (page - 1) * per_page
         query = query.range(offset, offset + per_page - 1)
-        query = query.order("probed_at", desc=True)
+        query = query.order("created_at", desc=True)
         
         result = query.execute()
         total = result.count or 0
@@ -362,67 +429,6 @@ async def get_program_http_probes(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to get HTTP probes"
-        )
-
-
-# ================================================================
-# Global Subdomains Endpoint
-# ================================================================
-
-@router.get("/all/subdomains", response_model=Dict[str, Any])
-async def get_all_subdomains(
-    page: int = Query(1, ge=1, description="Page number"),
-    per_page: int = Query(100, ge=1, le=1000, description="Items per page"),
-    search: Optional[str] = Query(None, description="Search subdomain names"),
-    current_user: UserResponse = Depends(get_current_user)
-):
-    """
-    Get all subdomains across all programs with pagination.
-    
-    Returns:
-        Paginated list of all subdomains
-    """
-    try:
-        client = supabase_client.service_client
-        
-        # Build subdomains query
-        query = client.table("subdomains").select(
-            "id, subdomain, parent_domain, source_module, discovered_at, scan_job_id",
-            count="exact"
-        )
-        
-        # Apply search filter
-        if search:
-            query = query.ilike("subdomain", f"%{search}%")
-        
-        # Apply pagination
-        offset = (page - 1) * per_page
-        query = query.range(offset, offset + per_page - 1)
-        query = query.order("discovered_at", desc=True)
-        
-        result = query.execute()
-        total = result.count or 0
-        total_pages = (total + per_page - 1) // per_page if total > 0 else 0
-        
-        logger.info(f"Returning {len(result.data or [])} subdomains (all programs)")
-        
-        return {
-            "subdomains": result.data or [],
-            "pagination": {
-                "total": total,
-                "page": page,
-                "per_page": per_page,
-                "total_pages": total_pages,
-                "has_next": page < total_pages,
-                "has_prev": page > 1
-            }
-        }
-        
-    except Exception as e:
-        logger.error(f"Error getting all subdomains: {str(e)}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to get subdomains"
         )
 
 
@@ -475,4 +481,3 @@ async def _enrich_programs_with_stats(client, programs: List[Dict[str, Any]]) ->
         })
     
     return enriched
-
