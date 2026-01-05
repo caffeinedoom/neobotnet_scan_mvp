@@ -370,38 +370,51 @@ class AssetService:
             )
     
     async def get_apex_domains(self, asset_id: str, user_id: str, include_stats: bool = True) -> List[ApexDomainWithStats]:
-        """Get apex domains for an asset with subdomain counts."""
+        """Get apex domains for an asset with subdomain counts.
+        
+        Performance optimized:
+        - Query 1: Fetch apex domains for this asset (small, ~5-20 rows)
+        - Query 2: Get subdomain counts grouped by parent_domain for this asset
+        - Both queries use idx_subdomains_asset_id index, filtered to single asset
+        """
         try:
             # Verify asset exists and belongs to user
             await self.get_asset(asset_id, user_id)
             
+            # Query 1: Fetch apex domains for this asset
+            response = self.supabase.table("apex_domains").select("*").eq("asset_id", asset_id).order("created_at", desc=True).execute()
+            
+            if not response.data:
+                return []
+            
             if include_stats:
-                # Use apex_domain_overview view which has pre-computed subdomain_count
-                response = self.supabase.table("apex_domain_overview").select(
-                    "id, asset_id, domain, description, is_active, last_scanned_at, created_at, updated_at, subdomain_count"
-                ).eq("asset_id", asset_id).order("created_at", desc=True).execute()
+                # Query 2: Get all subdomain counts for this asset grouped by parent_domain
+                # This is efficient: uses idx_subdomains_asset_id, filters to ONE asset
+                # Returns: [{parent_domain: "example.com", count: 150}, ...]
+                counts_response = self.supabase.from_("subdomains").select(
+                    "parent_domain"
+                ).eq("asset_id", asset_id).execute()
+                
+                # Count subdomains per parent_domain in Python (fast for <100k rows per asset)
+                subdomain_counts: dict = {}
+                for row in (counts_response.data or []):
+                    pd = row.get("parent_domain")
+                    if pd:
+                        subdomain_counts[pd] = subdomain_counts.get(pd, 0) + 1
                 
                 domains_with_stats = []
                 for domain_data in response.data:
                     domain_with_stats = ApexDomainWithStats(
-                        id=domain_data["id"],
-                        asset_id=domain_data["asset_id"],
-                        domain=domain_data["domain"],
-                        description=domain_data.get("description"),
-                        is_active=domain_data.get("is_active", True),
-                        last_scanned_at=domain_data.get("last_scanned_at"),
-                        created_at=domain_data["created_at"],
-                        updated_at=domain_data["updated_at"],
+                        **domain_data,
                         total_scans=0,
                         completed_scans=0,
                         failed_scans=0,
-                        total_subdomains=domain_data.get("subdomain_count", 0) or 0
+                        total_subdomains=subdomain_counts.get(domain_data["domain"], 0)
                     )
                     domains_with_stats.append(domain_with_stats)
                 
                 return domains_with_stats
             else:
-                response = self.supabase.table("apex_domains").select("*").eq("asset_id", asset_id).order("created_at", desc=True).execute()
                 return [ApexDomainWithStats(**domain) for domain in response.data]
                 
         except HTTPException:

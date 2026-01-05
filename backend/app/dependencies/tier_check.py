@@ -47,20 +47,33 @@ async def increment_urls_viewed(user_id: str, count: int) -> None:
     Increment the URLs viewed count for a user.
     Called when a free user fetches URLs.
     
-    Uses UPSERT to handle users who don't have a user_usage record yet.
+    Uses atomic database operation to prevent race conditions.
     """
     try:
-        # Get current count
-        current = await get_user_urls_viewed(user_id)
-        new_count = current + count
-        
-        # Use upsert to create record if it doesn't exist
+        # First, try to ensure user has a record (upsert with current value if exists)
+        # This handles the case where user_usage doesn't exist yet
         supabase_client.service_client.table("user_usage").upsert({
             "user_id": user_id,
-            "urls_viewed_count": new_count
-        }, on_conflict="user_id").execute()
+            "urls_viewed_count": count  # Initial value if new record
+        }, on_conflict="user_id", ignore_duplicates=True).execute()
+        
+        # Then, atomically increment using raw SQL via RPC
+        # This prevents race conditions by doing increment at database level
+        supabase_client.service_client.rpc(
+            "increment_url_quota",
+            {"p_user_id": user_id, "p_count": count}
+        ).execute()
     except Exception:
-        pass  # Don't fail the request if tracking fails
+        # Fallback to non-atomic if RPC doesn't exist (backwards compatibility)
+        try:
+            current = await get_user_urls_viewed(user_id)
+            new_count = current + count
+            supabase_client.service_client.table("user_usage").upsert({
+                "user_id": user_id,
+                "urls_viewed_count": new_count
+            }, on_conflict="user_id").execute()
+        except Exception:
+            pass  # Don't fail the request if tracking fails
 
 
 async def get_tier_and_limits(user_id: str) -> Tuple[str, TierLimits]:

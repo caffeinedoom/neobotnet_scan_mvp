@@ -578,6 +578,36 @@ $$;
 ALTER FUNCTION "public"."get_paid_user_count"() OWNER TO "postgres";
 
 
+-- Atomic increment for URL quota tracking (prevents race conditions)
+CREATE OR REPLACE FUNCTION "public"."increment_url_quota"("p_user_id" "uuid", "p_count" integer) RETURNS void
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    AS $$
+BEGIN
+    -- Atomically increment the urls_viewed_count
+    -- This prevents race conditions from concurrent requests
+    UPDATE public.user_usage
+    SET urls_viewed_count = COALESCE(urls_viewed_count, 0) + p_count,
+        updated_at = NOW()
+    WHERE user_id = p_user_id;
+    
+    -- If no row was updated, insert a new record
+    IF NOT FOUND THEN
+        INSERT INTO public.user_usage (user_id, urls_viewed_count)
+        VALUES (p_user_id, p_count)
+        ON CONFLICT (user_id) DO UPDATE
+        SET urls_viewed_count = COALESCE(user_usage.urls_viewed_count, 0) + p_count,
+            updated_at = NOW();
+    END IF;
+END;
+$$;
+
+
+ALTER FUNCTION "public"."increment_url_quota"("p_user_id" "uuid", "p_count" integer) OWNER TO "postgres";
+
+
+COMMENT ON FUNCTION "public"."increment_url_quota"("p_user_id" "uuid", "p_count" integer) IS 'Atomically increment the URL quota for a user. Prevents race conditions from concurrent API requests.';
+
+
 CREATE OR REPLACE FUNCTION "public"."get_user_recon_data"("target_user_id" "uuid") RETURNS json
     LANGUAGE "plpgsql" SECURITY DEFINER
     AS $$
