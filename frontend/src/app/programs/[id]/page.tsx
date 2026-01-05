@@ -19,11 +19,21 @@ import {
   Network,
   Server,
   CircleDot,
-  ChevronRight
+  ChevronRight,
+  Link2
 } from 'lucide-react';
 import Link from 'next/link';
 import { reconDataService, type ReconAsset } from '@/lib/api/recon-data';
+import { apiClient } from '@/lib/api/client';
 import { toast } from 'sonner';
+
+// Apex Domain type
+interface ApexDomain {
+  id: string;
+  domain: string;
+  total_subdomains: number;
+  last_scanned_at?: string;
+}
 
 // Letter Avatar component (matching /programs page)
 function LetterAvatar({ name, className = '' }: { name: string; className?: string }) {
@@ -64,6 +74,7 @@ export default function ProgramDetailPage() {
   const { isAuthenticated, isLoading } = useAuth();
   
   const [program, setProgram] = useState<ReconAsset | null>(null);
+  const [apexDomains, setApexDomains] = useState<ApexDomain[]>([]);
   const [loading, setLoading] = useState(true);
 
   const programId = params.id as string;
@@ -77,11 +88,16 @@ export default function ProgramDetailPage() {
     }
   }, [isAuthenticated, isLoading, router]);
 
-  // Load program details
+  // Load program details and apex domains
   const loadProgram = async () => {
     try {
       setLoading(true);
-      const programData = await reconDataService.getAssetDetailData(programId);
+      
+      // Fetch program data and apex domains in parallel
+      const [programData, domainsResponse] = await Promise.all([
+        reconDataService.getAssetDetailData(programId),
+        apiClient.get<ApexDomain[]>(`/api/v1/assets/${programId}/domains`).catch(() => ({ data: [] }))
+      ]);
       
       if (!programData) {
         toast.error('Program not found');
@@ -90,6 +106,7 @@ export default function ProgramDetailPage() {
       }
       
       setProgram(programData);
+      setApexDomains(domainsResponse.data || []);
     } catch (error) {
       console.error('Failed to load program:', error);
       toast.error('Failed to load program');
@@ -136,35 +153,42 @@ export default function ProgramDetailPage() {
     return null;
   }
 
-  // Navigation cards data
-  const navCards = [
+  // Stat cards data (domains card has no link - shown in section below)
+  const statCards = [
     {
-      href: `/subdomains?asset=${program.id}`,
+      href: null, // No link - apex domains shown in section below
       icon: CircleDot,
       label: 'domains',
       count: program.apex_domain_count || 0,
-      subtitle: `${program.active_domain_count || 0} active`,
+      subtitle: 'apex',
     },
     {
-      href: `/subdomains?asset=${program.id}`,
+      href: `/subdomains?asset_id=${program.id}`,
       icon: Globe,
       label: 'subdomains',
       count: program.total_subdomains || 0,
       subtitle: 'discovered',
     },
     {
-      href: `/dns?asset=${program.id}`,
+      href: `/dns?asset_id=${program.id}`,
       icon: Network,
       label: 'dns',
       count: program.total_dns_records || 0,
       subtitle: 'records',
     },
     {
-      href: `/probes?asset=${program.id}`,
+      href: `/probes?asset_id=${program.id}`,
       icon: Server,
       label: 'servers',
       count: program.total_probes || 0,
       subtitle: 'live hosts',
+    },
+    {
+      href: `/urls?asset_id=${program.id}`,
+      icon: Link2,
+      label: 'urls',
+      count: program.total_urls || 0,
+      subtitle: 'discovered',
     },
   ];
 
@@ -228,32 +252,72 @@ export default function ProgramDetailPage() {
           </div>
         </div>
 
-        {/* Navigation Cards Grid */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {navCards.map((card) => (
-            <Link key={card.label} href={card.href}>
-              <Card className="relative border border-border bg-card hover:border-[--terminal-green]/50 hover:bg-white/[0.02] transition-all duration-200 cursor-pointer h-full group overflow-hidden">
-                {/* Hover overlay */}
-                <div className="absolute inset-0 bg-gradient-to-br from-white/[0.03] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none" />
+        {/* Stat Cards Grid */}
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+          {statCards.map((card) => {
+            const cardContent = (
+              <Card className={`relative border border-border bg-card h-full group overflow-hidden ${
+                card.href 
+                  ? 'hover:border-[--terminal-green]/50 hover:bg-white/[0.02] transition-all duration-200 cursor-pointer' 
+                  : ''
+              }`}>
+                {/* Hover overlay for clickable cards */}
+                {card.href && (
+                  <div className="absolute inset-0 bg-gradient-to-br from-white/[0.03] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none" />
+                )}
                 <CardContent className="p-4 relative z-10">
                   <div className="flex items-center justify-between mb-3">
-                    <card.icon className="h-4 w-4 text-muted-foreground group-hover:text-[--terminal-green] transition-colors" />
-                    <ChevronRight className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
-              </div>
+                    <card.icon className={`h-4 w-4 text-muted-foreground ${card.href ? 'group-hover:text-[--terminal-green]' : ''} transition-colors`} />
+                    {card.href && (
+                      <ChevronRight className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                    )}
+                  </div>
                   <div className="text-2xl font-bold font-mono text-foreground mb-1">
                     {card.count !== null ? card.count.toLocaleString() : '—'}
-        </div>
+                  </div>
                   <div className="text-xs text-muted-foreground uppercase tracking-wider font-mono">
                     {card.label}
-              </div>
+                  </div>
                   <div className="text-[10px] text-muted-foreground/70 font-mono mt-1">
                     {card.subtitle}
+                  </div>
+                </CardContent>
+              </Card>
+            );
+            
+            return card.href ? (
+              <Link key={card.label} href={card.href}>
+                {cardContent}
+              </Link>
+            ) : (
+              <div key={card.label}>
+                {cardContent}
               </div>
-            </CardContent>
-          </Card>
-                </Link>
-          ))}
+            );
+          })}
         </div>
+
+        {/* Apex Domains Section */}
+        {apexDomains.length > 0 && (
+          <div className="space-y-4">
+            <h2 className="text-sm font-medium text-muted-foreground uppercase tracking-wider font-mono">
+              Apex Domains
+            </h2>
+            <div className="space-y-2">
+              {apexDomains.map((domain) => (
+                <div 
+                  key={domain.id}
+                  className="flex items-center justify-between py-3 px-4 rounded-lg border border-border/50 bg-card/30 hover:bg-card/50 transition-colors"
+                >
+                  <code className="font-mono text-foreground">{domain.domain}</code>
+                  <span className="text-sm text-muted-foreground font-mono">
+                    {domain.total_subdomains.toLocaleString()} subdomains
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
