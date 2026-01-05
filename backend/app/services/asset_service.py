@@ -370,28 +370,38 @@ class AssetService:
             )
     
     async def get_apex_domains(self, asset_id: str, user_id: str, include_stats: bool = True) -> List[ApexDomainWithStats]:
-        """Get apex domains for an asset."""
+        """Get apex domains for an asset with subdomain counts."""
         try:
             # Verify asset exists and belongs to user
             await self.get_asset(asset_id, user_id)
             
-            response = self.supabase.table("apex_domains").select("*").eq("asset_id", asset_id).order("created_at", desc=True).execute()
-            
             if include_stats:
+                # Use apex_domain_overview view which has pre-computed subdomain_count
+                response = self.supabase.table("apex_domain_overview").select(
+                    "id, asset_id, domain, description, is_active, last_scanned_at, created_at, updated_at, subdomain_count"
+                ).eq("asset_id", asset_id).order("created_at", desc=True).execute()
+                
                 domains_with_stats = []
                 for domain_data in response.data:
-                    # TODO: Calculate actual statistics
                     domain_with_stats = ApexDomainWithStats(
-                        **domain_data,
+                        id=domain_data["id"],
+                        asset_id=domain_data["asset_id"],
+                        domain=domain_data["domain"],
+                        description=domain_data.get("description"),
+                        is_active=domain_data.get("is_active", True),
+                        last_scanned_at=domain_data.get("last_scanned_at"),
+                        created_at=domain_data["created_at"],
+                        updated_at=domain_data["updated_at"],
                         total_scans=0,
                         completed_scans=0,
                         failed_scans=0,
-                        total_subdomains=0
+                        total_subdomains=domain_data.get("subdomain_count", 0) or 0
                     )
                     domains_with_stats.append(domain_with_stats)
                 
                 return domains_with_stats
             else:
+                response = self.supabase.table("apex_domains").select("*").eq("asset_id", asset_id).order("created_at", desc=True).execute()
                 return [ApexDomainWithStats(**domain) for domain in response.data]
                 
         except HTTPException:
