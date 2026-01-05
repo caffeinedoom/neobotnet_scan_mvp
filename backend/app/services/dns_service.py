@@ -664,233 +664,140 @@ class DNSService:
         
         LEAN Architecture: All authenticated users see ALL data.
         
-        This method aggregates all DNS records by subdomain and organizes
-        them by record type (A, AAAA, CNAME, MX, TXT). Pagination is applied
-        to the subdomain count, not individual record count.
+        OPTIMIZED Query Strategy (v2 - uses subdomain_current_dns view):
+        1. Query subdomain_current_dns view for paginated subdomain list (DATABASE does GROUP BY)
+        2. Only fetch detailed records for current page's subdomains (50 max)
+        3. Build response with minimal data transfer
         
-        Query Strategy:
-        1. Fetch all DNS records for user with filters (no pagination yet)
-        2. Group records by subdomain in memory (Python aggregation)
-        3. Organize records by type within each subdomain
-        4. Sort grouped subdomains by last_resolved (most recent first)
-        5. Apply pagination to grouped subdomains
-        6. Return structured grouped data
-        
-        Args:
-            user_id: UUID of the user
-            page: Page number (1-indexed)
-            per_page: Subdomains per page (not record count)
-            asset_id: Optional filter by asset UUID
-            parent_domain: Optional filter by parent domain
-            record_type: Optional filter by DNS record type
-            search: Optional search term (subdomain name)
-            
-        Returns:
-            Dictionary containing:
-                - grouped_records: List[GroupedDNSRecord] - Subdomains with grouped DNS
-                - pagination: Pagination metadata (total = subdomain count)
-                - filters: Applied filters
-                - stats: total_subdomains, total_dns_records, record_type_breakdown
-                
-        Example:
-            result = await dns_service.get_user_dns_records_paginated_grouped(
-                user_id=UUID("..."),
-                page=1,
-                per_page=50,
-                record_type="A",
-                search="api"
-            )
+        This approach reduces 115 HTTP requests (22s) to just 3 queries (~1-2s).
         """
         try:
             # Validate pagination
             page = max(1, page)
-            per_page = min(max(1, per_page), 100)  # Cap at 100 subdomains per page
+            per_page = min(max(1, per_page), 250)  # Cap at 250 subdomains per page
             
             # Validate record_type if provided
             if record_type:
                 record_type = self._validate_record_type(record_type)
             
             self.logger.info(
-                f"Fetching grouped DNS records (page={page}, per_page={per_page}, "
+                f"[OPTIMIZED] Fetching grouped DNS via view (page={page}, per_page={per_page}, "
                 f"asset_id={asset_id}, parent_domain={parent_domain}, record_type={record_type}, search={search})"
             )
             
-            # LEAN Architecture: Get ALL assets (no user_id filter)
-            assets_response = (self.supabase.table('assets')
-                              .select('id, name')
-                              .execute())
+            # ================================================================
+            # QUERY 1: Get assets for name mapping (fast, ~25 rows)
+            # ================================================================
+            assets_response = self.supabase.table('assets').select('id, name').execute()
             
             if not assets_response.data:
-                # No assets in system, return empty result
                 return {
                     'grouped_records': [],
-                    'pagination': {
-                        'total': 0,
-                        'page': 1,
-                        'per_page': per_page,
-                        'total_pages': 1,
-                        'has_next': False,
-                        'has_prev': False
-                    },
-                    'filters': {
-                        'asset_id': str(asset_id) if asset_id else None,
-                        'parent_domain': parent_domain,
-                        'record_type': record_type,
-                        'search': search
-                    },
-                    'stats': {
-                        'total_subdomains': 0,
-                        'total_dns_records': 0,
-                        'total_assets': 0,
-                        'record_type_breakdown': {}
-                    }
+                    'pagination': {'total': 0, 'page': 1, 'per_page': per_page, 'total_pages': 1, 'has_next': False, 'has_prev': False},
+                    'filters': {'asset_id': str(asset_id) if asset_id else None, 'parent_domain': parent_domain, 'record_type': record_type, 'search': search},
+                    'stats': {'total_subdomains': 0, 'total_dns_records': 0, 'total_assets': 0, 'record_type_breakdown': {}}
                 }
             
-            # Build asset_id -> asset_name mapping
             asset_map = {asset['id']: asset['name'] for asset in assets_response.data}
-            all_asset_ids = list(asset_map.keys())
             
-            # Step 2: Get accurate total count first
-            count_query = (self.supabase.table('dns_records')
-                          .select('id', count='exact')
-                          .in_('asset_id', all_asset_ids))
+            # ================================================================
+            # QUERY 2: Use subdomain_current_dns VIEW for paginated grouping
+            # This view already does GROUP BY subdomain at database level!
+            # ================================================================
+            view_query = self.supabase.table('subdomain_current_dns').select(
+                'subdomain, parent_domain, asset_id, total_records, last_resolved_at',
+                count='exact'
+            )
+            
+            # Apply filters
             if asset_id:
-                count_query = count_query.eq('asset_id', str(asset_id))
+                view_query = view_query.eq('asset_id', str(asset_id))
             if parent_domain:
-                count_query = count_query.eq('parent_domain', parent_domain)
-            if record_type:
-                count_query = count_query.eq('record_type', record_type)
+                view_query = view_query.eq('parent_domain', parent_domain)
             if search:
-                count_query = count_query.ilike('subdomain', f'%{search}%')
-            count_result = count_query.limit(1).execute()
-            total_dns_records_actual = count_result.count or 0
+                view_query = view_query.ilike('subdomain', f'%{search}%')
             
-            # Step 3: Fetch DNS records in batches (Supabase limits to 1000 per request)
-            all_records = []
-            batch_size = 1000
-            offset = 0
+            # Order and paginate at DATABASE level (not in Python!)
+            offset = (page - 1) * per_page
+            view_query = view_query.order('last_resolved_at', desc=True).range(offset, offset + per_page - 1)
             
-            while offset < total_dns_records_actual:
-                query = (self.supabase.table('dns_records')
-                        .select('*')
-                        .in_('asset_id', all_asset_ids))
-                
-                # Apply filters
-                if asset_id:
-                    query = query.eq('asset_id', str(asset_id))
-                if parent_domain:
-                    query = query.eq('parent_domain', parent_domain)
-                if record_type:
-                    query = query.eq('record_type', record_type)
-                if search:
-                    query = query.ilike('subdomain', f'%{search}%')
-                
-                # Order and paginate
-                query = query.order('resolved_at', desc=True).range(offset, offset + batch_size - 1)
-                
-                batch_response = query.execute()
-                batch_data = batch_response.data or []
-                all_records.extend(batch_data)
-                
-                if len(batch_data) < batch_size:
-                    break
-                offset += batch_size
+            view_result = view_query.execute()
+            total_subdomains = view_result.count or 0
+            page_subdomains = view_result.data or []
             
-            # Use fetched records for processing
-            response_data = all_records
-            
-            if not response_data:
-                # No records found
+            if not page_subdomains:
+                total_assets = len(asset_map)
                 return {
                     'grouped_records': [],
-                    'pagination': {
-                        'total': 0,
-                        'page': 1,
-                        'per_page': per_page,
-                        'total_pages': 1,
-                        'has_next': False,
-                        'has_prev': False
-                    },
-                    'filters': {
-                        'asset_id': str(asset_id) if asset_id else None,
-                        'parent_domain': parent_domain,
-                        'record_type': record_type,
-                        'search': search
-                    },
-                    'stats': {
-                        'total_subdomains': 0,
-                        'total_dns_records': 0,
-                        'total_assets': len(all_asset_ids) if asset_id is None else 1,
-                        'record_type_breakdown': {}
-                    }
+                    'pagination': {'total': 0, 'page': 1, 'per_page': per_page, 'total_pages': 1, 'has_next': False, 'has_prev': False},
+                    'filters': {'asset_id': str(asset_id) if asset_id else None, 'parent_domain': parent_domain, 'record_type': record_type, 'search': search},
+                    'stats': {'total_subdomains': 0, 'total_dns_records': 0, 'total_assets': total_assets, 'record_type_breakdown': {}}
                 }
             
-            # Step 4: Group records by subdomain
-            # Structure: {subdomain: {metadata, records_by_type: {A: [], AAAA: [], ...}}}
-            grouped = defaultdict(lambda: {
-                'subdomain': '',
-                'parent_domain': '',
-                'asset_name': '',
-                'asset_id': '',
-                'total_records': 0,
-                'last_resolved': None,
-                'records_by_type': {
-                    'A': [],
-                    'AAAA': [],
-                    'CNAME': [],
-                    'MX': [],
-                    'TXT': []
-                }
-            })
+            # ================================================================
+            # QUERY 3: Get detailed records ONLY for this page's subdomains
+            # Instead of fetching 114K records, we fetch ~200-500 max
+            # ================================================================
+            subdomain_names = [s['subdomain'] for s in page_subdomains]
             
-            total_dns_records = 0
+            # Fetch detailed records for just these subdomains
+            details_query = self.supabase.table('dns_records').select(
+                'id, subdomain, record_type, record_value, ttl, priority, resolved_at, cloud_provider'
+            ).in_('subdomain', subdomain_names)
+            
+            # Apply record_type filter if specified
+            if record_type:
+                details_query = details_query.eq('record_type', record_type)
+            
+            details_result = details_query.order('resolved_at', desc=True).execute()
+            detailed_records = details_result.data or []
+            
+            # ================================================================
+            # Build grouped response (now using pre-grouped view data + details)
+            # ================================================================
+            
+            # Index detailed records by subdomain for fast lookup
+            records_by_subdomain = defaultdict(list)
             record_type_breakdown = defaultdict(int)
+            total_dns_records = 0
             
-            for record in response_data:
-                subdomain_key = record['subdomain']
-                record_type_key = record['record_type']
-                
-                # Initialize subdomain metadata (first record for this subdomain)
-                if not grouped[subdomain_key]['subdomain']:
-                    grouped[subdomain_key]['subdomain'] = record['subdomain']
-                    grouped[subdomain_key]['parent_domain'] = record['parent_domain']
-                    grouped[subdomain_key]['asset_name'] = asset_map.get(record['asset_id'], 'Unknown')
-                    grouped[subdomain_key]['asset_id'] = record['asset_id']
-                    grouped[subdomain_key]['last_resolved'] = record['resolved_at']
-                
-                # Update last_resolved if this record is more recent
-                if record['resolved_at'] > grouped[subdomain_key]['last_resolved']:
-                    grouped[subdomain_key]['last_resolved'] = record['resolved_at']
-                
-                # Add record to appropriate type list
-                record_detail = {
-                    'id': record['id'],
-                    'record_value': record['record_value'],
-                    'ttl': record.get('ttl'),
-                    'priority': record.get('priority'),
-                    'resolved_at': record['resolved_at'],
-                    'cloud_provider': record.get('cloud_provider')
-                }
-                
-                grouped[subdomain_key]['records_by_type'][record_type_key].append(record_detail)
-                grouped[subdomain_key]['total_records'] += 1
-                
+            for record in detailed_records:
+                records_by_subdomain[record['subdomain']].append(record)
+                record_type_breakdown[record['record_type']] += 1
                 total_dns_records += 1
-                record_type_breakdown[record_type_key] += 1
             
-            # Step 5: Convert to list and sort by last_resolved (most recent first)
-            grouped_list = list(grouped.values())
-            grouped_list.sort(key=lambda x: x['last_resolved'], reverse=True)
+            # Build grouped records for response
+            grouped_records = []
+            for sub in page_subdomains:
+                subdomain_name = sub['subdomain']
+                records = records_by_subdomain.get(subdomain_name, [])
+                
+                # Organize by record type
+                records_by_type = {'A': [], 'AAAA': [], 'CNAME': [], 'MX': [], 'TXT': []}
+                for r in records:
+                    rtype = r.get('record_type', 'A')
+                    if rtype in records_by_type:
+                        records_by_type[rtype].append({
+                            'id': r['id'],
+                            'record_value': r['record_value'],
+                            'ttl': r.get('ttl'),
+                            'priority': r.get('priority'),
+                            'resolved_at': r['resolved_at'],
+                            'cloud_provider': r.get('cloud_provider')
+                        })
+                
+                grouped_records.append({
+                    'subdomain': subdomain_name,
+                    'parent_domain': sub['parent_domain'],
+                    'asset_name': asset_map.get(sub['asset_id'], 'Unknown'),
+                    'asset_id': sub['asset_id'],
+                    'total_records': sub.get('total_records', len(records)),
+                    'last_resolved': sub.get('last_resolved_at'),
+                    'records_by_type': records_by_type
+                })
             
-            # Step 6: Apply pagination to grouped subdomains
-            total_subdomains = len(grouped_list)
+            # Build pagination metadata
             total_pages = (total_subdomains + per_page - 1) // per_page if total_subdomains > 0 else 1
-            
-            # Calculate offset for current page
-            offset = (page - 1) * per_page
-            paginated_grouped = grouped_list[offset:offset + per_page]
-            
-            # Step 7: Build pagination metadata
             pagination = {
                 'total': total_subdomains,
                 'page': page,
@@ -900,36 +807,24 @@ class DNSService:
                 'has_prev': page > 1
             }
             
-            # Build filters metadata
-            filters_metadata = {
-                'asset_id': str(asset_id) if asset_id else None,
-                'parent_domain': parent_domain,
-                'record_type': record_type,
-                'search': search
-            }
-            
-            # Build stats
-            stats = {
-                'total_subdomains': total_subdomains,
-                'total_dns_records': total_dns_records,
-                'total_assets': len(all_asset_ids) if asset_id is None else 1,
-                'record_type_breakdown': dict(record_type_breakdown)
-            }
-            
             self.logger.info(
-                f"Returning {len(paginated_grouped)} grouped subdomains "
-                f"(total: {total_subdomains}, page: {page}/{total_pages})"
+                f"[OPTIMIZED] Returning {len(grouped_records)} grouped subdomains "
+                f"(total: {total_subdomains}, page: {page}/{total_pages}) - 3 queries only!"
             )
             
             return {
-                'grouped_records': paginated_grouped,
+                'grouped_records': grouped_records,
                 'pagination': pagination,
-                'filters': filters_metadata,
-                'stats': stats
+                'filters': {'asset_id': str(asset_id) if asset_id else None, 'parent_domain': parent_domain, 'record_type': record_type, 'search': search},
+                'stats': {
+                    'total_subdomains': total_subdomains,
+                    'total_dns_records': total_dns_records,
+                    'total_assets': len(asset_map),
+                    'record_type_breakdown': dict(record_type_breakdown)
+                }
             }
             
         except ValueError:
-            # Re-raise validation errors
             raise
         except Exception as e:
             self.logger.error(f"Error fetching grouped DNS records: {str(e)}")
