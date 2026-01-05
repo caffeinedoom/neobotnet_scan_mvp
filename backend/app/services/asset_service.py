@@ -515,7 +515,6 @@ class AssetService:
                 technologies,
                 discovered_at,
                 last_checked,
-                source_module,
                 discovery_method,
                 ssl_subject_cn,
                 ssl_issuer,
@@ -532,15 +531,12 @@ class AssetService:
                     id,
                     asset_id,
                     status,
-                    created_at,
-                    modules
+                    created_at
                 )
                 """
             ).eq("asset_scan_jobs.asset_id", asset_id)
             
-            # Apply module filter if specified
-            if module_filter:
-                query = query.eq("source_module", module_filter)
+            # Module filter removed for production - source_module not exposed via API
             
             # Apply pagination and ordering
             # Use range for all queries to bypass Supabase client's 1000 default limit
@@ -625,22 +621,18 @@ class AssetService:
                 subdomain,
                 parent_domain,
                 scan_job_id,
-                source_module,
                 discovered_at,
                 last_checked,
                 asset_scan_jobs!inner(
                     id,
                     asset_id,
                     status,
-                    created_at,
-                    modules
+                    created_at
                 )
                 """
             ).in_("asset_scan_jobs.asset_id", asset_ids)
             
-            # Apply module filter if specified
-            if module_filter:
-                query = query.eq("source_module", module_filter)
+            # Module filter removed for production - source_module not exposed via API
             
             # Apply pagination and ordering
             # Use range for all queries to bypass Supabase client's 1000 default limit
@@ -687,7 +679,6 @@ class AssetService:
         per_page: int = 50,
         asset_id: Optional[str] = None,
         parent_domain: Optional[str] = None,
-        source_module: Optional[str] = None,
         search: Optional[str] = None
     ) -> Dict[str, Any]:
         """
@@ -696,13 +687,14 @@ class AssetService:
         LEAN Architecture: All authenticated users see ALL data.
         The user_id parameter is kept for API compatibility but ignored.
         
+        Note: source_module filter removed for production - tool names not exposed via API.
+        
         Args:
             user_id: Kept for API compatibility but ignored (LEAN architecture)
             page: Page number (1-based)
             per_page: Items per page (1-1000, recommended: 25-100)
             asset_id: Optional asset filter
             parent_domain: Optional apex domain filter  
-            source_module: Optional module filter (subfinder, etc.)
             search: Optional search term for subdomain names
             
         Returns:
@@ -735,7 +727,6 @@ class AssetService:
                     "filters": {
                         "asset_id": asset_id,
                         "parent_domain": parent_domain,
-                        "source_module": source_module,
                         "search": search
                     },
                     "stats": {"total_assets": 0}
@@ -754,15 +745,13 @@ class AssetService:
                 subdomain,
                 parent_domain,
                 scan_job_id,
-                source_module,
                 discovered_at,
                 last_checked,
                 asset_scan_jobs!inner(
                     id,
                     asset_id,
                     status,
-                    created_at,
-                    modules
+                    created_at
                 )
                 """, count="exact"
             ).in_("asset_scan_jobs.asset_id", all_asset_ids)
@@ -774,8 +763,7 @@ class AssetService:
             if parent_domain:
                 base_query = base_query.eq("parent_domain", parent_domain)
                 
-            if source_module:
-                base_query = base_query.eq("source_module", source_module)
+            # source_module filter removed for production - not exposed via API
                 
             if search:
                 # Use ilike for case-insensitive search
@@ -832,7 +820,6 @@ class AssetService:
                 "filters": {
                     "asset_id": asset_id,
                     "parent_domain": parent_domain,
-                    "source_module": source_module,
                     "search": search
                 },
                 "stats": stats

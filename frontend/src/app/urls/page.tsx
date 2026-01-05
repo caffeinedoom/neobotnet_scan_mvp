@@ -501,11 +501,11 @@ function URLsPageContent() {
                   </Button>
                 </>
               ) : (
-                // Free user - show locked export buttons with tooltip
+                // Free user - show locked export buttons with single shared tooltip
                 <TooltipProvider>
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <span>
+                      <div className="flex items-center gap-2">
                         <Button
                           variant="outline"
                           size="sm"
@@ -515,15 +515,6 @@ function URLsPageContent() {
                           <Lock className="h-4 w-4 mr-2" />
                           Export CSV
                         </Button>
-                      </span>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>Upgrade to Pro to export URLs</p>
-                    </TooltipContent>
-                  </Tooltip>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <span>
                         <Button
                           variant="outline"
                           size="sm"
@@ -533,7 +524,7 @@ function URLsPageContent() {
                           <Lock className="h-4 w-4 mr-2" />
                           Export JSON
                         </Button>
-                      </span>
+                      </div>
                     </TooltipTrigger>
                     <TooltipContent>
                       <p>Upgrade to Pro to export URLs</p>
