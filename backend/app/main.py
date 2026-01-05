@@ -25,6 +25,7 @@ from .api.v1.http_probes import router as http_probes_router
 from .api.v1.urls import router as urls_router
 from .api.v1.public import router as public_router, limiter  # PUBLIC: Unauthenticated showcase
 from .api.v1.billing import router as billing_router  # Stripe billing
+from .api.v1.exports import router as exports_router  # Data exports (CSV/JSON)
 from .middleware.rate_limit import TieredRateLimitMiddleware  # Tiered rate limiting
 from .services.websocket_manager import websocket_manager, batch_progress_notifier
 
@@ -297,6 +298,10 @@ def create_application() -> FastAPI:
     # Billing: Stripe checkout and webhook endpoints
     app.include_router(billing_router, prefix=f"{settings.api_v1_str}/billing", tags=["billing"])
     logger.info("💳 Billing endpoints enabled at /api/v1/billing")
+    
+    # Data Exports: CSV/JSON streaming exports (URLs require PRO)
+    app.include_router(exports_router, prefix=f"{settings.api_v1_str}/exports", tags=["exports"])
+    logger.info("📥 Export endpoints enabled at /api/v1/exports")
     
     return app
 

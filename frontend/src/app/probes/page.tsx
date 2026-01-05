@@ -9,7 +9,8 @@ import {
   Copy, 
   ExternalLink, 
   ChevronLeft, 
-  ChevronRight
+  ChevronRight,
+  Download
 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -39,6 +40,9 @@ import {
 
 // Assets API
 import { assetAPI } from '@/lib/api/assets';
+
+// Export API
+import { exportHTTPProbes } from '@/lib/api/exports';
 
 // ================================================================
 // Types and Interfaces
@@ -417,23 +421,54 @@ function ProbesPageContent() {
             </div>
           </div>
 
-          {/* Clear Filters Button */}
-          {(assetIdParam || statusCodeParam || technologyParam || searchQuery) && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() =>
-                updateURLParams({
-                  asset_id: null,
-                  status_code: null,
-                  technology: null,
-                  search: null,
-                })
-              }
-            >
-              Clear All Filters
-            </Button>
-          )}
+          {/* Actions Row */}
+          <div className="flex items-center justify-between">
+            {/* Clear Filters Button */}
+            {(assetIdParam || statusCodeParam || technologyParam || searchQuery) && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() =>
+                  updateURLParams({
+                    asset_id: null,
+                    status_code: null,
+                    technology: null,
+                    search: null,
+                  })
+                }
+              >
+                Clear All Filters
+              </Button>
+            )}
+            
+            {/* Export Buttons (FREE for probes) */}
+            <div className="flex items-center gap-2 ml-auto">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => exportHTTPProbes('csv', {
+                  asset_id: assetIdParam || undefined,
+                  status_code: statusCodeParam ? parseInt(statusCodeParam) : undefined,
+                })}
+                className="font-mono"
+              >
+                <Download className="h-4 w-4 mr-2" />
+                Export CSV
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => exportHTTPProbes('json', {
+                  asset_id: assetIdParam || undefined,
+                  status_code: statusCodeParam ? parseInt(statusCodeParam) : undefined,
+                })}
+                className="font-mono"
+              >
+                <Download className="h-4 w-4 mr-2" />
+                Export JSON
+              </Button>
+            </div>
+          </div>
         </CardContent>
       </Card>
 

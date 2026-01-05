@@ -11,7 +11,8 @@ import {
   ChevronLeft, 
   ChevronRight,
   Lock,
-  Zap
+  Zap,
+  Download
 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -31,6 +32,9 @@ import { formatDistanceToNow } from 'date-fns';
 // URLs API and Types
 import { fetchURLs, fetchURLStats } from '@/lib/api/urls';
 import type { URLRecord, URLStats } from '@/types/urls';
+
+// Export API
+import { exportURLs } from '@/lib/api/exports';
 
 // Assets API
 import { assetAPI } from '@/lib/api/assets';
@@ -438,23 +442,85 @@ function URLsPageContent() {
             </div>
           </div>
 
-          {/* Clear Filters Button */}
-          {(assetIdParam || isAliveParam || statusCodeParam || searchQuery) && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() =>
-                updateURLParams({
-                  asset_id: null,
-                  is_alive: null,
-                  status_code: null,
-                  search: null,
-                })
-              }
-            >
-              Clear All Filters
-            </Button>
-          )}
+          {/* Actions Row */}
+          <div className="flex items-center justify-between">
+            {/* Clear Filters Button */}
+            {(assetIdParam || isAliveParam || statusCodeParam || searchQuery) && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() =>
+                  updateURLParams({
+                    asset_id: null,
+                    is_alive: null,
+                    status_code: null,
+                    search: null,
+                  })
+                }
+              >
+                Clear All Filters
+              </Button>
+            )}
+            
+            {/* Export Buttons (PRO only) */}
+            <div className="flex items-center gap-2 ml-auto">
+              {quota && !quota.is_limited ? (
+                // PRO user - show active export buttons
+                <>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => exportURLs('csv', {
+                      asset_id: assetIdParam || undefined,
+                      is_alive: isAliveParam ? isAliveParam === 'true' : undefined,
+                      status_code: statusCodeParam ? parseInt(statusCodeParam) : undefined,
+                    })}
+                    className="font-mono"
+                  >
+                    <Download className="h-4 w-4 mr-2" />
+                    Export CSV
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => exportURLs('json', {
+                      asset_id: assetIdParam || undefined,
+                      is_alive: isAliveParam ? isAliveParam === 'true' : undefined,
+                      status_code: statusCodeParam ? parseInt(statusCodeParam) : undefined,
+                    })}
+                    className="font-mono"
+                  >
+                    <Download className="h-4 w-4 mr-2" />
+                    Export JSON
+                  </Button>
+                </>
+              ) : (
+                // Free user - show locked export buttons
+                <>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled
+                    className="font-mono opacity-50"
+                    title="Upgrade to Pro for URL exports"
+                  >
+                    <Lock className="h-4 w-4 mr-2" />
+                    Export CSV
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled
+                    className="font-mono opacity-50"
+                    title="Upgrade to Pro for URL exports"
+                  >
+                    <Lock className="h-4 w-4 mr-2" />
+                    Export JSON
+                  </Button>
+                </>
+              )}
+            </div>
+          </div>
         </CardContent>
       </Card>
 

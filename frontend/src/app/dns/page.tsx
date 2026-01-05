@@ -19,6 +19,7 @@ import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { formatDistanceToNow } from 'date-fns';
 import { assetAPI } from '@/lib/api/assets';
+import { exportDNSRecords } from '@/lib/api/exports';
 
 // ================================================================
 // Types and Interfaces - GROUPED VERSION
@@ -365,67 +366,21 @@ function DNSPageContent() {
     toast.success(`Copied ${dnsData.grouped_records.length} subdomains`);
   };
 
-  // Export handlers
+  // Export handlers - use backend streaming export
   const exportAsCSV = () => {
-    if (!dnsData || dnsData.grouped_records.length === 0) {
-      toast.error('No DNS records to export');
-      return;
-    }
-
-    const headers = ['Subdomain', 'Record Type', 'Value', 'TTL', 'Priority', 'Parent Domain', 'Asset', 'Resolved At'];
-    const rows: string[][] = [];
-    
-    dnsData.grouped_records.forEach(subdomain => {
-      Object.entries(subdomain.records_by_type).forEach(([type, records]) => {
-        if (records) {
-          records.forEach((record: DNSRecordDetail) => {
-            rows.push([
-              subdomain.subdomain,
-              type,
-              record.record_value,
-              record.ttl?.toString() || '',
-              record.priority?.toString() || '',
-              subdomain.parent_domain,
-              subdomain.asset_name,
-              new Date(record.resolved_at).toLocaleString()
-            ]);
-          });
-        }
-      });
+    exportDNSRecords('csv', {
+      asset_id: assetIdParam || undefined,
+      record_type: recordTypeParam || undefined,
+      subdomain: searchQuery || undefined,
     });
-
-    const csvContent = [
-      headers.join(','),
-      ...rows.map(row => row.map(cell => `"${cell}"`).join(','))
-    ].join('\n');
-
-    const blob = new Blob([csvContent], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `dns-records-grouped-page-${page}.csv`;
-    link.click();
-    URL.revokeObjectURL(url);
-
-    toast.success('DNS records exported to CSV');
   };
 
   const exportAsJSON = () => {
-    if (!dnsData || dnsData.grouped_records.length === 0) {
-      toast.error('No DNS records to export');
-      return;
-    }
-
-    const jsonContent = JSON.stringify(dnsData.grouped_records, null, 2);
-    const blob = new Blob([jsonContent], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `dns-records-grouped-page-${page}.json`;
-    link.click();
-    URL.revokeObjectURL(url);
-
-    toast.success('DNS records exported to JSON');
+    exportDNSRecords('json', {
+      asset_id: assetIdParam || undefined,
+      record_type: recordTypeParam || undefined,
+      subdomain: searchQuery || undefined,
+    });
   };
 
   // Helper: Get badge color for record type

@@ -12,7 +12,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
-import { exportSubdomains, ExportFormat, SubdomainExportData } from '@/lib/data-exports';
+import { exportSubdomains } from '@/lib/api/exports';
 // DNS data hooks commented out - not needed for clean subdomain display
 // import { useDNSData, useAssetIdsFromSubdomains } from '@/lib/hooks/useDNSData';
 
@@ -298,20 +298,12 @@ function SubdomainsContent() {
     await copyToClipboard(subdomainList);
   };
 
-  const handleExport = async (format: ExportFormat) => {
-    if (!subdomainData?.subdomains.length) {
-      toast.error('No subdomains to export');
-      return;
-    }
-
-    const exportData: SubdomainExportData[] = subdomainData.subdomains.map(sub => ({
-      subdomain: sub.subdomain,
-      domain: sub.parent_domain,
-      discovered_at: new Date(sub.discovered_at).toLocaleDateString(),
-      scan_job_id: sub.scan_job_id
-    }));
-
-    await exportSubdomains(exportData, format);
+  const handleExport = async (format: 'csv' | 'json') => {
+    // Use backend streaming export with current filters
+    await exportSubdomains(format, {
+      asset_id: selectedAsset !== 'all' ? selectedAsset : undefined,
+      parent_domain: selectedDomain !== 'all' ? selectedDomain : undefined,
+    });
   };
 
   // ================================================================
@@ -550,17 +542,17 @@ function SubdomainsContent() {
                 Copy Visible ({subdomainData?.subdomains.length || 0})
               </Button>
               <Button 
-                onClick={() => handleExport(ExportFormat.CSV)} 
+                onClick={() => handleExport('csv')} 
                 variant="outline"
-                disabled={!subdomainData?.subdomains.length}
+                className="font-mono"
               >
                 <Download className="h-4 w-4 mr-2" />
                 Export CSV
               </Button>
               <Button 
-                onClick={() => handleExport(ExportFormat.JSON)} 
+                onClick={() => handleExport('json')} 
                 variant="outline"
-                disabled={!subdomainData?.subdomains.length}
+                className="font-mono"
               >
                 <FileText className="h-4 w-4 mr-2" />
                 Export JSON
