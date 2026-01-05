@@ -266,25 +266,26 @@ class APIKeyService:
         key_hash = self._hash_key(key)
         
         try:
+            # Use limit(1) instead of single() to avoid exception on 0 rows
             result = self.supabase.table("api_keys").select(
                 "id, user_id, is_active"
             ).eq(
                 "key_hash", key_hash
-            ).single().execute()
+            ).limit(1).execute()
             
             if not result.data:
                 return APIKeyValidation(
                     is_valid=False,
-                    error="API key not found"
+                    error="Invalid or expired API key"
                 )
             
-            record = result.data
+            record = result.data[0]
             
             # Check if key is active
             if not record["is_active"]:
                 return APIKeyValidation(
                     is_valid=False,
-                    error="API key is inactive"
+                    error="API key has been revoked"
                 )
             
             # Update last_used_at (fire and forget)
@@ -302,10 +303,11 @@ class APIKeyService:
                 key_id=record["id"]
             )
             
-        except Exception as e:
+        except Exception:
+            # Don't expose internal errors - return generic message
             return APIKeyValidation(
                 is_valid=False,
-                error=f"Validation error: {str(e)}"
+                error="Invalid or expired API key"
             )
     
     async def delete_key(self, user_id: str) -> bool:
