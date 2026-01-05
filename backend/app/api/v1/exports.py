@@ -211,15 +211,15 @@ async def stream_subdomains_csv(
     """Stream subdomains as CSV."""
     supabase = supabase_client.service_client
     
-    # CSV Header
+    # CSV Header (source_module excluded)
     yield format_csv_row([
-        "subdomain", "parent_domain", "source_module", "discovered_at"
+        "subdomain", "parent_domain", "discovered_at"
     ])
     
     offset = 0
     while True:
         query = supabase.table("subdomains").select(
-            "subdomain, parent_domain, source_module, discovered_at"
+            "subdomain, parent_domain, discovered_at"
         )
         
         if asset_id:
@@ -240,7 +240,6 @@ async def stream_subdomains_csv(
             yield format_csv_row([
                 row.get("subdomain", ""),
                 row.get("parent_domain", ""),
-                row.get("source_module", ""),
                 row.get("discovered_at", ""),
             ])
         
@@ -253,7 +252,7 @@ async def stream_subdomains_json(
     asset_id: Optional[str] = None,
     parent_domain: Optional[str] = None,
 ) -> AsyncGenerator[str, None]:
-    """Stream subdomains as JSON array."""
+    """Stream subdomains as JSON array (source_module excluded)."""
     supabase = supabase_client.service_client
     
     yield "["
@@ -262,7 +261,7 @@ async def stream_subdomains_json(
     
     while True:
         query = supabase.table("subdomains").select(
-            "subdomain, parent_domain, source_module, discovered_at"
+            "subdomain, parent_domain, discovered_at"
         )
         
         if asset_id:
