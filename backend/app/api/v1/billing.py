@@ -134,14 +134,27 @@ async def stripe_webhook(
         user_id = session.get("metadata", {}).get("user_id")
         
         if user_id:
-            await upgrade_user_to_paid(
-                user_id=user_id,
-                stripe_customer_id=session.get("customer"),
-                stripe_payment_id=session.get("payment_intent"),
-            )
-            return WebhookResponse(
-                status="success",
-                message=f"User {user_id} upgraded to paid",
+            try:
+                await upgrade_user_to_paid(
+                    user_id=user_id,
+                    stripe_customer_id=session.get("customer"),
+                    stripe_payment_id=session.get("payment_intent"),
+                )
+                return WebhookResponse(
+                    status="success",
+                    message=f"User {user_id} upgraded to paid",
+                )
+            except Exception as e:
+                # Return 500 so Stripe will retry the webhook
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail=f"Failed to upgrade user: {str(e)}",
+                )
+        else:
+            # No user_id in metadata - log and return error
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="No user_id in session metadata",
             )
     
     # Handle payment_intent.succeeded (backup)
@@ -166,21 +179,40 @@ async def upgrade_user_to_paid(
 ) -> None:
     """
     Upgrade a user to paid tier in the database.
+    
+    Uses UPSERT to handle users who don't have a user_quotas record yet.
+    This is critical - new users may not have a record, and UPDATE would silently fail.
     """
     from datetime import datetime, timezone
+    import logging
+    
+    logger = logging.getLogger(__name__)
     
     try:
-        # Update user_quotas table
-        supabase_client.service_client.table("user_quotas").update({
+        paid_at = datetime.now(timezone.utc).isoformat()
+        
+        # Use UPSERT to create record if it doesn't exist, or update if it does
+        # This fixes the bug where UPDATE silently fails for new users
+        result = supabase_client.service_client.table("user_quotas").upsert({
+            "user_id": user_id,
             "plan_type": "paid",
             "stripe_customer_id": stripe_customer_id,
             "stripe_payment_id": stripe_payment_id,
-            "paid_at": datetime.now(timezone.utc).isoformat(),
-        }).eq("user_id", user_id).execute()
+            "paid_at": paid_at,
+        }, on_conflict="user_id").execute()
+        
+        # Verify the upgrade worked
+        if result.data:
+            logger.info(f"Successfully upgraded user {user_id} to paid tier")
+        else:
+            logger.error(f"UPSERT returned no data for user {user_id} - upgrade may have failed")
         
     except Exception as e:
-        # Log error but don't fail - we can manually fix later
-        print(f"Error upgrading user {user_id}: {e}")
+        # Log with proper severity - this is a critical payment issue!
+        logger.error(f"CRITICAL: Failed to upgrade user {user_id} to paid tier: {e}")
+        logger.error(f"Stripe customer: {stripe_customer_id}, payment: {stripe_payment_id}")
+        # Re-raise so webhook returns error and Stripe retries
+        raise
 
 
 @router.get("/status", response_model=BillingStatusResponse)

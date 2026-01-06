@@ -14,12 +14,13 @@ async def get_user_tier(user_id: str) -> str:
     Returns 'free' if not found.
     """
     try:
+        # Use .limit(1) instead of .single() to avoid exception on no results
         result = supabase_client.service_client.table("user_quotas").select(
             "plan_type"
-        ).eq("user_id", user_id).single().execute()
+        ).eq("user_id", user_id).limit(1).execute()
         
-        if result.data:
-            return result.data.get("plan_type", "free")
+        if result.data and len(result.data) > 0:
+            return result.data[0].get("plan_type", "free")
         return "free"
     except Exception:
         return "free"
