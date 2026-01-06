@@ -259,21 +259,22 @@ class APIKeyService:
         if not key or not key.startswith(self.KEY_PREFIX):
             return APIKeyValidation(
                 is_valid=False,
-                error="Invalid key format"
+                error="Invalid or expired API key"
             )
         
         # Hash the key and look it up
         key_hash = self._hash_key(key)
         
         try:
-            # Use limit(1) instead of single() to avoid exception on 0 rows
+            # Use .limit(1) instead of .single() to avoid exception on no results
             result = self.supabase.table("api_keys").select(
                 "id, user_id, is_active"
             ).eq(
                 "key_hash", key_hash
             ).limit(1).execute()
             
-            if not result.data:
+            # Check if key was found
+            if not result.data or len(result.data) == 0:
                 return APIKeyValidation(
                     is_valid=False,
                     error="Invalid or expired API key"
@@ -285,7 +286,7 @@ class APIKeyService:
             if not record["is_active"]:
                 return APIKeyValidation(
                     is_valid=False,
-                    error="API key has been revoked"
+                    error="Invalid or expired API key"
                 )
             
             # Update last_used_at (fire and forget)
@@ -304,7 +305,7 @@ class APIKeyService:
             )
             
         except Exception:
-            # Don't expose internal errors - return generic message
+            # Don't leak internal error details - return generic message
             return APIKeyValidation(
                 is_valid=False,
                 error="Invalid or expired API key"
