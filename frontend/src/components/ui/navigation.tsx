@@ -197,7 +197,7 @@ export const Navigation: React.FC = () => {
                   
                   {/* Tier Badge */}
                   {isPaid ? (
-                    <span className="px-2 py-0.5 text-xs font-bold bg-[--terminal-green] text-black rounded">
+                    <span className="px-2 py-0.5 text-xs font-bold rounded border border-white text-white">
                       PRO
                     </span>
                   ) : (
@@ -222,8 +222,8 @@ export const Navigation: React.FC = () => {
                     <div className="px-4 py-3 border-b border-border">
                       {isPaid ? (
                         <div className="flex items-center gap-2">
-                          <Crown className="h-4 w-4 text-[--terminal-green]" />
-                          <span className="text-sm font-medium text-[--terminal-green]">Pro Member</span>
+                          <Crown className="h-4 w-4 text-white" />
+                          <span className="text-sm font-medium text-white">Pro Member</span>
                         </div>
                       ) : (
                         <Link
