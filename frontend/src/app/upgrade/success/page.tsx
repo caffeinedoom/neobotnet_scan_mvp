@@ -308,13 +308,17 @@ export default function UpgradeSuccessPage() {
         {/* CTA Buttons */}
         <div 
           className={`
-            space-y-3 transition-all duration-500
+            space-y-4 transition-all duration-500
             ${showCTA ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}
           `}
         >
           <Button
             onClick={() => router.push('/urls')}
-            className="w-full sm:w-auto bg-[--terminal-green] text-black hover:bg-[--terminal-green]/90 h-12 px-8 font-mono font-semibold text-base"
+            className="w-full sm:w-auto h-14 px-10 font-mono font-bold text-lg"
+            style={{ 
+              backgroundColor: '#00ff00', 
+              color: '#000000',
+            }}
           >
             Explore URLs
             <ArrowRight className="ml-2 h-5 w-5" />
@@ -322,10 +326,10 @@ export default function UpgradeSuccessPage() {
           <div>
             <Button
               onClick={() => router.push('/dashboard')}
-              variant="link"
-              className="text-muted-foreground hover:text-foreground font-mono"
+              variant="outline"
+              className="w-full sm:w-auto h-12 px-8 font-mono font-medium border-white/30 text-white hover:bg-white/10"
             >
-              or go to Dashboard →
+              Go to Dashboard
             </Button>
           </div>
         </div>
