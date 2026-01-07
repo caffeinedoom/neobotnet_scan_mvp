@@ -305,15 +305,19 @@ export default function ProgramDetailPage() {
             </h2>
             <div className="space-y-2">
               {apexDomains.map((domain) => (
-                <div 
+                <Link
                   key={domain.id}
-                  className="flex items-center justify-between py-3 px-4 rounded-lg border border-border/50 bg-card/30 hover:bg-card/50 transition-colors"
+                  href={`/subdomains?asset=${program.id}&parent_domain=${encodeURIComponent(domain.domain)}`}
+                  className="flex items-center justify-between py-3 px-4 rounded-lg border border-border/50 bg-card/30 hover:bg-card/50 hover:border-white/20 transition-all group cursor-pointer"
                 >
-                  <code className="font-mono text-foreground">{domain.domain}</code>
-                  <span className="text-sm text-muted-foreground font-mono">
-                    {domain.total_subdomains.toLocaleString()} subdomains
-                  </span>
-                </div>
+                  <code className="font-mono text-foreground group-hover:text-white transition-colors">{domain.domain}</code>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-muted-foreground font-mono">
+                      {domain.total_subdomains.toLocaleString()} subdomains
+                    </span>
+                    <ChevronRight className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                  </div>
+                </Link>
               ))}
             </div>
           </div>
