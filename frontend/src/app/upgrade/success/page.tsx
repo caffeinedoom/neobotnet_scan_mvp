@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Check, ArrowRight, Loader2, AlertTriangle, RefreshCw } from 'lucide-react';
-import confetti from 'canvas-confetti';
 import { getBillingStatus, BillingStatus } from '@/lib/api/billing';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -59,10 +58,9 @@ export default function UpgradeSuccessPage() {
         setBillingStatus(status);
         
         if (status.is_paid) {
-          // Upgrade confirmed! Start celebration
+          // Upgrade confirmed! Start typing animation
           setIsVerifying(false);
-          setTypingPhase('title'); // Start typing animation
-          triggerConfetti();
+          setTypingPhase('title');
         } else if (verificationAttempts < 5) {
           // Webhook might not have arrived yet - retry after delay
           setTimeout(() => {
@@ -88,44 +86,6 @@ export default function UpgradeSuccessPage() {
     
     verifyUpgrade();
   }, [user, verificationAttempts]);
-
-  // ============================================================================
-  // CONFETTI
-  // ============================================================================
-
-  function triggerConfetti() {
-    const duration = 3000;
-    const animationEnd = Date.now() + duration;
-    const defaults = { startVelocity: 30, spread: 360, ticks: 60, zIndex: 0 };
-
-    function randomInRange(min: number, max: number) {
-      return Math.random() * (max - min) + min;
-    }
-
-    const interval = setInterval(() => {
-      const timeLeft = animationEnd - Date.now();
-
-      if (timeLeft <= 0) {
-        clearInterval(interval);
-        return;
-      }
-
-      const particleCount = 50 * (timeLeft / duration);
-
-      confetti({
-        ...defaults,
-        particleCount,
-        origin: { x: randomInRange(0.1, 0.3), y: Math.random() - 0.2 },
-        colors: ['#00ff00', '#22c55e', '#4ade80'],
-      });
-      confetti({
-        ...defaults,
-        particleCount,
-        origin: { x: randomInRange(0.7, 0.9), y: Math.random() - 0.2 },
-        colors: ['#00ff00', '#22c55e', '#4ade80'],
-      });
-    }, 250);
-  }
 
   // ============================================================================
   // TYPING ANIMATION
