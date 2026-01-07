@@ -1130,7 +1130,7 @@ class AssetService:
                 "domains": domains_list,
                 "assets": assets_list,
                 "stats": {
-                    "total_assets": len(all_asset_ids),
+                    "total_assets": len(all_assets_data),
                     "total_domains": len(domains_list),
                     "load_time_ms": "< 100"
                 }
