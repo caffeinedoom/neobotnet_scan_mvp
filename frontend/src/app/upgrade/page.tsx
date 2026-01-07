@@ -17,16 +17,25 @@ export default function UpgradePage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isCheckingOut, setIsCheckingOut] = useState(false);
 
+  // Redirect unauthenticated users to login
+  useEffect(() => {
+    if (!authLoading && !user) {
+      router.replace('/auth/login?redirect=/upgrade');
+    }
+  }, [authLoading, user, router]);
+
+  // Load billing data once authenticated
   useEffect(() => {
     async function loadData() {
+      if (!user) return;
+      
       try {
-        const spots = await getSpotsRemaining();
+        const [spots, status] = await Promise.all([
+          getSpotsRemaining(),
+          getBillingStatus()
+        ]);
         setSpotsRemaining(spots);
-
-        if (user) {
-          const status = await getBillingStatus();
-          setBillingStatus(status);
-        }
+        setBillingStatus(status);
       } catch (error) {
         console.error('Failed to load billing data:', error);
       } finally {
@@ -34,17 +43,12 @@ export default function UpgradePage() {
       }
     }
 
-    if (!authLoading) {
+    if (!authLoading && user) {
       loadData();
     }
   }, [user, authLoading]);
 
   const handleUpgrade = async () => {
-    if (!user) {
-      router.push('/auth/login?redirect=/upgrade');
-      return;
-    }
-
     if (billingStatus?.is_paid) {
       toast.info('You already have full access!');
       return;
@@ -176,11 +180,6 @@ export default function UpgradePage() {
                   <>
                     <Lock className="mr-2 h-5 w-5" />
                     Sold Out
-                  </>
-                ) : !user ? (
-                  <>
-                    Sign in to continue
-                    <ArrowRight className="ml-2 h-5 w-5" />
                   </>
                 ) : (
                   <>
