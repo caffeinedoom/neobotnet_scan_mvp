@@ -18,7 +18,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { formatDistanceToNow } from 'date-fns';
-import { assetAPI } from '@/lib/api/assets';
 import { exportDNSRecords } from '@/lib/api/exports';
 
 // ================================================================
@@ -211,23 +210,37 @@ function DNSPageContent() {
     }
   }, [isAuthenticated, authLoading, router]);
 
-  // Fetch filter options
-  useEffect(() => {
-    const fetchFilterOptions = async () => {
-      if (!isAuthenticated) return;
+  // Fetch filter options - cascading based on selected program
+  const loadFilterOptions = useCallback(async () => {
+    if (!isAuthenticated) return;
+    
+    try {
+      const { apiClient } = await import('@/lib/api/client');
       
-      try {
-        const assets = await assetAPI.getAssets();
-        setAvailableAssets(assets);
-      } catch (err) {
-        console.error('Failed to fetch filter options:', err);
+      // Build query params - include asset_id for cascading domain filter
+      const params = new URLSearchParams();
+      if (assetIdParam) {
+        params.append('asset_id', assetIdParam);
       }
-    };
-
-    if (isAuthenticated) {
-      fetchFilterOptions();
+      
+      const url = `/api/v1/assets/filter-options${params.toString() ? `?${params.toString()}` : ''}`;
+      const response = await apiClient.get(url);
+      const filterData = response.data;
+      
+      // Set filter options - domains are now filtered by selected program
+      setAvailableDomains(filterData.domains || []);
+      setAvailableAssets(filterData.assets || []);
+      
+    } catch (err) {
+      console.error('Failed to fetch filter options:', err);
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, assetIdParam]);
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      loadFilterOptions();
+    }
+  }, [isAuthenticated, loadFilterOptions]);
 
   // Fetch grouped DNS records
   const fetchDNSRecords = useCallback(async () => {
@@ -256,12 +269,9 @@ function DNSPageContent() {
 
       const data = response.data;
       setDnsData(data);
-
-      // Extract unique parent domains for filter dropdown
-      if (data.grouped_records.length > 0) {
-        const domains = Array.from(new Set(data.grouped_records.map(r => r.parent_domain))).sort();
-        setAvailableDomains(domains);
-      }
+      
+      // Note: Domain filter options now loaded from /filter-options endpoint
+      // for comprehensive scope (not page-scoped)
 
     } catch (err) {
       console.error('Error fetching DNS records:', err);
@@ -296,7 +306,12 @@ function DNSPageContent() {
 
   // Filter handlers
   const handleAssetFilter = (value: string) => {
-    updateURL({ asset_id: value === 'all' ? null : value, page: '1' });
+    // When program changes, clear domain filter (it may not exist in new program)
+    updateURL({ 
+      asset_id: value === 'all' ? null : value, 
+      parent_domain: null,  // Clear domain filter
+      page: '1' 
+    });
   };
 
   const handleDomainFilter = (value: string) => {
