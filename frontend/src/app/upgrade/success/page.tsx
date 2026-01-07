@@ -261,10 +261,10 @@ export default function UpgradeSuccessPage() {
 
       <div className="max-w-lg w-full space-y-8 text-center">
         {/* Animated Title */}
-        <h1 className="text-5xl sm:text-6xl lg:text-7xl font-bold tracking-tight font-mono text-foreground">
+        <h1 className="text-5xl sm:text-6xl lg:text-7xl font-bold tracking-tight font-mono text-white">
           {typedTitle}
           <span 
-            className={`text-[--terminal-green] transition-opacity ${
+            className={`text-white transition-opacity ${
               showCursor ? 'opacity-100' : 'opacity-0'
             }`}
           >
@@ -273,7 +273,7 @@ export default function UpgradeSuccessPage() {
         </h1>
 
         {/* Animated Tagline */}
-        <p className="text-xl sm:text-2xl text-[--terminal-green] font-bold font-mono tracking-wide min-h-[2em]">
+        <p className="text-xl sm:text-2xl text-white/80 font-bold font-mono tracking-wide min-h-[2em]">
           {typedTagline}
         </p>
 
@@ -285,7 +285,7 @@ export default function UpgradeSuccessPage() {
             ${typingPhase === 'benefits' || typingPhase === 'done' ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}
           `}
         >
-          <h3 className="font-mono font-semibold text-[--terminal-green] mb-4 text-sm uppercase tracking-wider">
+          <h3 className="font-mono font-semibold text-white/60 mb-4 text-sm uppercase tracking-wider">
             What&apos;s unlocked:
           </h3>
           <ul className="space-y-3">
@@ -298,8 +298,8 @@ export default function UpgradeSuccessPage() {
                   ${index < visibleBenefits ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-4'}
                 `}
               >
-                <Check className="h-5 w-5 text-[--terminal-green] flex-shrink-0" />
-                <span className="text-foreground/90">{benefit}</span>
+                <Check className="h-5 w-5 text-white flex-shrink-0" />
+                <span className="text-white/90">{benefit}</span>
               </li>
             ))}
           </ul>
@@ -308,30 +308,24 @@ export default function UpgradeSuccessPage() {
         {/* CTA Buttons */}
         <div 
           className={`
-            space-y-4 transition-all duration-500
+            flex flex-col sm:flex-row gap-4 justify-center transition-all duration-500
             ${showCTA ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}
           `}
         >
           <Button
             onClick={() => router.push('/urls')}
-            className="w-full sm:w-auto h-14 px-10 font-mono font-bold text-lg"
-            style={{ 
-              backgroundColor: '#00ff00', 
-              color: '#000000',
-            }}
+            className="h-12 px-8 font-mono font-semibold text-base bg-white text-black hover:bg-white/90"
           >
             Explore URLs
             <ArrowRight className="ml-2 h-5 w-5" />
           </Button>
-          <div>
-            <Button
-              onClick={() => router.push('/dashboard')}
-              variant="outline"
-              className="w-full sm:w-auto h-12 px-8 font-mono font-medium border-white/30 text-white hover:bg-white/10"
-            >
-              Go to Dashboard
-            </Button>
-          </div>
+          <Button
+            onClick={() => router.push('/dashboard')}
+            variant="outline"
+            className="h-12 px-8 font-mono font-medium border-white/40 text-white hover:bg-white/10"
+          >
+            Dashboard
+          </Button>
         </div>
 
         {/* Receipt Notice */}
