@@ -29,13 +29,14 @@ const BENEFITS = [
 
 export default function UpgradeSuccessPage() {
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, isLoading: authLoading } = useAuth();
   
   // Verification state
   const [_billingStatus, setBillingStatus] = useState<BillingStatus | null>(null);
   const [verificationAttempts, setVerificationAttempts] = useState(0);
   const [isVerifying, setIsVerifying] = useState(true);
   const [verificationFailed, setVerificationFailed] = useState(false);
+  const [cameFromStripe, setCameFromStripe] = useState(false);
   
   // Animation state
   const [typedTitle, setTypedTitle] = useState('');
@@ -44,6 +45,39 @@ export default function UpgradeSuccessPage() {
   const [typingPhase, setTypingPhase] = useState<'waiting' | 'title' | 'tagline' | 'benefits' | 'done'>('waiting');
   const [visibleBenefits, setVisibleBenefits] = useState<number>(0);
   const [showCTA, setShowCTA] = useState(false);
+
+  // ============================================================================
+  // AUTH CHECK - Redirect unauthenticated users
+  // ============================================================================
+
+  useEffect(() => {
+    if (!authLoading && !user) {
+      router.replace('/auth/login?redirect=/upgrade');
+    }
+  }, [authLoading, user, router]);
+
+  // ============================================================================
+  // CHECK IF USER CAME FROM STRIPE (via referrer or session)
+  // ============================================================================
+
+  useEffect(() => {
+    // Check if user just came from Stripe checkout
+    // We give them the benefit of the doubt on first load
+    // (they could have come from Stripe's success_url redirect)
+    if (typeof window !== 'undefined') {
+      const referrer = document.referrer;
+      const isFromStripe = referrer.includes('stripe.com') || referrer.includes('checkout.stripe.com');
+      // Also check if this is a fresh page load (not a manual navigation)
+      const isFirstVisit = !sessionStorage.getItem('upgrade_success_visited');
+      
+      if (isFirstVisit) {
+        sessionStorage.setItem('upgrade_success_visited', 'true');
+        setCameFromStripe(true); // Give benefit of doubt on first visit
+      } else {
+        setCameFromStripe(isFromStripe);
+      }
+    }
+  }, []);
 
   // ============================================================================
   // VERIFICATION LOGIC
@@ -67,9 +101,16 @@ export default function UpgradeSuccessPage() {
             setVerificationAttempts(prev => prev + 1);
           }, 2000);
         } else {
-          // After 5 attempts (10 seconds), show warning
+          // After 5 attempts (10 seconds):
+          // If user didn't come from Stripe, redirect to /upgrade
+          // Otherwise show the warning (legitimate payment might be delayed)
           setIsVerifying(false);
-          setVerificationFailed(true);
+          if (cameFromStripe) {
+            setVerificationFailed(true);
+          } else {
+            // User manually navigated here without paying - redirect
+            router.replace('/upgrade');
+          }
         }
       } catch (error) {
         console.error('Failed to verify billing status:', error);
@@ -79,13 +120,17 @@ export default function UpgradeSuccessPage() {
           }, 2000);
         } else {
           setIsVerifying(false);
-          setVerificationFailed(true);
+          if (cameFromStripe) {
+            setVerificationFailed(true);
+          } else {
+            router.replace('/upgrade');
+          }
         }
       }
     }
     
     verifyUpgrade();
-  }, [user, verificationAttempts]);
+  }, [user, verificationAttempts, cameFromStripe, router]);
 
   // ============================================================================
   // TYPING ANIMATION
@@ -161,6 +206,18 @@ export default function UpgradeSuccessPage() {
   };
 
   // ============================================================================
+  // RENDER: AUTH LOADING STATE
+  // ============================================================================
+
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4">
+        <Loader2 className="h-8 w-8 animate-spin text-white/50" />
+      </div>
+    );
+  }
+
+  // ============================================================================
   // RENDER: LOADING/VERIFYING STATE
   // ============================================================================
 
@@ -168,7 +225,7 @@ export default function UpgradeSuccessPage() {
     return (
       <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4">
         <div className="text-center space-y-6">
-          <Loader2 className="h-12 w-12 animate-spin text-[--terminal-green] mx-auto" />
+          <Loader2 className="h-12 w-12 animate-spin text-white mx-auto" />
           <div>
             <h2 className="text-xl font-mono font-bold text-foreground">
               Confirming your upgrade...
