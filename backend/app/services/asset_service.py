@@ -1055,7 +1055,8 @@ class AssetService:
 
     async def get_comprehensive_filter_options(
         self, 
-        user_id: str = None  # Kept for API compatibility but ignored (LEAN architecture)
+        user_id: str = None,  # Kept for API compatibility but ignored (LEAN architecture)
+        asset_id: str = None  # Optional: filter domains to specific asset/program
     ) -> Dict[str, Any]:
         """
         Get comprehensive filter options from all reconnaissance data.
@@ -1063,69 +1064,62 @@ class AssetService:
         LEAN Architecture: All authenticated users see ALL data.
         The user_id parameter is kept for API compatibility but ignored.
         
-        This method queries ALL subdomains to build complete filter options,
-        not just current page scope. Essential for proper data correlation between
-        asset detail and subdomains pages.
+        When asset_id is provided, domains are filtered to only those
+        belonging to that specific program - enables cascading filters.
         
         Returns:
-            Dict with domains, modules, assets, and stats for all data
+            Dict with domains, assets, and stats
         """
         try:
             # LEAN Architecture: Get ALL assets (no user_id filter)
             all_assets_response = self.supabase.table("assets").select("id, name").order("name").execute()
             all_assets_data = all_assets_response.data or []
-            all_asset_ids = [asset["id"] for asset in all_assets_data]
+            
+            # Determine which asset IDs to query for domains
+            if asset_id:
+                # Filter domains to specific asset
+                query_asset_ids = [asset_id]
+            else:
+                # Get domains from all assets
+                query_asset_ids = [asset["id"] for asset in all_assets_data]
 
-            if not all_asset_ids:
+            if not query_asset_ids:
                 return {
                     "domains": [],
-                    "modules": [],
                     "assets": [],
                     "stats": {
                         "total_assets": 0,
                         "total_domains": 0,
-                        "total_modules": 0,
                         "load_time_ms": "< 50"
                     }
                 }
             
-            # Get all unique filter options from ALL reconnaissance data
-            # Query all subdomains for comprehensive scope
-            # Note: source_module removed for production - tool names not exposed via API
-            filter_query = self.supabase.table("subdomains").select(
-                """
-                parent_domain,
-                asset_scan_jobs!inner(
-                    asset_id,
-                    assets!inner(name)
-                )
-                """
-            ).in_("asset_scan_jobs.asset_id", all_asset_ids)
+            # Get unique parent_domain values for the target asset(s)
+            # Using apex_domains table is more efficient than scanning all subdomains
+            if asset_id:
+                # Get domains from apex_domains table for specific asset
+                domains_response = self.supabase.table("apex_domains").select(
+                    "domain"
+                ).eq("asset_id", asset_id).order("domain").execute()
+                
+                all_domains = set()
+                for item in (domains_response.data or []):
+                    if item.get("domain"):
+                        all_domains.add(item["domain"])
+            else:
+                # Get all unique parent_domains from subdomains table
+                filter_query = self.supabase.table("subdomains").select(
+                    "parent_domain"
+                ).in_("asset_id", query_asset_ids)
+                
+                filter_response = filter_query.execute()
+                
+                all_domains = set()
+                for item in (filter_response.data or []):
+                    if item.get("parent_domain"):
+                        all_domains.add(item["parent_domain"])
             
-            filter_response = filter_query.execute()
-            
-            if not filter_response.data:
-                return {
-                    "domains": [],
-                    "assets": [],
-                    "stats": {
-                        "total_assets": len(all_asset_ids),
-                        "total_domains": 0,
-                        "load_time_ms": "< 50"
-                    }
-                }
-            
-            # Extract and deduplicate comprehensive options for domains
-            all_domains = set()
-
-            for item in filter_response.data:
-                # Add domain
-                if item.get("parent_domain"):
-                    all_domains.add(item["parent_domain"])
-            
-            # Build response with comprehensive filter options
-            # Use ALL assets from initial query (not just those with subdomains)
-            # Note: modules removed for production - tool names not exposed via API
+            # Build response with filter options
             domains_list = sorted(list(all_domains))
             assets_list = [
                 {"id": asset["id"], "name": asset["name"]} 

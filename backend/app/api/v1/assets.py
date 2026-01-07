@@ -89,24 +89,25 @@ async def get_asset_scan_status(
 
 @router.get("/filter-options", response_model=Dict[str, Any])
 async def get_comprehensive_filter_options(
+    asset_id: Optional[str] = Query(None, description="Filter domains by specific asset/program"),
     current_user: Dict = Depends(get_current_user)
 ):
     """
-    Get comprehensive filter options for all user reconnaissance data.
+    Get comprehensive filter options for user reconnaissance data.
     
-    This endpoint provides filter dropdown options based on ALL user data,
-    not just current page scope. Critical for proper data correlation
-    between asset detail and subdomains pages.
+    When asset_id is provided, domains are filtered to only those
+    belonging to that specific program. This enables cascading filters
+    where selecting a program updates the available domains.
     
     Returns:
-    - domains: All apex domains user has subdomains for
-    - modules: All scan modules user has used  
+    - domains: Apex domains (filtered by asset_id if provided)
     - assets: All assets user owns with reconnaissance data
     """
     try:
-        # Get comprehensive filter options from all user data
+        # Get comprehensive filter options, optionally filtered by asset
         result = await asset_service.get_comprehensive_filter_options(
-            user_id=current_user.id
+            user_id=current_user.id,
+            asset_id=asset_id
         )
         
         return result

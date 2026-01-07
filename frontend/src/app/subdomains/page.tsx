@@ -206,6 +206,7 @@ function SubdomainsContent() {
 
   // ================================================================
   // NEW: Comprehensive Filter Options Loading (Phase 1b Fix)
+  // Reacts to selectedAsset changes for cascading domain filter
   // ================================================================
 
   const loadFilterOptions = useCallback(async () => {
@@ -214,10 +215,17 @@ function SubdomainsContent() {
     try {
       const { apiClient } = await import('@/lib/api/client');
       
-      const response = await apiClient.get('/api/v1/assets/filter-options');
+      // Build query params - include asset_id for cascading domain filter
+      const params = new URLSearchParams();
+      if (selectedAsset !== 'all') {
+        params.append('asset_id', selectedAsset);
+      }
+      
+      const url = `/api/v1/assets/filter-options${params.toString() ? `?${params.toString()}` : ''}`;
+      const response = await apiClient.get(url);
       const filterData = response.data;
       
-      // Set comprehensive filter options from ALL user data
+      // Set filter options - domains are now filtered by selected asset
       setAvailableDomains(filterData.domains || []);
       setAvailableAssets(filterData.assets || []);
       
@@ -225,7 +233,7 @@ function SubdomainsContent() {
       console.error('Failed to load filter options:', err);
       // Don't show error toast for filter options - not critical
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, selectedAsset]);
 
   // Auth redirect
   useEffect(() => {
@@ -259,7 +267,12 @@ function SubdomainsContent() {
   };
 
   const handleFilterChange = (filterType: string, value: string) => {
-    updateURL({ [filterType]: value, page: 1 }); // Reset to page 1 for new filter
+    if (filterType === 'asset') {
+      // When program changes, clear domain filter (it may not exist in new program)
+      updateURL({ asset: value, parent_domain: null, page: 1 });
+    } else {
+      updateURL({ [filterType]: value, page: 1 }); // Reset to page 1 for new filter
+    }
   };
 
   const handlePageChange = (newPage: number) => {
