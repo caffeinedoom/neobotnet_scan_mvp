@@ -38,9 +38,6 @@ import {
   RedirectChainIndicator,
 } from '@/components/http-probes';
 
-// Assets API
-import { assetAPI } from '@/lib/api/assets';
-
 // Export API
 import { exportHTTPProbes } from '@/lib/api/exports';
 
@@ -79,6 +76,7 @@ function ProbesPageContent() {
   const page = parseInt(searchParams.get('page') || '1', 10);
   const perPage = parseInt(searchParams.get('per_page') || '100', 10);
   const assetIdParam = searchParams.get('asset_id');
+  const parentDomainParam = searchParams.get('parent_domain');
   const statusCodeParam = searchParams.get('status_code');
   const technologyParam = searchParams.get('technology');
   const searchQuery = searchParams.get('search') || '';
@@ -90,8 +88,9 @@ function ProbesPageContent() {
   const [error, setError] = useState<string | null>(null);
   const [totalProbes, setTotalProbes] = useState(0);
 
-  // Filter options state
+  // Filter options state - cascading filters via /filter-options endpoint
   const [availableAssets, setAvailableAssets] = useState<Asset[]>([]);
+  const [availableDomains, setAvailableDomains] = useState<string[]>([]);
   const [availableTechnologies, setAvailableTechnologies] = useState<string[]>([]);
 
   // ================================================================
@@ -118,23 +117,36 @@ function ProbesPageContent() {
   };
 
   // ================================================================
-  // Fetch Available Assets
+  // Fetch Filter Options - Cascading based on selected program
   // ================================================================
 
   useEffect(() => {
-    const fetchAssets = async () => {
+    const fetchFilterOptions = async () => {
       try {
-        const assetsData = await assetAPI.getAssets();
-        setAvailableAssets(assetsData);
+        const { apiClient } = await import('@/lib/api/client');
+        
+        // Build query params - include asset_id for cascading domain filter
+        const params = new URLSearchParams();
+        if (assetIdParam) {
+          params.append('asset_id', assetIdParam);
+        }
+        
+        const url = `/api/v1/assets/filter-options${params.toString() ? `?${params.toString()}` : ''}`;
+        const response = await apiClient.get(url);
+        const filterData = response.data;
+        
+        // Set filter options - domains filtered by selected program
+        setAvailableDomains(filterData.domains || []);
+        setAvailableAssets(filterData.assets || []);
       } catch (err) {
-        console.error('Error fetching assets:', err);
+        console.error('Error fetching filter options:', err);
       }
     };
 
     if (isAuthenticated) {
-      fetchAssets();
+      fetchFilterOptions();
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, assetIdParam]);
 
   // ================================================================
   // Fetch HTTP Probes Data
@@ -317,7 +329,7 @@ function ProbesPageContent() {
           </div>
 
           {/* Filter Row */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
             {/* Asset Filter */}
             <div className="space-y-2">
               <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
@@ -326,7 +338,11 @@ function ProbesPageContent() {
             <Select
               value={assetIdParam || 'all'}
               onValueChange={(value) =>
-                updateURLParams({ asset_id: value === 'all' ? null : value })
+                // Clear domain filter when program changes (cascading filter)
+                updateURLParams({ 
+                  asset_id: value === 'all' ? null : value,
+                  parent_domain: null
+                })
               }
             >
                 <SelectTrigger className="font-mono bg-background border-border hover:border-[--terminal-green]/50 focus:border-[--terminal-green] transition-colors">
@@ -341,6 +357,31 @@ function ProbesPageContent() {
                 ))}
               </SelectContent>
             </Select>
+            </div>
+
+            {/* Domain Filter - Cascading based on selected program */}
+            <div className="space-y-2">
+              <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                Domain
+              </label>
+              <Select
+                value={parentDomainParam || 'all'}
+                onValueChange={(value) =>
+                  updateURLParams({ parent_domain: value === 'all' ? null : value })
+                }
+              >
+                <SelectTrigger className="font-mono bg-background border-border hover:border-[--terminal-green]/50 focus:border-[--terminal-green] transition-colors">
+                  <SelectValue placeholder="all domains" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">all domains</SelectItem>
+                  {availableDomains.map((domain) => (
+                    <SelectItem key={domain} value={domain}>
+                      {domain}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             {/* Status Code Filter */}
@@ -424,13 +465,14 @@ function ProbesPageContent() {
           {/* Actions Row */}
           <div className="flex items-center justify-between">
             {/* Clear Filters Button */}
-            {(assetIdParam || statusCodeParam || technologyParam || searchQuery) && (
+            {(assetIdParam || parentDomainParam || statusCodeParam || technologyParam || searchQuery) && (
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() =>
                   updateURLParams({
                     asset_id: null,
+                    parent_domain: null,
                     status_code: null,
                     technology: null,
                     search: null,

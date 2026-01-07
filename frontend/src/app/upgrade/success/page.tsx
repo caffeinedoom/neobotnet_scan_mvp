@@ -32,7 +32,7 @@ export default function UpgradeSuccessPage() {
   const { user } = useAuth();
   
   // Verification state
-  const [billingStatus, setBillingStatus] = useState<BillingStatus | null>(null);
+  const [_billingStatus, setBillingStatus] = useState<BillingStatus | null>(null);
   const [verificationAttempts, setVerificationAttempts] = useState(0);
   const [isVerifying, setIsVerifying] = useState(true);
   const [verificationFailed, setVerificationFailed] = useState(false);
