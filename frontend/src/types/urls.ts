@@ -60,6 +60,7 @@ export interface URLQueryParams {
   limit?: number;
   offset?: number;
   asset_id?: string;
+  parent_domain?: string;         // Filter by parent/apex domain (exact match)
   is_alive?: boolean;
   status_code?: number;
   has_params?: boolean;

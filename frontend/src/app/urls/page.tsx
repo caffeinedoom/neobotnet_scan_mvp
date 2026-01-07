@@ -198,6 +198,7 @@ function URLsPageContent() {
           limit: number;
           offset: number;
           asset_id?: string;
+          parent_domain?: string;
           is_alive?: boolean;
           status_code?: number;
           source?: string;
@@ -208,6 +209,7 @@ function URLsPageContent() {
         };
 
         if (assetIdParam) queryParams.asset_id = assetIdParam;
+        if (parentDomainParam) queryParams.parent_domain = parentDomainParam;
         if (isAliveParam) queryParams.is_alive = isAliveParam === 'true';
         if (statusCodeParam) queryParams.status_code = parseInt(statusCodeParam);
         if (searchQuery) queryParams.search = searchQuery;
@@ -233,6 +235,7 @@ function URLsPageContent() {
     page,
     perPage,
     assetIdParam,
+    parentDomainParam,
     isAliveParam,
     statusCodeParam,
     searchQuery,

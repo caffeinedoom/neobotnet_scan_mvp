@@ -81,6 +81,7 @@ class HTTPProbesService {
       if (params?.limit) queryParams.append('limit', params.limit.toString());
       if (params?.offset) queryParams.append('offset', params.offset.toString());
       if (params?.asset_id) queryParams.append('asset_id', params.asset_id);
+      if (params?.parent_domain) queryParams.append('parent_domain', params.parent_domain);
       if (params?.scan_job_id) queryParams.append('scan_job_id', params.scan_job_id);
       if (params?.status_code) queryParams.append('status_code', params.status_code.toString());
       if (params?.scheme) queryParams.append('scheme', params.scheme);

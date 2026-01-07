@@ -24,6 +24,7 @@ router = APIRouter()
 async def get_http_probes(
     asset_id: Optional[str] = Query(None, description="Filter by asset ID"),
     scan_job_id: Optional[str] = Query(None, description="Filter by scan job ID"),
+    parent_domain: Optional[str] = Query(None, description="Filter by parent/apex domain (exact match)"),
     status_code: Optional[int] = Query(None, description="Filter by HTTP status code"),
     subdomain: Optional[str] = Query(None, description="Filter by subdomain (partial match)"),
     technology: Optional[str] = Query(None, description="Filter by technology (e.g., 'IIS:10.0')"),
@@ -37,6 +38,7 @@ async def get_http_probes(
     Returns HTTP probe results from the httpx scan module. Supports filtering by:
     - Asset ID: Get probes for a specific asset
     - Scan Job ID: Get probes from a specific scan
+    - Parent Domain: Filter by apex domain (exact match, e.g., "epicgames.com")
     - Status Code: Filter by HTTP response code (200, 404, 500, etc.)
     - Subdomain: Search by subdomain name (partial match)
     - Technology: Filter by detected technology (e.g., "IIS:10.0", "Apache")
@@ -66,6 +68,9 @@ async def get_http_probes(
         
         if scan_job_id:
             query = query.eq("scan_job_id", scan_job_id)
+        
+        if parent_domain:
+            query = query.eq("parent_domain", parent_domain)
         
         if status_code:
             query = query.eq("status_code", status_code)

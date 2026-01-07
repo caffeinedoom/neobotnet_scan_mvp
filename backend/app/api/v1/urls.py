@@ -32,6 +32,7 @@ async def get_urls(
     response: Response,
     asset_id: Optional[str] = Query(None, description="Filter by asset/program ID"),
     scan_job_id: Optional[str] = Query(None, description="Filter by scan job ID"),
+    parent_domain: Optional[str] = Query(None, description="Filter by parent/apex domain (exact match)"),
     is_alive: Optional[bool] = Query(None, description="Filter by alive status"),
     status_code: Optional[int] = Query(None, description="Filter by HTTP status code"),
     has_params: Optional[bool] = Query(None, description="Filter by whether URL has query parameters"),
@@ -48,6 +49,7 @@ async def get_urls(
     Returns URL records discovered by scanning tools. Supports filtering by:
     - Asset ID: Get URLs for a specific program
     - Scan Job ID: Get URLs from a specific scan
+    - Parent Domain: Filter by apex domain (exact match, e.g., "epicgames.com")
     - Alive Status: Filter by whether URL is alive (true/false)
     - Status Code: Filter by HTTP response code (200, 404, 500, etc.)
     - Source: Filter by discovery tool (katana, waymore, gau)
@@ -118,6 +120,10 @@ async def get_urls(
         
         if scan_job_id:
             query = query.eq("scan_job_id", scan_job_id)
+        
+        if parent_domain:
+            # Exact match on domain column (parent_domain alias for cascading filters)
+            query = query.eq("domain", parent_domain)
         
         if is_alive is not None:
             query = query.eq("is_alive", is_alive)

@@ -78,6 +78,7 @@ export interface HTTPProbeQueryParams {
   
   // Filters
   asset_id?: string;              // Filter by asset UUID
+  parent_domain?: string;         // Filter by parent/apex domain (exact match)
   scan_job_id?: string;           // Filter by scan job UUID
   status_code?: number;           // Filter by HTTP status code
   scheme?: 'http' | 'https';      // Filter by scheme

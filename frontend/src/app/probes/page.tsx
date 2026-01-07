@@ -167,6 +167,7 @@ function ProbesPageContent() {
           limit: number;
           offset: number;
           asset_id?: string;
+          parent_domain?: string;
           status_code?: number;
           technology?: string;
         } = {
@@ -175,6 +176,7 @@ function ProbesPageContent() {
         };
 
         if (assetIdParam) queryParams.asset_id = assetIdParam;
+        if (parentDomainParam) queryParams.parent_domain = parentDomainParam;
         if (statusCodeParam) queryParams.status_code = parseInt(statusCodeParam);
         if (technologyParam) queryParams.technology = technologyParam;
 
@@ -213,6 +215,7 @@ function ProbesPageContent() {
     page,
     perPage,
     assetIdParam,
+    parentDomainParam,
     statusCodeParam,
     technologyParam,
     searchQuery,
