@@ -122,8 +122,12 @@ async def get_urls(
             query = query.eq("scan_job_id", scan_job_id)
         
         if parent_domain:
-            # Exact match on domain column (parent_domain alias for cascading filters)
-            query = query.eq("domain", parent_domain)
+            # Match domains that end with the apex domain (e.g., parent_domain=atlassian.com 
+            # matches: atlassian.com, api.atlassian.com, jira.atlassian.com, etc.)
+            # Use ilike with pattern to match apex domain and all subdomains
+            query = query.or_(
+                f"domain.eq.{parent_domain},domain.ilike.%.{parent_domain}"
+            )
         
         if is_alive is not None:
             query = query.eq("is_alive", is_alive)
