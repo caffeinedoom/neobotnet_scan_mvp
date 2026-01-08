@@ -793,6 +793,99 @@ $$;
 ALTER FUNCTION "public"."has_paid_spots_available"("max_spots" integer) OWNER TO "postgres";
 
 
+-- ================================================================
+-- FUNCTION: try_reserve_pro_spot
+-- Atomically reserves a pro spot for a user before Stripe checkout.
+-- Prevents race condition where multiple users could claim the last spot.
+-- Uses row-level locking (FOR UPDATE) to ensure atomic check-and-reserve.
+-- ================================================================
+CREATE OR REPLACE FUNCTION "public"."try_reserve_pro_spot"("p_user_id" uuid, "max_spots" integer DEFAULT 100) 
+RETURNS boolean
+LANGUAGE "plpgsql" SECURITY DEFINER
+AS $$
+DECLARE
+    current_count INTEGER;
+    user_current_plan TEXT;
+BEGIN
+    -- Get user's current plan (if exists)
+    SELECT plan_type INTO user_current_plan
+    FROM user_quotas
+    WHERE user_id = p_user_id;
+    
+    -- If already pro/enterprise, no need to reserve
+    IF user_current_plan IN ('pro', 'enterprise') THEN
+        RETURN TRUE;  -- Already upgraded
+    END IF;
+    
+    -- If already has pending reservation, allow (same user retrying)
+    IF user_current_plan = 'pending_payment' THEN
+        -- Update timestamp to extend reservation
+        UPDATE user_quotas 
+        SET updated_at = NOW()
+        WHERE user_id = p_user_id;
+        RETURN TRUE;
+    END IF;
+    
+    -- Count current pro users + pending reservations (with lock)
+    -- FOR UPDATE prevents race condition by locking counted rows
+    SELECT COUNT(*) INTO current_count
+    FROM user_quotas
+    WHERE plan_type IN ('pro', 'pending_payment')
+    FOR UPDATE;
+    
+    -- Check if spots available
+    IF current_count >= max_spots THEN
+        RETURN FALSE;  -- No spots available
+    END IF;
+    
+    -- Reserve spot for this user (upsert to handle new users)
+    INSERT INTO user_quotas (user_id, plan_type)
+    VALUES (p_user_id, 'pending_payment')
+    ON CONFLICT (user_id) DO UPDATE
+    SET plan_type = 'pending_payment',
+        updated_at = NOW();
+    
+    RETURN TRUE;  -- Reserved successfully
+END;
+$$;
+
+
+ALTER FUNCTION "public"."try_reserve_pro_spot"("p_user_id" uuid, "max_spots" integer) OWNER TO "postgres";
+
+
+COMMENT ON FUNCTION "public"."try_reserve_pro_spot"("p_user_id" uuid, "max_spots" integer) IS 'Atomically reserve a pro spot before Stripe checkout. Uses row-level locking to prevent race conditions. Returns true if spot reserved, false if no spots available.';
+
+
+-- ================================================================
+-- FUNCTION: release_expired_reservations
+-- Releases pending_payment reservations older than specified hours.
+-- Should be called periodically (e.g., via cron) to free abandoned spots.
+-- ================================================================
+CREATE OR REPLACE FUNCTION "public"."release_expired_reservations"("expiry_hours" integer DEFAULT 24) 
+RETURNS integer
+LANGUAGE "plpgsql" SECURITY DEFINER
+AS $$
+DECLARE
+    released_count INTEGER;
+BEGIN
+    UPDATE user_quotas
+    SET plan_type = 'free',
+        updated_at = NOW()
+    WHERE plan_type = 'pending_payment'
+      AND updated_at < NOW() - (expiry_hours || ' hours')::INTERVAL;
+    
+    GET DIAGNOSTICS released_count = ROW_COUNT;
+    RETURN released_count;
+END;
+$$;
+
+
+ALTER FUNCTION "public"."release_expired_reservations"("expiry_hours" integer) OWNER TO "postgres";
+
+
+COMMENT ON FUNCTION "public"."release_expired_reservations"("expiry_hours" integer) IS 'Releases abandoned payment reservations older than specified hours. Call periodically to free up spots from users who started checkout but never paid.';
+
+
 CREATE OR REPLACE FUNCTION "public"."sync_subdomain_asset_id"() RETURNS "trigger"
     LANGUAGE "plpgsql"
     AS $$
@@ -1503,6 +1596,9 @@ CREATE TABLE IF NOT EXISTS "public"."batch_scan_jobs" (
     "urls_probed" integer DEFAULT 0,
     "subdomains_processed" integer DEFAULT 0,
     "urls_received" integer DEFAULT 0,
+    "urls_published_to_katana" integer DEFAULT 0,
+    "urls_skipped" integer DEFAULT 0,
+    "urls_updated" integer DEFAULT 0,
     CONSTRAINT "valid_batch_type" CHECK (("batch_type" = ANY (ARRAY['multi_asset'::"text", 'single_asset'::"text"]))),
     CONSTRAINT "valid_domain_counts" CHECK ((("total_domains" >= 0) AND ("completed_domains" >= 0) AND ("failed_domains" >= 0) AND (("completed_domains" + "failed_domains") <= "total_domains"))),
     CONSTRAINT "valid_domains_array" CHECK (("array_length"("batch_domains", 1) = "total_domains")),

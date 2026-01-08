@@ -20,7 +20,7 @@ from app.dependencies.tier_check import (
     get_user_tier,
     get_user_urls_viewed,
     get_paid_spots_remaining,
-    can_purchase,
+    try_reserve_spot,
 )
 from app.core.tier_limits import get_tier_limits, MAX_PAID_USERS
 from app.core.supabase_client import supabase_client
@@ -52,8 +52,10 @@ async def create_checkout_session(
             detail="You already have a pro plan",
         )
     
-    # Check if spots available
-    if not await can_purchase():
+    # Atomic spot reservation - prevents race condition
+    # This locks a spot for the user before they go to Stripe checkout
+    reserved = await try_reserve_spot(user_id)
+    if not reserved:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Sorry, all early access spots have been claimed",
