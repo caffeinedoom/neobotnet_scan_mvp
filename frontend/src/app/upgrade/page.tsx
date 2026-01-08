@@ -178,12 +178,6 @@ export default function UpgradePage() {
                 </div>
               </div>
 
-              {/* What you'll get */}
-              <div className="pt-4 border-t border-white/10">
-                <p className="text-xs text-white/50 text-center">
-                  Early adopters get lifetime access for just $13.37 — no subscriptions, ever.
-                </p>
-              </div>
             </CardContent>
           </Card>
         </div>
