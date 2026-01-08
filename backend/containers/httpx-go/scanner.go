@@ -126,7 +126,7 @@ func convertResultToProbe(r runner.Result, scanJobID string, assetID string, cre
 
 		// Core fields (NOT NULL in our schema)
 		URL:       r.URL,
-		Subdomain: extractSubdomain(r.Input, r.Host),
+		Subdomain: extractSubdomain(r.URL), // FIXED: Extract hostname from URL, not r.Host (which is the resolved IP)
 		Scheme:    r.Scheme,
 		CreatedAt: createdAt,
 
@@ -202,8 +202,9 @@ func convertResultToProbe(r runner.Result, scanJobID string, assetID string, cre
 		probe.FaviconMD5 = &r.FavIconMD5
 	}
 
-	// Parent domain (extract from host)
-	probe.ParentDomain = extractParentDomain(r.Host)
+	// Parent domain (extract from URL hostname)
+	// FIXED: Previously used r.Host which contains the resolved IP address
+	probe.ParentDomain = extractParentDomain(r.URL)
 
 	// Port (convert string to int, default to 80/443)
 	probe.Port = parsePort(r.Port, r.Scheme)
@@ -211,13 +212,24 @@ func convertResultToProbe(r runner.Result, scanJobID string, assetID string, cre
 	return probe
 }
 
-// extractSubdomain extracts the subdomain from input or host
-func extractSubdomain(input, host string) string {
-	// Use host if available, otherwise fall back to input
-	if host != "" {
-		return host
+// extractSubdomain extracts the subdomain (hostname) from the URL
+// FIXED: Previously used r.Host which contains the resolved IP address, not the hostname
+func extractSubdomain(urlStr string) string {
+	// Remove protocol
+	urlStr = strings.TrimPrefix(urlStr, "http://")
+	urlStr = strings.TrimPrefix(urlStr, "https://")
+
+	// Remove port if present
+	if colonIndex := strings.Index(urlStr, ":"); colonIndex != -1 {
+		urlStr = urlStr[:colonIndex]
 	}
-	return input
+
+	// Remove path if present
+	if slashIndex := strings.Index(urlStr, "/"); slashIndex != -1 {
+		urlStr = urlStr[:slashIndex]
+	}
+
+	return urlStr
 }
 
 // extractParentDomain extracts the parent/apex domain (e.g., example.com from sub.example.com)

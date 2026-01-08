@@ -15,17 +15,16 @@ class TierLimits:
 
 
 # Tier configuration
+# - free: Default tier with limited access
+# - pro: Paid tier ($13.37 one-time, 100 early adopter spots)
+# - enterprise: Future tier (manual assignment, not part of 100 spots)
 TIER_LIMITS = {
     "free": TierLimits(
         urls_limit=250,  # Total URLs visible
         rate_limit="30/minute",
     ),
-    "paid": TierLimits(
-        urls_limit=None,  # Unlimited
-        rate_limit="100/minute",
-    ),
     "pro": TierLimits(
-        urls_limit=None,
+        urls_limit=None,  # Unlimited
         rate_limit="100/minute",
     ),
     "enterprise": TierLimits(

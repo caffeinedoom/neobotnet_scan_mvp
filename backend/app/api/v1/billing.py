@@ -44,12 +44,12 @@ async def create_checkout_session(
     """
     user_id = user.id
     
-    # Check if already paid
+    # Check if already pro/enterprise
     plan_type = await get_user_tier(user_id)
-    if plan_type in ["paid", "pro", "enterprise"]:
+    if plan_type in ["pro", "enterprise"]:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="You already have a paid plan",
+            detail="You already have a pro plan",
         )
     
     # Check if spots available
@@ -135,14 +135,14 @@ async def stripe_webhook(
         
         if user_id:
             try:
-                await upgrade_user_to_paid(
+                await upgrade_user_to_pro(
                     user_id=user_id,
                     stripe_customer_id=session.get("customer"),
                     stripe_payment_id=session.get("payment_intent"),
                 )
                 return WebhookResponse(
                     status="success",
-                    message=f"User {user_id} upgraded to paid",
+                    message=f"User {user_id} upgraded to pro",
                 )
             except Exception as e:
                 # Return 500 so Stripe will retry the webhook
@@ -172,13 +172,13 @@ async def stripe_webhook(
     )
 
 
-async def upgrade_user_to_paid(
+async def upgrade_user_to_pro(
     user_id: str,
     stripe_customer_id: Optional[str],
     stripe_payment_id: Optional[str],
 ) -> None:
     """
-    Upgrade a user to paid tier in the database.
+    Upgrade a user to pro tier in the database.
     
     Uses UPSERT to handle users who don't have a user_quotas record yet.
     This is critical - new users may not have a record, and UPDATE would silently fail.
@@ -195,7 +195,7 @@ async def upgrade_user_to_paid(
         # This fixes the bug where UPDATE silently fails for new users
         result = supabase_client.service_client.table("user_quotas").upsert({
             "user_id": user_id,
-            "plan_type": "paid",
+            "plan_type": "pro",
             "stripe_customer_id": stripe_customer_id,
             "stripe_payment_id": stripe_payment_id,
             "paid_at": paid_at,
@@ -203,13 +203,13 @@ async def upgrade_user_to_paid(
         
         # Verify the upgrade worked
         if result.data:
-            logger.info(f"Successfully upgraded user {user_id} to paid tier")
+            logger.info(f"Successfully upgraded user {user_id} to pro tier")
         else:
             logger.error(f"UPSERT returned no data for user {user_id} - upgrade may have failed")
         
     except Exception as e:
         # Log with proper severity - this is a critical payment issue!
-        logger.error(f"CRITICAL: Failed to upgrade user {user_id} to paid tier: {e}")
+        logger.error(f"CRITICAL: Failed to upgrade user {user_id} to pro tier: {e}")
         logger.error(f"Stripe customer: {stripe_customer_id}, payment: {stripe_payment_id}")
         # Re-raise so webhook returns error and Stripe retries
         raise
@@ -237,19 +237,19 @@ async def get_billing_status(
     
     # Get paid_at if applicable
     paid_at = None
-    if plan_type in ["paid", "pro", "enterprise"]:
+    if plan_type in ["pro", "enterprise"]:
         try:
             result = supabase_client.service_client.table("user_quotas").select(
                 "paid_at"
-            ).eq("user_id", user_id).single().execute()
-            if result.data:
-                paid_at = result.data.get("paid_at")
+            ).eq("user_id", user_id).limit(1).execute()
+            if result.data and len(result.data) > 0:
+                paid_at = result.data[0].get("paid_at")
         except Exception:
             pass
     
     return BillingStatusResponse(
         plan_type=plan_type,
-        is_paid=plan_type in ["paid", "pro", "enterprise"],
+        is_paid=plan_type in ["pro", "enterprise"],
         paid_at=paid_at,
         urls_limit=limits.urls_limit,
         urls_viewed=urls_viewed,

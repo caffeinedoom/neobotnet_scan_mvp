@@ -571,41 +571,13 @@ ALTER FUNCTION "public"."get_optimal_batch_sizes"("p_module_name" "text", "p_tot
 CREATE OR REPLACE FUNCTION "public"."get_paid_user_count"() RETURNS integer
     LANGUAGE "sql" SECURITY DEFINER
     AS $$
-  SELECT COUNT(*)::INTEGER FROM user_quotas WHERE plan_type = 'paid';
+  -- Count only 'pro' users for the 100 early adopter spots
+  -- Enterprise users are manual assignments, not part of the 100 limit
+  SELECT COUNT(*)::INTEGER FROM user_quotas WHERE plan_type = 'pro';
 $$;
 
 
 ALTER FUNCTION "public"."get_paid_user_count"() OWNER TO "postgres";
-
-
--- Atomic increment for URL quota tracking (prevents race conditions)
-CREATE OR REPLACE FUNCTION "public"."increment_url_quota"("p_user_id" "uuid", "p_count" integer) RETURNS void
-    LANGUAGE "plpgsql" SECURITY DEFINER
-    AS $$
-BEGIN
-    -- Atomically increment the urls_viewed_count
-    -- This prevents race conditions from concurrent requests
-    UPDATE public.user_usage
-    SET urls_viewed_count = COALESCE(urls_viewed_count, 0) + p_count,
-        updated_at = NOW()
-    WHERE user_id = p_user_id;
-    
-    -- If no row was updated, insert a new record
-    IF NOT FOUND THEN
-        INSERT INTO public.user_usage (user_id, urls_viewed_count)
-        VALUES (p_user_id, p_count)
-        ON CONFLICT (user_id) DO UPDATE
-        SET urls_viewed_count = COALESCE(user_usage.urls_viewed_count, 0) + p_count,
-            updated_at = NOW();
-    END IF;
-END;
-$$;
-
-
-ALTER FUNCTION "public"."increment_url_quota"("p_user_id" "uuid", "p_count" integer) OWNER TO "postgres";
-
-
-COMMENT ON FUNCTION "public"."increment_url_quota"("p_user_id" "uuid", "p_count" integer) IS 'Atomically increment the URL quota for a user. Prevents race conditions from concurrent API requests.';
 
 
 CREATE OR REPLACE FUNCTION "public"."get_user_recon_data"("target_user_id" "uuid") RETURNS json
@@ -813,7 +785,8 @@ GUARANTEES DATA CONSISTENCY:
 CREATE OR REPLACE FUNCTION "public"."has_paid_spots_available"("max_spots" integer DEFAULT 100) RETURNS boolean
     LANGUAGE "sql" SECURITY DEFINER
     AS $$
-  SELECT (SELECT COUNT(*) FROM user_quotas WHERE plan_type = 'paid') < max_spots;
+  -- Check if pro spots are available (enterprise not counted)
+  SELECT (SELECT COUNT(*) FROM user_quotas WHERE plan_type = 'pro') < max_spots;
 $$;
 
 
@@ -1479,67 +1452,6 @@ ALTER VIEW "public"."asset_recon_counts" OWNER TO "postgres";
 COMMENT ON VIEW "public"."asset_recon_counts" IS 'Pre-computed reconnaissance counts per asset. Aggregates probe_count (http_probes), dns_count (dns_records), and url_count (urls) for each asset. Used for dashboard performance optimization.';
 
 
--- ================================================================
--- VIEW: http_probe_stats
--- Pre-computed aggregate statistics for HTTP probes
--- Used by /http-probes/stats/summary endpoint
--- Replaces fetching all 22K+ rows with a single aggregated query
--- ================================================================
-CREATE OR REPLACE VIEW "public"."http_probe_stats" AS
-SELECT 
-    COUNT(*) AS total_probes,
-    COUNT(DISTINCT asset_id) AS unique_assets,
-    COUNT(DISTINCT webserver) AS unique_webservers,
-    COUNT(CASE WHEN status_code >= 200 AND status_code < 300 THEN 1 END) AS status_2xx,
-    COUNT(CASE WHEN status_code >= 300 AND status_code < 400 THEN 1 END) AS status_3xx,
-    COUNT(CASE WHEN status_code >= 400 AND status_code < 500 THEN 1 END) AS status_4xx,
-    COUNT(CASE WHEN status_code >= 500 THEN 1 END) AS status_5xx,
-    COUNT(CASE WHEN cdn_name IS NOT NULL THEN 1 END) AS with_cdn,
-    COUNT(CASE WHEN jsonb_array_length(chain_status_codes) > 0 THEN 1 END) AS with_redirects
-FROM "public"."http_probes";
-
-ALTER VIEW "public"."http_probe_stats" OWNER TO "postgres";
-
-COMMENT ON VIEW "public"."http_probe_stats" IS 'Pre-computed HTTP probe statistics. Provides total counts, status code distributions, and CDN/redirect metrics in a single query.';
-
-
--- ================================================================
--- VIEW: http_probe_top_items
--- Pre-computed top webservers and technologies
--- Used by /http-probes/stats/summary endpoint
--- ================================================================
-CREATE OR REPLACE VIEW "public"."http_probe_webserver_counts" AS
-SELECT 
-    webserver,
-    COUNT(*) AS count
-FROM "public"."http_probes"
-WHERE webserver IS NOT NULL
-GROUP BY webserver
-ORDER BY count DESC
-LIMIT 20;
-
-ALTER VIEW "public"."http_probe_webserver_counts" OWNER TO "postgres";
-
-
--- ================================================================
--- VIEW: scan_subdomain_counts
--- Pre-computed subdomain counts per scan job
--- Used by /usage/recon-data endpoint for recent scans
--- Replaces 20 sequential queries with a single query
--- ================================================================
-CREATE OR REPLACE VIEW "public"."scan_subdomain_counts" AS
-SELECT 
-    scan_job_id,
-    COUNT(*) AS subdomain_count
-FROM "public"."subdomains"
-WHERE scan_job_id IS NOT NULL
-GROUP BY scan_job_id;
-
-ALTER VIEW "public"."scan_subdomain_counts" OWNER TO "postgres";
-
-COMMENT ON VIEW "public"."scan_subdomain_counts" IS 'Pre-computed subdomain counts per scan job. Used for displaying subdomain counts in recent scans without N+1 queries.';
-
-
 
 CREATE TABLE IF NOT EXISTS "public"."batch_domain_assignments" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
@@ -1716,6 +1628,59 @@ COMMENT ON COLUMN "public"."historical_urls"."metadata" IS 'Flexible JSON storag
 
 
 
+CREATE OR REPLACE VIEW "public"."http_probe_stats" AS
+ SELECT "count"(*) AS "total_probes",
+    "count"(DISTINCT "asset_id") AS "unique_assets",
+    "count"(DISTINCT "webserver") AS "unique_webservers",
+    "count"(
+        CASE
+            WHEN (("status_code" >= 200) AND ("status_code" < 300)) THEN 1
+            ELSE NULL::integer
+        END) AS "status_2xx",
+    "count"(
+        CASE
+            WHEN (("status_code" >= 300) AND ("status_code" < 400)) THEN 1
+            ELSE NULL::integer
+        END) AS "status_3xx",
+    "count"(
+        CASE
+            WHEN (("status_code" >= 400) AND ("status_code" < 500)) THEN 1
+            ELSE NULL::integer
+        END) AS "status_4xx",
+    "count"(
+        CASE
+            WHEN ("status_code" >= 500) THEN 1
+            ELSE NULL::integer
+        END) AS "status_5xx",
+    "count"(
+        CASE
+            WHEN ("cdn_name" IS NOT NULL) THEN 1
+            ELSE NULL::integer
+        END) AS "with_cdn",
+    "count"(
+        CASE
+            WHEN ("jsonb_array_length"("chain_status_codes") > 0) THEN 1
+            ELSE NULL::integer
+        END) AS "with_redirects"
+   FROM "public"."http_probes";
+
+
+ALTER VIEW "public"."http_probe_stats" OWNER TO "postgres";
+
+
+CREATE OR REPLACE VIEW "public"."http_probe_webserver_counts" AS
+ SELECT "webserver",
+    "count"(*) AS "count"
+   FROM "public"."http_probes"
+  WHERE ("webserver" IS NOT NULL)
+  GROUP BY "webserver"
+  ORDER BY ("count"(*)) DESC
+ LIMIT 20;
+
+
+ALTER VIEW "public"."http_probe_webserver_counts" OWNER TO "postgres";
+
+
 CREATE OR REPLACE VIEW "public"."module_analytics" AS
  SELECT "source_module",
     "count"(*) AS "total_subdomains",
@@ -1780,6 +1745,17 @@ Example: httpx depends on [subfinder] because it needs subdomain data.
 Empty array means no dependencies.
 Used by backend to resolve execution order automatically.';
 
+
+
+CREATE OR REPLACE VIEW "public"."scan_subdomain_counts" AS
+ SELECT "scan_job_id",
+    "count"(*) AS "subdomain_count"
+   FROM "public"."subdomains"
+  WHERE ("scan_job_id" IS NOT NULL)
+  GROUP BY "scan_job_id";
+
+
+ALTER VIEW "public"."scan_subdomain_counts" OWNER TO "postgres";
 
 
 CREATE TABLE IF NOT EXISTS "public"."scans" (
@@ -3379,6 +3355,18 @@ GRANT ALL ON TABLE "public"."historical_urls" TO "service_role";
 
 
 
+GRANT ALL ON TABLE "public"."http_probe_stats" TO "anon";
+GRANT ALL ON TABLE "public"."http_probe_stats" TO "authenticated";
+GRANT ALL ON TABLE "public"."http_probe_stats" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."http_probe_webserver_counts" TO "anon";
+GRANT ALL ON TABLE "public"."http_probe_webserver_counts" TO "authenticated";
+GRANT ALL ON TABLE "public"."http_probe_webserver_counts" TO "service_role";
+
+
+
 GRANT ALL ON TABLE "public"."module_analytics" TO "anon";
 GRANT ALL ON TABLE "public"."module_analytics" TO "authenticated";
 GRANT ALL ON TABLE "public"."module_analytics" TO "service_role";
@@ -3388,6 +3376,12 @@ GRANT ALL ON TABLE "public"."module_analytics" TO "service_role";
 GRANT ALL ON TABLE "public"."scan_module_profiles" TO "anon";
 GRANT ALL ON TABLE "public"."scan_module_profiles" TO "authenticated";
 GRANT ALL ON TABLE "public"."scan_module_profiles" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."scan_subdomain_counts" TO "anon";
+GRANT ALL ON TABLE "public"."scan_subdomain_counts" TO "authenticated";
+GRANT ALL ON TABLE "public"."scan_subdomain_counts" TO "service_role";
 
 
 
