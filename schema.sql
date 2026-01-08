@@ -782,7 +782,7 @@ GUARANTEES DATA CONSISTENCY:
 
 
 
-CREATE OR REPLACE FUNCTION "public"."has_paid_spots_available"("max_spots" integer DEFAULT 100) RETURNS boolean
+CREATE OR REPLACE FUNCTION "public"."has_paid_spots_available"("max_spots" integer DEFAULT 50) RETURNS boolean
     LANGUAGE "sql" SECURITY DEFINER
     AS $$
   -- Check if pro spots are available (enterprise not counted)
@@ -829,7 +829,7 @@ $$;
 ALTER FUNCTION "public"."sync_subdomain_asset_id"() OWNER TO "postgres";
 
 
-CREATE OR REPLACE FUNCTION "public"."try_reserve_pro_spot"("p_user_id" "uuid", "max_spots" integer DEFAULT 100) RETURNS boolean
+CREATE OR REPLACE FUNCTION "public"."try_reserve_pro_spot"("p_user_id" "uuid", "max_spots" integer DEFAULT 50) RETURNS boolean
     LANGUAGE "plpgsql" SECURITY DEFINER
     AS $$
 DECLARE

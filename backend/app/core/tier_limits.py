@@ -40,7 +40,5 @@ def get_tier_limits(plan_type: str) -> TierLimits:
 
 
 # Paywall configuration
-# TESTING: Temporarily set to 2 (was 100) to test quota limit
-# TODO: Revert to 100 after testing!
-MAX_PAID_USERS = 2  # First 100 users only (TEMP: 2 for testing)
+MAX_PAID_USERS = 50  # First 50 early adopters only
 PRICE_USD = 13.37

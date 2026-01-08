@@ -112,8 +112,8 @@ export default function UpgradePage() {
     );
   }
 
-  const spotsLeft = spotsRemaining?.spots_remaining ?? 100;
-  const maxSpots = spotsRemaining?.max_spots ?? 100;
+  const spotsLeft = spotsRemaining?.spots_remaining ?? 50;
+  const maxSpots = spotsRemaining?.max_spots ?? 50;
 
   // Sold out state
   if (spotsLeft <= 0) {
