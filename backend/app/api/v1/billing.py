@@ -182,8 +182,12 @@ async def upgrade_user_to_pro(
     """
     Upgrade a user to pro tier in the database.
     
-    Uses UPSERT to handle users who don't have a user_quotas record yet.
-    This is critical - new users may not have a record, and UPDATE would silently fail.
+    Includes re-validation to ensure:
+    1. User isn't already pro/enterprise (skip if so)
+    2. User has a pending_payment reservation (expected flow)
+    3. If user is 'free' (no reservation), log warning but still upgrade
+    
+    Uses UPSERT to handle edge cases where user_quotas record doesn't exist.
     """
     from datetime import datetime, timezone
     import logging
@@ -191,10 +195,48 @@ async def upgrade_user_to_pro(
     logger = logging.getLogger(__name__)
     
     try:
+        # Step 1: Get user's current plan type for validation
+        current_plan = await get_user_tier(user_id)
+        
+        # Step 2: Handle based on current state
+        if current_plan in ["pro", "enterprise"]:
+            # Already upgraded - this is a duplicate webhook or manual upgrade
+            logger.info(f"User {user_id} already has '{current_plan}' plan - skipping upgrade")
+            return
+        
+        if current_plan == "pending_payment":
+            # Expected flow: user reserved a spot and completed payment
+            logger.info(f"User {user_id} completing upgrade from pending_payment to pro")
+        
+        elif current_plan == "free":
+            # Unexpected: user somehow paid without going through reservation flow
+            # This could happen if:
+            # - Old checkout session from before atomic reservation was implemented
+            # - Direct Stripe dashboard payment
+            # - Bug in reservation flow
+            logger.warning(
+                f"UNEXPECTED: User {user_id} is upgrading from 'free' without reservation. "
+                f"Stripe payment: {stripe_payment_id}. Proceeding with upgrade but flagging for review."
+            )
+            
+            # Additional safety check: verify spots are available
+            spots = await get_paid_spots_remaining()
+            if spots <= 0:
+                logger.error(
+                    f"CRITICAL: User {user_id} paid but no spots available! "
+                    f"Current spots remaining: {spots}. Payment: {stripe_payment_id}. "
+                    f"Manual review required - may need to issue refund."
+                )
+                # Still proceed with upgrade - they paid, we should honor it
+                # But this needs manual attention
+        
+        else:
+            # Unknown plan type - log and proceed
+            logger.warning(f"User {user_id} has unknown plan type '{current_plan}' - proceeding with upgrade")
+        
+        # Step 3: Perform the upgrade
         paid_at = datetime.now(timezone.utc).isoformat()
         
-        # Use UPSERT to create record if it doesn't exist, or update if it does
-        # This fixes the bug where UPDATE silently fails for new users
         result = supabase_client.service_client.table("user_quotas").upsert({
             "user_id": user_id,
             "plan_type": "pro",
@@ -205,7 +247,7 @@ async def upgrade_user_to_pro(
         
         # Verify the upgrade worked
         if result.data:
-            logger.info(f"Successfully upgraded user {user_id} to pro tier")
+            logger.info(f"Successfully upgraded user {user_id} to pro tier (from '{current_plan}')")
         else:
             logger.error(f"UPSERT returned no data for user {user_id} - upgrade may have failed")
         
