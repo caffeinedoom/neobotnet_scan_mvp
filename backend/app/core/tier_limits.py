@@ -20,7 +20,7 @@ class TierLimits:
 # - enterprise: Future tier (manual assignment, not part of 100 spots)
 TIER_LIMITS = {
     "free": TierLimits(
-        urls_limit=250,  # Total URLs visible
+        urls_limit=1337,  # Total URLs visible (global across all programs)
         rate_limit="30/minute",
     ),
     "pro": TierLimits(
