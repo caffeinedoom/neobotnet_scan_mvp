@@ -32,6 +32,7 @@ export default function UpgradeSuccessPage() {
   const { user, isLoading: authLoading } = useAuth();
   
   // Verification state
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [_billingStatus, setBillingStatus] = useState<BillingStatus | null>(null);
   const [verificationAttempts, setVerificationAttempts] = useState(0);
   const [isVerifying, setIsVerifying] = useState(true);

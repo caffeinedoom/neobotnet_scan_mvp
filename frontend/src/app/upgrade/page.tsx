@@ -170,7 +170,7 @@ export default function UpgradePage() {
               </div>
               <CardTitle className="text-xl text-white">Join the Waitlist</CardTitle>
               <CardDescription className="text-white/70 mt-2">
-                We're preparing the next batch of early adopter spots. Be the first to know when they're available!
+                We&apos;re preparing the next batch of early adopter spots. Be the first to know when they&apos;re available!
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
@@ -203,12 +203,12 @@ export default function UpgradePage() {
                   <div className="flex-1">
                     <h3 className="font-semibold text-white mb-1">Get notified by email</h3>
                     <p className="text-sm text-white/70 mb-3">
-                      We'll send you an email when the next batch of spots is ready.
+                      We&apos;ll send you an email when the next batch of spots is ready.
                     </p>
                     {emailSubmitted ? (
                       <div className="flex items-center gap-2 text-[--terminal-green]">
                         <Check className="h-5 w-5" />
-                        <span className="text-sm font-medium">You're on the list!</span>
+                        <span className="text-sm font-medium">You&apos;re on the list!</span>
                       </div>
                     ) : (
                       <form onSubmit={handleNotifySubmit} className="flex gap-2">

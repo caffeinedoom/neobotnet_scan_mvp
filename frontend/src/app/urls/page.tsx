@@ -36,8 +36,8 @@ import { toast } from 'sonner';
 import { formatDistanceToNow } from 'date-fns';
 
 // URLs API and Types
-import { fetchURLs, fetchURLStats } from '@/lib/api/urls';
-import type { URLRecord, URLStats } from '@/types/urls';
+import { fetchURLs } from '@/lib/api/urls';
+import type { URLRecord } from '@/types/urls';
 
 // Export API
 import { exportURLs } from '@/lib/api/exports';
@@ -107,7 +107,6 @@ function URLsPageContent() {
 
   // Component state
   const [urls, setURLs] = useState<URLRecord[]>([]);
-  const [stats, setStats] = useState<URLStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [totalURLs, setTotalURLs] = useState(0);
@@ -242,28 +241,6 @@ function URLsPageContent() {
   ]);
 
   // ================================================================
-  // Fetch Statistics (for total count in header)
-  // ================================================================
-
-  useEffect(() => {
-    const fetchStats = async () => {
-      if (!isAuthenticated) return;
-
-      try {
-        const statsParams: { asset_id?: string } = {};
-        if (assetIdParam) statsParams.asset_id = assetIdParam;
-
-        const statsData = await fetchURLStats(statsParams);
-        setStats(statsData);
-      } catch (err) {
-        console.error('Error fetching URL stats:', err);
-      }
-    };
-
-    fetchStats();
-  }, [isAuthenticated, assetIdParam]);
-
-  // ================================================================
   // Auth Redirect
   // ================================================================
 
@@ -314,11 +291,11 @@ function URLsPageContent() {
           <h1 className="text-2xl font-bold tracking-tight font-mono text-foreground">
             urls
           </h1>
-            {stats && (
+          {!isLoading && (
             <span className="text-muted-foreground text-xl font-mono">
-                {stats.total_urls.toLocaleString()}
-              </span>
-            )}
+              {totalURLs.toLocaleString()}
+            </span>
+          )}
         </div>
 
         {/* Compact Quota Display */}
