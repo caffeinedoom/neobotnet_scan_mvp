@@ -29,7 +29,7 @@ import { formatDistanceToNow } from 'date-fns';
 
 // HTTP Probes API and Types
 import { fetchHTTPProbes, fetchHTTPProbeStats } from '@/lib/api/http-probes';
-import type { HTTPProbe, HTTPProbeStats } from '@/types/http-probes';
+import type { HTTPProbe } from '@/types/http-probes';
 
 // HTTP Probes Components
 import {
@@ -83,7 +83,6 @@ function ProbesPageContent() {
 
   // Component state
   const [probes, setProbes] = useState<HTTPProbe[]>([]);
-  const [stats, setStats] = useState<HTTPProbeStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [totalProbes, setTotalProbes] = useState(0);
@@ -234,7 +233,6 @@ function ProbesPageContent() {
         if (assetIdParam) statsParams.asset_id = assetIdParam;
 
         const statsData = await fetchHTTPProbeStats(statsParams);
-        setStats(statsData);
 
         // Populate technology dropdown from stats (always shows ALL technologies)
         // This ensures the dropdown options don't change when filters are applied
@@ -301,11 +299,11 @@ function ProbesPageContent() {
         <h1 className="text-2xl font-bold tracking-tight font-mono text-foreground">
           servers
         </h1>
-            {stats && (
+        {!isLoading && (
           <span className="text-muted-foreground text-xl font-mono">
-                {stats.total_probes.toLocaleString()}
-              </span>
-            )}
+            {totalProbes.toLocaleString()}
+          </span>
+        )}
       </div>
 
       {/* Filters */}
