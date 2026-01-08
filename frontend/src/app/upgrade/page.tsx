@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Zap, Check, Lock, Loader2, ArrowRight, Bell, MessageCircle } from 'lucide-react';
-import { Input } from '@/components/ui/input';
 import { useAuth } from '@/contexts/AuthContext';
 import { getBillingStatus, createCheckoutSession, getSpotsRemaining, BillingStatus, SpotsRemaining } from '@/lib/api/billing';
 import { toast } from 'sonner';
@@ -17,9 +16,6 @@ export default function UpgradePage() {
   const [spotsRemaining, setSpotsRemaining] = useState<SpotsRemaining | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isCheckingOut, setIsCheckingOut] = useState(false);
-  const [notifyEmail, setNotifyEmail] = useState('');
-  const [isSubmittingEmail, setIsSubmittingEmail] = useState(false);
-  const [emailSubmitted, setEmailSubmitted] = useState(false);
 
   // Discord invite link - replace with your actual Discord invite
   const DISCORD_INVITE_URL = 'https://discord.gg/neobotnet';
@@ -54,33 +50,6 @@ export default function UpgradePage() {
       loadData();
     }
   }, [user, authLoading]);
-
-  const handleNotifySubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!notifyEmail || !notifyEmail.includes('@')) {
-      toast.error('Please enter a valid email address');
-      return;
-    }
-
-    setIsSubmittingEmail(true);
-    try {
-      // For now, just store in localStorage as a simple solution
-      // TODO: Implement backend endpoint to store waitlist emails
-      const waitlist = JSON.parse(localStorage.getItem('neobotnet_waitlist') || '[]');
-      if (!waitlist.includes(notifyEmail)) {
-        waitlist.push(notifyEmail);
-        localStorage.setItem('neobotnet_waitlist', JSON.stringify(waitlist));
-      }
-      
-      setEmailSubmitted(true);
-      toast.success('You\'re on the list! We\'ll notify you when spots open up.');
-    } catch (error) {
-      console.error('Failed to submit email:', error);
-      toast.error('Failed to submit. Please try again.');
-    } finally {
-      setIsSubmittingEmail(false);
-    }
-  };
 
   const handleUpgrade = async () => {
     if (billingStatus?.is_paid) {
@@ -201,38 +170,10 @@ export default function UpgradePage() {
                 <div className="flex items-start gap-3">
                   <Bell className="h-6 w-6 text-[--terminal-green] flex-shrink-0 mt-0.5" />
                   <div className="flex-1">
-                    <h3 className="font-semibold text-white mb-1">Get notified by email</h3>
-                    <p className="text-sm text-white/70 mb-3">
-                      We&apos;ll send you an email when the next batch of spots is ready.
+                    <h3 className="font-semibold text-white mb-1">Email notification</h3>
+                    <p className="text-sm text-white/70">
+                      We&apos;ll notify you at <span className="text-white font-medium">{user?.email}</span> when the next batch of spots is ready.
                     </p>
-                    {emailSubmitted ? (
-                      <div className="flex items-center gap-2 text-[--terminal-green]">
-                        <Check className="h-5 w-5" />
-                        <span className="text-sm font-medium">You&apos;re on the list!</span>
-                      </div>
-                    ) : (
-                      <form onSubmit={handleNotifySubmit} className="flex gap-2">
-                        <Input
-                          type="email"
-                          placeholder="your@email.com"
-                          value={notifyEmail}
-                          onChange={(e) => setNotifyEmail(e.target.value)}
-                          className="flex-1 bg-black/50 border-white/20 text-white placeholder:text-white/40"
-                          disabled={isSubmittingEmail}
-                        />
-                        <Button
-                          type="submit"
-                          disabled={isSubmittingEmail}
-                          className="bg-white text-black hover:bg-white/90"
-                        >
-                          {isSubmittingEmail ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : (
-                            'Notify Me'
-                          )}
-                        </Button>
-                      </form>
-                    )}
                   </div>
                 </div>
               </div>
