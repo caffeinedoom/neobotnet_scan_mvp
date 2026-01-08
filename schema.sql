@@ -793,78 +793,9 @@ $$;
 ALTER FUNCTION "public"."has_paid_spots_available"("max_spots" integer) OWNER TO "postgres";
 
 
--- ================================================================
--- FUNCTION: try_reserve_pro_spot
--- Atomically reserves a pro spot for a user before Stripe checkout.
--- Prevents race condition where multiple users could claim the last spot.
--- Uses row-level locking (FOR UPDATE) to ensure atomic check-and-reserve.
--- ================================================================
-CREATE OR REPLACE FUNCTION "public"."try_reserve_pro_spot"("p_user_id" uuid, "max_spots" integer DEFAULT 100) 
-RETURNS boolean
-LANGUAGE "plpgsql" SECURITY DEFINER
-AS $$
-DECLARE
-    current_count INTEGER;
-    user_current_plan TEXT;
-BEGIN
-    -- Get user's current plan (if exists)
-    SELECT plan_type INTO user_current_plan
-    FROM user_quotas
-    WHERE user_id = p_user_id;
-    
-    -- If already pro/enterprise, no need to reserve
-    IF user_current_plan IN ('pro', 'enterprise') THEN
-        RETURN TRUE;  -- Already upgraded
-    END IF;
-    
-    -- If already has pending reservation, allow (same user retrying)
-    IF user_current_plan = 'pending_payment' THEN
-        -- Update timestamp to extend reservation
-        UPDATE user_quotas 
-        SET updated_at = NOW()
-        WHERE user_id = p_user_id;
-        RETURN TRUE;
-    END IF;
-    
-    -- Count current pro users + pending reservations (with lock)
-    -- FOR UPDATE prevents race condition by locking counted rows
-    SELECT COUNT(*) INTO current_count
-    FROM user_quotas
-    WHERE plan_type IN ('pro', 'pending_payment')
-    FOR UPDATE;
-    
-    -- Check if spots available
-    IF current_count >= max_spots THEN
-        RETURN FALSE;  -- No spots available
-    END IF;
-    
-    -- Reserve spot for this user (upsert to handle new users)
-    INSERT INTO user_quotas (user_id, plan_type)
-    VALUES (p_user_id, 'pending_payment')
-    ON CONFLICT (user_id) DO UPDATE
-    SET plan_type = 'pending_payment',
-        updated_at = NOW();
-    
-    RETURN TRUE;  -- Reserved successfully
-END;
-$$;
-
-
-ALTER FUNCTION "public"."try_reserve_pro_spot"("p_user_id" uuid, "max_spots" integer) OWNER TO "postgres";
-
-
-COMMENT ON FUNCTION "public"."try_reserve_pro_spot"("p_user_id" uuid, "max_spots" integer) IS 'Atomically reserve a pro spot before Stripe checkout. Uses row-level locking to prevent race conditions. Returns true if spot reserved, false if no spots available.';
-
-
--- ================================================================
--- FUNCTION: release_expired_reservations
--- Releases pending_payment reservations older than specified hours.
--- Should be called periodically (e.g., via cron) to free abandoned spots.
--- ================================================================
-CREATE OR REPLACE FUNCTION "public"."release_expired_reservations"("expiry_hours" integer DEFAULT 24) 
-RETURNS integer
-LANGUAGE "plpgsql" SECURITY DEFINER
-AS $$
+CREATE OR REPLACE FUNCTION "public"."release_expired_reservations"("expiry_hours" integer DEFAULT 24) RETURNS integer
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    AS $$
 DECLARE
     released_count INTEGER;
 BEGIN
@@ -883,9 +814,6 @@ $$;
 ALTER FUNCTION "public"."release_expired_reservations"("expiry_hours" integer) OWNER TO "postgres";
 
 
-COMMENT ON FUNCTION "public"."release_expired_reservations"("expiry_hours" integer) IS 'Releases abandoned payment reservations older than specified hours. Call periodically to free up spots from users who started checkout but never paid.';
-
-
 CREATE OR REPLACE FUNCTION "public"."sync_subdomain_asset_id"() RETURNS "trigger"
     LANGUAGE "plpgsql"
     AS $$
@@ -899,6 +827,57 @@ $$;
 
 
 ALTER FUNCTION "public"."sync_subdomain_asset_id"() OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."try_reserve_pro_spot"("p_user_id" "uuid", "max_spots" integer DEFAULT 100) RETURNS boolean
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    AS $$
+DECLARE
+    current_count INTEGER;
+    user_current_plan TEXT;
+BEGIN
+    -- Get user's current plan (if exists)
+    SELECT plan_type INTO user_current_plan
+    FROM user_quotas
+    WHERE user_id = p_user_id;
+    
+    -- If already pro/enterprise, no need to reserve
+    IF user_current_plan IN ('pro', 'enterprise') THEN
+        RETURN TRUE;
+    END IF;
+    
+    -- If already has pending reservation, allow (same user retrying)
+    IF user_current_plan = 'pending_payment' THEN
+        UPDATE user_quotas 
+        SET updated_at = NOW()
+        WHERE user_id = p_user_id;
+        RETURN TRUE;
+    END IF;
+    
+    -- Count current pro users + pending reservations (with lock)
+    SELECT COUNT(*) INTO current_count
+    FROM user_quotas
+    WHERE plan_type IN ('pro', 'pending_payment')
+    FOR UPDATE;
+    
+    -- Check if spots available
+    IF current_count >= max_spots THEN
+        RETURN FALSE;
+    END IF;
+    
+    -- Reserve spot for this user
+    INSERT INTO user_quotas (user_id, plan_type)
+    VALUES (p_user_id, 'pending_payment')
+    ON CONFLICT (user_id) DO UPDATE
+    SET plan_type = 'pending_payment',
+        updated_at = NOW();
+    
+    RETURN TRUE;
+END;
+$$;
+
+
+ALTER FUNCTION "public"."try_reserve_pro_spot"("p_user_id" "uuid", "max_spots" integer) OWNER TO "postgres";
 
 
 CREATE OR REPLACE FUNCTION "public"."update_apex_domain_last_scanned"() RETURNS "trigger"
@@ -3301,9 +3280,21 @@ GRANT ALL ON FUNCTION "public"."has_paid_spots_available"("max_spots" integer) T
 
 
 
+GRANT ALL ON FUNCTION "public"."release_expired_reservations"("expiry_hours" integer) TO "anon";
+GRANT ALL ON FUNCTION "public"."release_expired_reservations"("expiry_hours" integer) TO "authenticated";
+GRANT ALL ON FUNCTION "public"."release_expired_reservations"("expiry_hours" integer) TO "service_role";
+
+
+
 GRANT ALL ON FUNCTION "public"."sync_subdomain_asset_id"() TO "anon";
 GRANT ALL ON FUNCTION "public"."sync_subdomain_asset_id"() TO "authenticated";
 GRANT ALL ON FUNCTION "public"."sync_subdomain_asset_id"() TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."try_reserve_pro_spot"("p_user_id" "uuid", "max_spots" integer) TO "anon";
+GRANT ALL ON FUNCTION "public"."try_reserve_pro_spot"("p_user_id" "uuid", "max_spots" integer) TO "authenticated";
+GRANT ALL ON FUNCTION "public"."try_reserve_pro_spot"("p_user_id" "uuid", "max_spots" integer) TO "service_role";
 
 
 
