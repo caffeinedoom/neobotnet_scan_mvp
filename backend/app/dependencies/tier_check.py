@@ -106,80 +106,36 @@ async def get_remaining_url_quota(user_id: str) -> Tuple[int, Optional[int]]:
 async def get_paid_spots_remaining() -> int:
     """
     Get number of paid spots remaining (out of MAX_PAID_USERS).
-    Includes both 'pro' users and 'pending_payment' reservations.
+    
+    Only counts actual 'pro' users - NOT pending_payment reservations.
+    This prevents the "reservation attack" where users could block spots
+    by opening checkout but never paying.
     """
     try:
-        # Count pro users
         result = supabase_client.service_client.rpc(
             "get_paid_user_count"
         ).execute()
         pro_count = result.data if result.data else 0
-        
-        # Also count pending reservations
-        pending_result = supabase_client.service_client.table("user_quotas").select(
-            "id", count="exact"
-        ).eq("plan_type", "pending_payment").execute()
-        pending_count = pending_result.count if pending_result.count else 0
-        
-        total_reserved = pro_count + pending_count
-        return max(0, MAX_PAID_USERS - total_reserved)
+        return max(0, MAX_PAID_USERS - pro_count)
     except Exception:
         return 0  # FAIL CLOSED - assume no spots on error
 
 
-async def can_purchase() -> bool:
+async def has_spots_available() -> bool:
     """
-    Check if user can purchase (spots still available).
+    Check if pro spots are still available for purchase.
     
-    DEPRECATED: Use try_reserve_spot() instead for atomic reservation.
-    This function has a race condition - use only for display purposes.
-    """
-    remaining = await get_paid_spots_remaining()
-    return remaining > 0
-
-
-async def try_reserve_spot(user_id: str) -> bool:
-    """
-    Atomically try to reserve a pro spot for a user.
+    Uses database function for accurate count.
+    Only counts actual 'pro' users (not pending reservations).
     
-    Uses database-level locking to prevent race conditions where
-    multiple users could claim the last available spot.
-    
-    Args:
-        user_id: The user's UUID
-        
     Returns:
-        True if spot was reserved (or user already has pro/enterprise)
-        False if no spots available
+        True if spots available, False if sold out
     """
     try:
         result = supabase_client.service_client.rpc(
-            "try_reserve_pro_spot",
-            {"p_user_id": user_id, "max_spots": MAX_PAID_USERS}
+            "has_paid_spots_available",
+            {"max_spots": MAX_PAID_USERS}
         ).execute()
         return result.data if result.data else False
     except Exception:
         return False  # Fail closed - don't allow purchase on error
-
-
-async def release_expired_reservations(expiry_hours: int = 24) -> int:
-    """
-    Release pending_payment reservations older than specified hours.
-    
-    Call this periodically (e.g., via cron job) to free up spots
-    from users who started checkout but never completed payment.
-    
-    Args:
-        expiry_hours: Hours after which to expire reservations (default: 24)
-        
-    Returns:
-        Number of reservations released
-    """
-    try:
-        result = supabase_client.service_client.rpc(
-            "release_expired_reservations",
-            {"expiry_hours": expiry_hours}
-        ).execute()
-        return result.data if result.data else 0
-    except Exception:
-        return 0

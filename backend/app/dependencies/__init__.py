@@ -9,9 +9,7 @@ from .tier_check import (
     get_tier_and_limits,
     get_remaining_url_quota,
     get_paid_spots_remaining,
-    can_purchase,
-    try_reserve_spot,
-    release_expired_reservations,
+    has_spots_available,
 )
 
 from .rate_limit import (
@@ -29,9 +27,7 @@ __all__ = [
     "get_tier_and_limits",
     "get_remaining_url_quota",
     "get_paid_spots_remaining",
-    "can_purchase",
-    "try_reserve_spot",
-    "release_expired_reservations",
+    "has_spots_available",
     # Rate limiting
     "tiered_rate_limiter",
     "TieredRateLimiter",
