@@ -49,6 +49,8 @@ class Settings(BaseSettings):
         default=[
             r"https://.*\.vercel\.app$",  # All Vercel preview deployments
             r"https://.*\.neobotnet\.com$",  # All neobotnet subdomains
+            r"https://neobotnet\.com$",  # Bare domain (no subdomain)
+            r"https://www\.neobotnet\.com$",  # www subdomain explicitly
         ],
         description="Regex patterns for allowed CORS origins"
     )
