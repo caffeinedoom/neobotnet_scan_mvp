@@ -81,8 +81,8 @@ def is_origin_allowed(origin: str) -> bool:
     if not origin:
         return False
     
-    # Check static list first
-    if origin in settings.allowed_origins:
+    # Check static list first (environment-aware)
+    if origin in settings.effective_cors_origins:
         return True
     
     # Check dynamic patterns
@@ -255,8 +255,10 @@ def create_application() -> FastAPI:
     logger.info("⏱️  Tiered rate limiting enabled (free: 30/min, paid: 100/min)")
     
     # Log CORS configuration for debugging
-    logger.info(f"🔒 CORS configured with {len(settings.allowed_origins)} static origins")
-    logger.info(f"🔒 CORS patterns: {settings.cors_origin_patterns}")
+    logger.info(f"🔒 CORS configured with {len(settings.effective_cors_origins)} origins (env={settings.environment})")
+    if settings.debug:
+        logger.info(f"🔒 CORS origins: {settings.effective_cors_origins}")
+        logger.info(f"🔒 CORS patterns: {settings.cors_origin_patterns}")
     
     # Add trusted host middleware for production security
     if settings.environment == "production":

@@ -107,9 +107,7 @@ async def get_paid_spots_remaining() -> int:
     """
     Get number of paid spots remaining (out of MAX_PAID_USERS).
     
-    Only counts actual 'pro' users - NOT pending_payment reservations.
-    This prevents the "reservation attack" where users could block spots
-    by opening checkout but never paying.
+    Counts actual 'pro' users who have completed payment.
     """
     try:
         result = supabase_client.service_client.rpc(
@@ -125,8 +123,7 @@ async def has_spots_available() -> bool:
     """
     Check if pro spots are still available for purchase.
     
-    Uses database function for accurate count.
-    Only counts actual 'pro' users (not pending reservations).
+    Uses database function for accurate count of 'pro' users.
     
     Returns:
         True if spots available, False if sold out

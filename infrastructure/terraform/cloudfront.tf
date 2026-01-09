@@ -141,29 +141,60 @@ resource "aws_cloudfront_distribution" "api_distribution" {
   }
 
   enabled = true
-  comment = "CloudFront for ${var.api_domain_name} - Development API"
+  comment = "CloudFront for ${var.api_domain_name} - Production API"
 
   aliases = [var.api_domain_name]
 
-  # Default behavior - minimal caching for API
+  # ================================================================
+  # Cache Behavior: Health Check Endpoint
+  # ================================================================
+  # Short cache for health checks to reduce origin load
+  # Safe to cache as it's public and doesn't contain user data
+  ordered_cache_behavior {
+    path_pattern           = "/health"
+    allowed_methods        = ["GET", "HEAD"]
+    cached_methods         = ["GET", "HEAD"]
+    target_origin_id       = "${local.name_prefix}-api-origin"
+    compress               = true
+    viewer_protocol_policy = "redirect-to-https"
+
+    forwarded_values {
+      query_string = false
+      cookies {
+        forward = "none"
+      }
+    }
+
+    min_ttl     = 0
+    default_ttl = 10  # Cache for 10 seconds
+    max_ttl     = 30  # Max 30 seconds
+
+    response_headers_policy_id = aws_cloudfront_response_headers_policy.api_policy.id
+  }
+
+  # ================================================================
+  # Default Behavior: API Endpoints (No Caching)
+  # ================================================================
+  # API responses contain user-specific data and must not be cached.
+  # All headers/cookies forwarded to ensure authentication works.
   default_cache_behavior {
     allowed_methods        = ["DELETE", "GET", "HEAD", "OPTIONS", "PATCH", "POST", "PUT"]
     cached_methods         = ["GET", "HEAD"]
     target_origin_id       = "${local.name_prefix}-api-origin"
-    compress               = false
+    compress               = true  # Enable compression for API responses
     viewer_protocol_policy = "redirect-to-https"
 
     forwarded_values {
       query_string = true
-      headers      = ["*"]
+      headers      = ["*"]  # Forward all headers for auth
       cookies {
-        forward = "all"
+        forward = "all"     # Forward all cookies for session
       }
     }
 
     min_ttl     = 0
     default_ttl = 0
-    max_ttl     = 0 # No caching for API development
+    max_ttl     = 0  # No caching - API returns user-specific data
 
     # Apply response headers policy to prevent error caching
     response_headers_policy_id = aws_cloudfront_response_headers_policy.api_policy.id

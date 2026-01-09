@@ -6,9 +6,10 @@ variable "project_name" {
 }
 
 variable "environment" {
-  description = "Environment (dev, prod)"
+  description = "Environment (dev, staging, production)"
   type        = string
   default     = "dev"
+  # For production deployment, override with: -var="environment=production"
 }
 
 # AWS Configuration
@@ -86,7 +87,11 @@ variable "fargate_memory" {
 # ================================================================
 
 variable "allowed_origins" {
-  description = "List of allowed CORS origins"
+  description = "List of allowed CORS origins for production"
   type        = list(string)
-  default     = ["https://neobotnet-v2-git-dev-sams-projects-3ea6cef5.vercel.app"]
+  default     = [
+    "https://neobotnet-scan-mvp.vercel.app",
+    "https://neobotnet-v2-git-dev-sams-projects-3ea6cef5.vercel.app"
+  ]
+  # Note: Backend also supports dynamic patterns for *.vercel.app and *.neobotnet.com
 } 

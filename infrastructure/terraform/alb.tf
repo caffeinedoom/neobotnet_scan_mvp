@@ -21,7 +21,7 @@ resource "aws_lb" "main" {
   security_groups    = [aws_security_group.alb.id]
   subnets            = aws_subnet.public[*].id
 
-  enable_deletion_protection       = false # Set true for production
+  enable_deletion_protection       = true # Production: prevent accidental deletion
   enable_http2                     = true
   enable_cross_zone_load_balancing = true
 

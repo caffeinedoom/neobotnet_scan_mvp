@@ -182,11 +182,7 @@ async def upgrade_user_to_pro(
     """
     Upgrade a user to pro tier in the database.
     
-    Includes re-validation to ensure:
-    1. User isn't already pro/enterprise (skip if so)
-    2. User has a pending_payment reservation (expected flow)
-    3. If user is 'free' (no reservation), log warning but still upgrade
-    
+    Validates that user isn't already pro/enterprise before upgrading.
     Uses UPSERT to handle edge cases where user_quotas record doesn't exist.
     """
     from datetime import datetime, timezone
@@ -204,35 +200,16 @@ async def upgrade_user_to_pro(
             logger.info(f"User {user_id} already has '{current_plan}' plan - skipping upgrade")
             return
         
-        if current_plan == "pending_payment":
-            # Expected flow: user reserved a spot and completed payment
-            logger.info(f"User {user_id} completing upgrade from pending_payment to pro")
-        
-        elif current_plan == "free":
-            # Unexpected: user somehow paid without going through reservation flow
-            # This could happen if:
-            # - Old checkout session from before atomic reservation was implemented
-            # - Direct Stripe dashboard payment
-            # - Bug in reservation flow
-            logger.warning(
-                f"UNEXPECTED: User {user_id} is upgrading from 'free' without reservation. "
-                f"Stripe payment: {stripe_payment_id}. Proceeding with upgrade but flagging for review."
+        # Safety check: verify spots are available before upgrading
+        spots = await get_paid_spots_remaining()
+        if spots <= 0:
+            logger.error(
+                f"CRITICAL: User {user_id} paid but no spots available! "
+                f"Current spots remaining: {spots}. Payment: {stripe_payment_id}. "
+                f"Manual review required - may need to issue refund."
             )
-            
-            # Additional safety check: verify spots are available
-            spots = await get_paid_spots_remaining()
-            if spots <= 0:
-                logger.error(
-                    f"CRITICAL: User {user_id} paid but no spots available! "
-                    f"Current spots remaining: {spots}. Payment: {stripe_payment_id}. "
-                    f"Manual review required - may need to issue refund."
-                )
-                # Still proceed with upgrade - they paid, we should honor it
-                # But this needs manual attention
-        
-        else:
-            # Unknown plan type - log and proceed
-            logger.warning(f"User {user_id} has unknown plan type '{current_plan}' - proceeding with upgrade")
+            # Still proceed with upgrade - they paid, we should honor it
+            # But this needs manual attention
         
         # Step 3: Perform the upgrade
         paid_at = datetime.now(timezone.utc).isoformat()

@@ -29,23 +29,19 @@ class Settings(BaseSettings):
     # FastAPI Configuration
     api_v1_str: str = Field(default="/api/v1", description="API v1 prefix")
     project_name: str = Field(default="neobotnet-v2", description="Project name")
-    environment: str = Field(default="dev", description="Environment")
-    debug: bool = Field(default=True, description="Debug mode")
+    environment: str = Field(default="dev", description="Environment (dev, staging, production)")
+    debug: bool = Field(default=False, description="Debug mode - set True only for local development")
     
     # CORS Configuration
+    # Production origins - always included
+    # Local development origins are added dynamically via get_cors_origins() property
     allowed_origins: List[str] = Field(
         default=[
-            # Local development
-            "http://localhost:3000", 
-            "http://127.0.0.1:3000", 
-            "http://172.236.127.72:3000",
-            "http://0.0.0.0:3000",
-            "http://[::1]:3000",
-            # Vercel deployments (all patterns)
+            # Production Vercel deployments
             "https://neobotnet-scan-mvp.vercel.app",
             "https://neobotnet-v2-git-dev-sams-projects-3ea6cef5.vercel.app",
         ],
-        description="Allowed CORS origins"
+        description="Allowed CORS origins (production)"
     )
     
     # Additional CORS origin patterns (checked dynamically)
@@ -91,6 +87,29 @@ class Settings(BaseSettings):
     def is_cross_origin_environment(self) -> bool:
         """Check if this is a cross-origin environment requiring special cookie handling."""
         return self.is_cloud_deployment or self.is_production_environment
+    
+    @property
+    def effective_cors_origins(self) -> List[str]:
+        """
+        Get CORS origins based on environment.
+        
+        - Production: Only production origins (Vercel deployments, neobotnet.com)
+        - Development: Adds localhost origins for local testing
+        """
+        origins = list(self.allowed_origins)  # Copy to avoid mutation
+        
+        # Add localhost origins only in development
+        if not self.is_production_environment and self.debug:
+            local_origins = [
+                "http://localhost:3000",
+                "http://127.0.0.1:3000",
+                "http://0.0.0.0:3000",
+            ]
+            for origin in local_origins:
+                if origin not in origins:
+                    origins.append(origin)
+        
+        return origins
     
     # Redis Configuration
     redis_host: str = Field(default="localhost", description="Redis server host")
