@@ -17,12 +17,13 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { LogOut, User, Globe, Network, Server, Building2, Code2, Link2, Zap, ChevronDown, Crown, LayoutDashboard } from 'lucide-react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { getBillingStatus, BillingStatus } from '@/lib/api/billing';
 
 export const Navigation: React.FC = () => {
   const { user, isAuthenticated, signOut, isLoading } = useAuth();
   const pathname = usePathname();
+  const router = useRouter();
   const [showCursor, setShowCursor] = useState(true);
   const [billingStatus, setBillingStatus] = useState<BillingStatus | null>(null);
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -61,9 +62,10 @@ export const Navigation: React.FC = () => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Hide navigation on landing page for unauthenticated users
-  // The landing page has its own minimal UI
-  if (!isAuthenticated && !isLoading && pathname === '/') {
+  // Hide navigation on landing page and auth pages for unauthenticated users
+  // The landing page has its own minimal UI, auth pages have their own forms
+  const isAuthPage = pathname?.startsWith('/auth');
+  if (!isAuthenticated && !isLoading && (pathname === '/' || isAuthPage)) {
     return null;
   }
 
@@ -89,6 +91,7 @@ export const Navigation: React.FC = () => {
   const handleLogout = async () => {
     setDropdownOpen(false);
     await signOut();
+    router.push('/');
   };
 
   // LEAN navigation - programs and data browsing
