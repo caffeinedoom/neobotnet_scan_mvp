@@ -4,6 +4,7 @@ import "./globals.css";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { Navigation } from "@/components/ui/navigation";
 import { Toaster } from "@/components/ui/sonner";
+import { Analytics } from "@vercel/analytics/next";
 
 const spaceGrotesk = Space_Grotesk({
   variable: "--font-heading",
@@ -45,6 +46,7 @@ export default function RootLayout({
           </div>
           <Toaster />
         </AuthProvider>
+        <Analytics />
       </body>
     </html>
   );
