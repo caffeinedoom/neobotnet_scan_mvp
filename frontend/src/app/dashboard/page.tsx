@@ -37,7 +37,7 @@ export default function DashboardPage() {
   useEffect(() => {
     if (!isAuthenticated && !isLoading) {
       if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/auth/')) {
-        router.push('/auth/login');
+        router.push('/');
       }
     }
   }, [isAuthenticated, isLoading, router]);

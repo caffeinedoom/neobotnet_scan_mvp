@@ -255,7 +255,7 @@ function ProbesPageContent() {
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
-      router.push('/auth/login');
+      router.push('/');
     }
   }, [isAuthenticated, authLoading, router]);
 

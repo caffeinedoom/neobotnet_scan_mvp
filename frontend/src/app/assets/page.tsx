@@ -56,7 +56,7 @@ export default function AssetsPage() {
     if (!isAuthenticated && !isLoading) {
       // Only redirect if we're not already on an auth page to prevent infinite loops
       if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/auth/')) {
-        router.push('/auth/login');
+        router.push('/');
       }
     }
   }, [isAuthenticated, isLoading, router]);

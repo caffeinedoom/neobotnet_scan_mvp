@@ -63,7 +63,7 @@ export default function APIDocsPage() {
   useEffect(() => {
     if (!isAuthenticated && !authLoading) {
       if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/auth/')) {
-        router.push('/auth/login');
+        router.push('/');
       }
     }
   }, [isAuthenticated, authLoading, router]);
