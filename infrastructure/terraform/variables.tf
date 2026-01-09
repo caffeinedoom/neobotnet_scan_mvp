@@ -90,6 +90,8 @@ variable "allowed_origins" {
   description = "List of allowed CORS origins for production"
   type        = list(string)
   default     = [
+    "https://neobotnet.com",
+    "https://www.neobotnet.com",
     "https://neobotnet-scan-mvp.vercel.app",
     "https://neobotnet-v2-git-dev-sams-projects-3ea6cef5.vercel.app"
   ]
