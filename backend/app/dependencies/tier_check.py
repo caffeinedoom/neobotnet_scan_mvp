@@ -1,172 +1,138 @@
 """
-User tier checking for rate limiting and paywall.
-
-LEAN Refactor (2026-01): Simplified tier checking without Stripe billing.
+Dependency for checking user tier and applying limits.
 """
 
-import logging
-from typing import Optional, Dict, Any, Tuple
+from typing import Optional, Tuple
 
 from app.core.supabase_client import supabase_client
 from app.core.tier_limits import get_tier_limits, TierLimits, MAX_PAID_USERS
 
-logger = logging.getLogger(__name__)
-
 
 async def get_user_tier(user_id: str) -> str:
     """
-    Get user's tier/plan type.
-    
-    Args:
-        user_id: The user's UUID
-        
-    Returns:
-        'free', 'pro', or 'enterprise'
+    Get user's plan type from user_quotas table.
+    Returns 'free' if not found.
     """
-    if not user_id:
-        return "free"
-    
     try:
-        result = supabase_client.service_client.table("user_tiers").select(
+        # Use .limit(1) instead of .single() to avoid exception on no results
+        result = supabase_client.service_client.table("user_quotas").select(
             "plan_type"
-        ).eq("user_id", user_id).single().execute()
+        ).eq("user_id", user_id).limit(1).execute()
         
-        if result.data and result.data.get("plan_type"):
-            plan_type = result.data["plan_type"]
-            if plan_type in ["paid", "pro", "enterprise"]:
-                return plan_type
-        
+        if result.data and len(result.data) > 0:
+            return result.data[0].get("plan_type", "free")
         return "free"
-        
-    except Exception as e:
-        logger.debug(f"Could not fetch tier for user {user_id}: {e}")
+    except Exception:
         return "free"
-
-
-async def is_user_paid(user_id: str) -> bool:
-    """Check if user has a paid subscription."""
-    tier = await get_user_tier(user_id)
-    return tier in ["paid", "pro", "enterprise"]
 
 
 async def get_user_urls_viewed(user_id: str) -> int:
     """
-    Get the count of unique URLs viewed by a user.
-    
-    For LEAN architecture, we track URL views to enforce free tier limits.
+    Get the count of URLs a user has viewed.
+    Used for enforcing 250 URL limit for free tier.
     """
-    if not user_id:
-        return 0
-    
     try:
-        result = supabase_client.service_client.table("user_url_views").select(
-            "urls_viewed"
+        result = supabase_client.service_client.table("user_usage").select(
+            "urls_viewed_count"
         ).eq("user_id", user_id).single().execute()
         
         if result.data:
-            return result.data.get("urls_viewed", 0)
+            return result.data.get("urls_viewed_count", 0) or 0
         return 0
-        
-    except Exception as e:
-        logger.debug(f"Could not fetch URL views for user {user_id}: {e}")
+    except Exception:
         return 0
 
 
-async def increment_urls_viewed(user_id: str, count: int = 1) -> int:
+async def increment_urls_viewed(user_id: str, count: int) -> None:
     """
-    Increment the count of URLs viewed by a user.
+    Increment the URLs viewed count for a user.
+    Called when a free user fetches URLs.
     
-    Returns the new total count.
+    Uses atomic database operation to prevent race conditions.
     """
-    if not user_id:
-        return 0
-    
     try:
-        # Upsert to handle first-time users
-        current = await get_user_urls_viewed(user_id)
-        new_count = current + count
-        
-        supabase_client.service_client.table("user_url_views").upsert({
+        # First, try to ensure user has a record (upsert with current value if exists)
+        # This handles the case where user_usage doesn't exist yet
+        supabase_client.service_client.table("user_usage").upsert({
             "user_id": user_id,
-            "urls_viewed": new_count
-        }).execute()
+            "urls_viewed_count": count  # Initial value if new record
+        }, on_conflict="user_id", ignore_duplicates=True).execute()
         
-        return new_count
-        
-    except Exception as e:
-        logger.error(f"Could not increment URL views for user {user_id}: {e}")
-        return 0
+        # Then, atomically increment using raw SQL via RPC
+        # This prevents race conditions by doing increment at database level
+        supabase_client.service_client.rpc(
+            "increment_url_quota",
+            {"p_user_id": user_id, "p_count": count}
+        ).execute()
+    except Exception:
+        # Fallback to non-atomic if RPC doesn't exist (backwards compatibility)
+        try:
+            current = await get_user_urls_viewed(user_id)
+            new_count = current + count
+            supabase_client.service_client.table("user_usage").upsert({
+                "user_id": user_id,
+                "urls_viewed_count": new_count
+            }, on_conflict="user_id").execute()
+        except Exception:
+            pass  # Don't fail the request if tracking fails
 
 
 async def get_tier_and_limits(user_id: str) -> Tuple[str, TierLimits]:
     """
-    Get user's tier and associated limits.
-    
-    Returns:
-        (tier_name, TierLimits)
+    Get user tier and corresponding limits.
+    Returns tuple of (plan_type, TierLimits).
     """
-    tier = await get_user_tier(user_id)
-    limits = get_tier_limits(tier)
-    return tier, limits
+    plan_type = await get_user_tier(user_id)
+    limits = get_tier_limits(plan_type)
+    return plan_type, limits
 
 
-async def get_remaining_url_quota(user_id: str) -> Optional[int]:
+async def get_remaining_url_quota(user_id: str) -> Tuple[int, Optional[int]]:
     """
-    Get remaining URL quota for user.
-    
-    Returns:
-        Number of URLs remaining, or None if unlimited
+    Get remaining URL quota for a user.
+    Returns (urls_viewed, urls_limit).
+    urls_limit is None for unlimited.
     """
-    tier, limits = await get_tier_and_limits(user_id)
+    plan_type = await get_user_tier(user_id)
+    limits = get_tier_limits(plan_type)
     
-    # Unlimited for paid users
     if limits.urls_limit is None:
-        return None
+        return 0, None  # Unlimited
     
-    viewed = await get_user_urls_viewed(user_id)
-    remaining = max(0, limits.urls_limit - viewed)
-    return remaining
+    urls_viewed = await get_user_urls_viewed(user_id)
+    return urls_viewed, limits.urls_limit
 
 
 async def get_paid_spots_remaining() -> int:
     """
-    Get the number of remaining paid spots.
+    Get number of paid spots remaining (out of MAX_PAID_USERS).
     
-    For early adopter pricing, only MAX_PAID_USERS spots available.
+    Counts actual 'pro' users who have completed payment.
     """
     try:
-        result = supabase_client.service_client.table("user_tiers").select(
-            "id", count="exact"
-        ).in_("plan_type", ["paid", "pro"]).execute()
-        
-        current_paid = result.count or 0
-        remaining = max(0, MAX_PAID_USERS - current_paid)
-        return remaining
-        
-    except Exception as e:
-        logger.error(f"Could not get paid spots count: {e}")
-        return MAX_PAID_USERS  # Assume all spots available on error
+        result = supabase_client.service_client.rpc(
+            "get_paid_user_count"
+        ).execute()
+        pro_count = result.data if result.data else 0
+        return max(0, MAX_PAID_USERS - pro_count)
+    except Exception:
+        return 0  # FAIL CLOSED - assume no spots on error
 
 
 async def has_spots_available() -> bool:
-    """Check if there are still paid spots available."""
-    remaining = await get_paid_spots_remaining()
-    return remaining > 0
-
-
-async def check_url_access(user_id: str, current_count: int) -> Tuple[bool, Optional[int]]:
     """
-    Check if user can access more URLs based on their tier.
+    Check if pro spots are still available for purchase.
+    
+    Uses database function for accurate count of 'pro' users.
     
     Returns:
-        (has_access, limit) - limit is None for unlimited
+        True if spots available, False if sold out
     """
-    tier, limits = await get_tier_and_limits(user_id)
-    
-    # Unlimited access
-    if limits.urls_limit is None:
-        return True, None
-    
-    # Check against limit
-    has_access = current_count <= limits.urls_limit
-    return has_access, limits.urls_limit
+    try:
+        result = supabase_client.service_client.rpc(
+            "has_paid_spots_available",
+            {"max_spots": MAX_PAID_USERS}
+        ).execute()
+        return result.data if result.data else False
+    except Exception:
+        return False  # Fail closed - don't allow purchase on error

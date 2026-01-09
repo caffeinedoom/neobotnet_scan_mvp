@@ -10,9 +10,7 @@ from typing import Optional, Dict, Any
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 from .config import settings
-import logging
 
-logger = logging.getLogger(__name__)
 
 # Password hashing context
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -45,18 +43,26 @@ def verify_token(token: str) -> Optional[Dict[str, Any]]:
     1. Custom JWT secret (for tokens created by this backend)
     2. Supabase JWT secret (for tokens from OAuth login via Supabase)
     """
+    # Debug logging only in development mode
+    if settings.debug:
+        token_preview = token[:50] + "..." if len(token) > 50 else token
+        print(f"[AUTH DEBUG] verify_token called, token preview: {token_preview}")
+    
     # First, try to verify with our JWT secret (no audience check)
     try:
         payload = jwt.decode(
             token, 
             settings.jwt_secret_key, 
             algorithms=[settings.jwt_algorithm],
-            options={"verify_aud": False}
+            options={"verify_aud": False}  # Don't verify audience for flexibility
         )
+        if settings.debug:
+            print(f"[AUTH DEBUG] ✅ Token verified successfully (no aud check)")
         payload["_token_type"] = "verified"
         return payload
     except JWTError as e:
-        logger.debug(f"JWT verification failed (no aud): {e}")
+        if settings.debug:
+            print(f"[AUTH DEBUG] ❌ Verification failed (no aud): {type(e).__name__}: {e}")
     
     # Second, try with audience="authenticated" (Supabase standard)
     try:
@@ -66,19 +72,28 @@ def verify_token(token: str) -> Optional[Dict[str, Any]]:
             algorithms=[settings.jwt_algorithm],
             audience="authenticated"
         )
+        if settings.debug:
+            print(f"[AUTH DEBUG] ✅ Token verified successfully (with aud=authenticated)")
         payload["_token_type"] = "supabase"
         return payload
     except JWTError as e:
-        logger.debug(f"JWT verification failed (with aud): {e}")
+        if settings.debug:
+            print(f"[AUTH DEBUG] ❌ Verification failed (with aud): {type(e).__name__}: {e}")
     
+    if settings.debug:
+        print(f"[AUTH DEBUG] ❌ All verification methods failed")
     return None
 
 
 def verify_supabase_token(token: str) -> Optional[Dict[str, Any]]:
     """
     Verify a Supabase JWT token directly.
+    
+    This is specifically for tokens issued by Supabase Auth (OAuth, magic link, etc.)
+    These tokens are signed with the Supabase JWT secret and have specific claims.
     """
     try:
+        # Supabase tokens use HS256 and the JWT secret from the project settings
         payload = jwt.decode(
             token, 
             settings.jwt_secret_key,
@@ -87,7 +102,7 @@ def verify_supabase_token(token: str) -> Optional[Dict[str, Any]]:
         )
         return payload
     except JWTError as e:
-        logger.debug(f"Supabase token verification failed: {e}")
+        print(f"Supabase token verification failed: {e}")
         return None
 
 
@@ -105,5 +120,5 @@ def extract_user_id_from_token(token: str) -> Optional[str]:
     """Extract user ID from JWT token."""
     payload = verify_token(token)
     if payload:
-        return payload.get("sub")
-    return None
+        return payload.get("sub")  # 'sub' is the standard claim for user ID
+    return None 
