@@ -25,9 +25,6 @@ router = APIRouter()
 # Batch size for streaming exports
 EXPORT_BATCH_SIZE = 1000
 
-# Maximum export limit (prevent timeouts on huge datasets)
-MAX_EXPORT_LIMIT = 50000
-
 
 async def check_pro_required(user_id: str) -> bool:
     """Check if user has PRO tier access."""
@@ -52,7 +49,6 @@ async def stream_urls_csv(
     is_alive: Optional[bool] = None,
     status_code: Optional[int] = None,
     has_params: Optional[bool] = None,
-    limit: int = MAX_EXPORT_LIMIT,
 ) -> AsyncGenerator[str, None]:
     """Stream URLs as CSV."""
     supabase = supabase_client.service_client
@@ -64,13 +60,7 @@ async def stream_urls_csv(
     ])
     
     offset = 0
-    total_exported = 0
-    
-    while total_exported < limit:
-        # Calculate how many to fetch this batch
-        remaining = limit - total_exported
-        batch_size = min(EXPORT_BATCH_SIZE, remaining)
-        
+    while True:
         # Build query
         query = supabase.table("urls").select(
             "url, domain, path, status_code, is_alive, content_type, title, has_params, first_discovered_at"
@@ -88,7 +78,7 @@ async def stream_urls_csv(
         
         # Pagination
         query = query.order("first_discovered_at", desc=True)
-        query = query.range(offset, offset + batch_size - 1)
+        query = query.range(offset, offset + EXPORT_BATCH_SIZE - 1)
         
         result = query.execute()
         batch = result.data or []
@@ -108,12 +98,11 @@ async def stream_urls_csv(
                 row.get("has_params", ""),
                 row.get("first_discovered_at", ""),
             ])
-            total_exported += 1
         
-        offset += batch_size
+        offset += EXPORT_BATCH_SIZE
         
-        # Safety check - if batch is smaller than requested, we're done
-        if len(batch) < batch_size:
+        # Safety check - if batch is smaller than limit, we're done
+        if len(batch) < EXPORT_BATCH_SIZE:
             break
 
 
@@ -122,7 +111,6 @@ async def stream_urls_json(
     is_alive: Optional[bool] = None,
     status_code: Optional[int] = None,
     has_params: Optional[bool] = None,
-    limit: int = MAX_EXPORT_LIMIT,
 ) -> AsyncGenerator[str, None]:
     """Stream URLs as JSON array."""
     supabase = supabase_client.service_client
@@ -130,12 +118,8 @@ async def stream_urls_json(
     yield "["
     first = True
     offset = 0
-    total_exported = 0
     
-    while total_exported < limit:
-        remaining = limit - total_exported
-        batch_size = min(EXPORT_BATCH_SIZE, remaining)
-        
+    while True:
         # Build query
         query = supabase.table("urls").select(
             "url, domain, path, status_code, is_alive, content_type, title, has_params, first_discovered_at"
@@ -153,7 +137,7 @@ async def stream_urls_json(
         
         # Pagination
         query = query.order("first_discovered_at", desc=True)
-        query = query.range(offset, offset + batch_size - 1)
+        query = query.range(offset, offset + EXPORT_BATCH_SIZE - 1)
         
         result = query.execute()
         batch = result.data or []
@@ -166,11 +150,10 @@ async def stream_urls_json(
                 yield ","
             yield json.dumps(row)
             first = False
-            total_exported += 1
         
-        offset += batch_size
+        offset += EXPORT_BATCH_SIZE
         
-        if len(batch) < batch_size:
+        if len(batch) < EXPORT_BATCH_SIZE:
             break
     
     yield "]"
@@ -183,7 +166,6 @@ async def export_urls(
     is_alive: Optional[bool] = Query(None, description="Filter by alive status"),
     status_code: Optional[int] = Query(None, description="Filter by status code"),
     has_params: Optional[bool] = Query(None, description="Filter by has parameters"),
-    limit: int = Query(MAX_EXPORT_LIMIT, ge=1, le=MAX_EXPORT_LIMIT, description="Maximum records to export"),
     current_user: UserResponse = Depends(get_current_user)
 ):
     """
@@ -191,7 +173,7 @@ async def export_urls(
     
     **Requires PRO subscription.**
     
-    Streams the dataset matching your filters (max 50,000 records).
+    Streams the full dataset matching your filters.
     """
     # Get user ID
     user_id = current_user.id if hasattr(current_user, 'id') else current_user.get("id") or current_user.get("sub")
@@ -206,13 +188,13 @@ async def export_urls(
     
     if format == "csv":
         return StreamingResponse(
-            stream_urls_csv(asset_id, is_alive, status_code, has_params, limit),
+            stream_urls_csv(asset_id, is_alive, status_code, has_params),
             media_type="text/csv",
             headers={"Content-Disposition": "attachment; filename=urls-export.csv"}
         )
     else:
         return StreamingResponse(
-            stream_urls_json(asset_id, is_alive, status_code, has_params, limit),
+            stream_urls_json(asset_id, is_alive, status_code, has_params),
             media_type="application/json",
             headers={"Content-Disposition": "attachment; filename=urls-export.json"}
         )
@@ -225,7 +207,6 @@ async def export_urls(
 async def stream_subdomains_csv(
     asset_id: Optional[str] = None,
     parent_domain: Optional[str] = None,
-    limit: int = MAX_EXPORT_LIMIT,
 ) -> AsyncGenerator[str, None]:
     """Stream subdomains as CSV."""
     supabase = supabase_client.service_client
@@ -236,12 +217,7 @@ async def stream_subdomains_csv(
     ])
     
     offset = 0
-    total_exported = 0
-    
-    while total_exported < limit:
-        remaining = limit - total_exported
-        batch_size = min(EXPORT_BATCH_SIZE, remaining)
-        
+    while True:
         query = supabase.table("subdomains").select(
             "subdomain, parent_domain, discovered_at"
         )
@@ -252,7 +228,7 @@ async def stream_subdomains_csv(
             query = query.eq("parent_domain", parent_domain)
         
         query = query.order("discovered_at", desc=True)
-        query = query.range(offset, offset + batch_size - 1)
+        query = query.range(offset, offset + EXPORT_BATCH_SIZE - 1)
         
         result = query.execute()
         batch = result.data or []
@@ -266,17 +242,15 @@ async def stream_subdomains_csv(
                 row.get("parent_domain", ""),
                 row.get("discovered_at", ""),
             ])
-            total_exported += 1
         
-        offset += batch_size
-        if len(batch) < batch_size:
+        offset += EXPORT_BATCH_SIZE
+        if len(batch) < EXPORT_BATCH_SIZE:
             break
 
 
 async def stream_subdomains_json(
     asset_id: Optional[str] = None,
     parent_domain: Optional[str] = None,
-    limit: int = MAX_EXPORT_LIMIT,
 ) -> AsyncGenerator[str, None]:
     """Stream subdomains as JSON array (source_module excluded)."""
     supabase = supabase_client.service_client
@@ -284,12 +258,8 @@ async def stream_subdomains_json(
     yield "["
     first = True
     offset = 0
-    total_exported = 0
     
-    while total_exported < limit:
-        remaining = limit - total_exported
-        batch_size = min(EXPORT_BATCH_SIZE, remaining)
-        
+    while True:
         query = supabase.table("subdomains").select(
             "subdomain, parent_domain, discovered_at"
         )
@@ -300,7 +270,7 @@ async def stream_subdomains_json(
             query = query.eq("parent_domain", parent_domain)
         
         query = query.order("discovered_at", desc=True)
-        query = query.range(offset, offset + batch_size - 1)
+        query = query.range(offset, offset + EXPORT_BATCH_SIZE - 1)
         
         result = query.execute()
         batch = result.data or []
@@ -313,10 +283,9 @@ async def stream_subdomains_json(
                 yield ","
             yield json.dumps(row)
             first = False
-            total_exported += 1
         
-        offset += batch_size
-        if len(batch) < batch_size:
+        offset += EXPORT_BATCH_SIZE
+        if len(batch) < EXPORT_BATCH_SIZE:
             break
     
     yield "]"
@@ -327,7 +296,6 @@ async def export_subdomains(
     format: str = Query("csv", regex="^(csv|json)$", description="Export format"),
     asset_id: Optional[str] = Query(None, description="Filter by asset/program ID"),
     parent_domain: Optional[str] = Query(None, description="Filter by parent domain"),
-    limit: int = Query(MAX_EXPORT_LIMIT, ge=1, le=MAX_EXPORT_LIMIT, description="Maximum records to export"),
     current_user: UserResponse = Depends(get_current_user)
 ):
     """
@@ -335,17 +303,17 @@ async def export_subdomains(
     
     **Free for all users.**
     
-    Streams the dataset matching your filters (max 50,000 records).
+    Streams the full dataset matching your filters.
     """
     if format == "csv":
         return StreamingResponse(
-            stream_subdomains_csv(asset_id, parent_domain, limit),
+            stream_subdomains_csv(asset_id, parent_domain),
             media_type="text/csv",
             headers={"Content-Disposition": "attachment; filename=subdomains-export.csv"}
         )
     else:
         return StreamingResponse(
-            stream_subdomains_json(asset_id, parent_domain, limit),
+            stream_subdomains_json(asset_id, parent_domain),
             media_type="application/json",
             headers={"Content-Disposition": "attachment; filename=subdomains-export.json"}
         )
@@ -359,7 +327,6 @@ async def stream_dns_csv(
     asset_id: Optional[str] = None,
     record_type: Optional[str] = None,
     subdomain: Optional[str] = None,
-    limit: int = MAX_EXPORT_LIMIT,
 ) -> AsyncGenerator[str, None]:
     """Stream DNS records as CSV."""
     supabase = supabase_client.service_client
@@ -369,12 +336,7 @@ async def stream_dns_csv(
     ])
     
     offset = 0
-    total_exported = 0
-    
-    while total_exported < limit:
-        remaining = limit - total_exported
-        batch_size = min(EXPORT_BATCH_SIZE, remaining)
-        
+    while True:
         query = supabase.table("dns_records").select(
             "subdomain, parent_domain, record_type, record_value, ttl, resolved_at"
         )
@@ -387,7 +349,7 @@ async def stream_dns_csv(
             query = query.ilike("subdomain", f"%{subdomain}%")
         
         query = query.order("resolved_at", desc=True)
-        query = query.range(offset, offset + batch_size - 1)
+        query = query.range(offset, offset + EXPORT_BATCH_SIZE - 1)
         
         result = query.execute()
         batch = result.data or []
@@ -404,10 +366,9 @@ async def stream_dns_csv(
                 row.get("ttl", ""),
                 row.get("resolved_at", ""),
             ])
-            total_exported += 1
         
-        offset += batch_size
-        if len(batch) < batch_size:
+        offset += EXPORT_BATCH_SIZE
+        if len(batch) < EXPORT_BATCH_SIZE:
             break
 
 
@@ -415,7 +376,6 @@ async def stream_dns_json(
     asset_id: Optional[str] = None,
     record_type: Optional[str] = None,
     subdomain: Optional[str] = None,
-    limit: int = MAX_EXPORT_LIMIT,
 ) -> AsyncGenerator[str, None]:
     """Stream DNS records as JSON array."""
     supabase = supabase_client.service_client
@@ -423,12 +383,8 @@ async def stream_dns_json(
     yield "["
     first = True
     offset = 0
-    total_exported = 0
     
-    while total_exported < limit:
-        remaining = limit - total_exported
-        batch_size = min(EXPORT_BATCH_SIZE, remaining)
-        
+    while True:
         query = supabase.table("dns_records").select(
             "subdomain, parent_domain, record_type, record_value, ttl, resolved_at"
         )
@@ -441,7 +397,7 @@ async def stream_dns_json(
             query = query.ilike("subdomain", f"%{subdomain}%")
         
         query = query.order("resolved_at", desc=True)
-        query = query.range(offset, offset + batch_size - 1)
+        query = query.range(offset, offset + EXPORT_BATCH_SIZE - 1)
         
         result = query.execute()
         batch = result.data or []
@@ -454,10 +410,9 @@ async def stream_dns_json(
                 yield ","
             yield json.dumps(row)
             first = False
-            total_exported += 1
         
-        offset += batch_size
-        if len(batch) < batch_size:
+        offset += EXPORT_BATCH_SIZE
+        if len(batch) < EXPORT_BATCH_SIZE:
             break
     
     yield "]"
@@ -469,7 +424,6 @@ async def export_dns_records(
     asset_id: Optional[str] = Query(None, description="Filter by asset/program ID"),
     record_type: Optional[str] = Query(None, description="Filter by record type (A, AAAA, CNAME, MX, TXT)"),
     subdomain: Optional[str] = Query(None, description="Search by subdomain (partial match)"),
-    limit: int = Query(MAX_EXPORT_LIMIT, ge=1, le=MAX_EXPORT_LIMIT, description="Maximum records to export"),
     current_user: UserResponse = Depends(get_current_user)
 ):
     """
@@ -477,17 +431,17 @@ async def export_dns_records(
     
     **Free for all users.**
     
-    Streams the dataset matching your filters (max 50,000 records).
+    Streams the full dataset matching your filters.
     """
     if format == "csv":
         return StreamingResponse(
-            stream_dns_csv(asset_id, record_type, subdomain, limit),
+            stream_dns_csv(asset_id, record_type, subdomain),
             media_type="text/csv",
             headers={"Content-Disposition": "attachment; filename=dns-records-export.csv"}
         )
     else:
         return StreamingResponse(
-            stream_dns_json(asset_id, record_type, subdomain, limit),
+            stream_dns_json(asset_id, record_type, subdomain),
             media_type="application/json",
             headers={"Content-Disposition": "attachment; filename=dns-records-export.json"}
         )
@@ -500,7 +454,6 @@ async def export_dns_records(
 async def stream_probes_csv(
     asset_id: Optional[str] = None,
     status_code: Optional[int] = None,
-    limit: int = MAX_EXPORT_LIMIT,
 ) -> AsyncGenerator[str, None]:
     """Stream HTTP probes as CSV."""
     supabase = supabase_client.service_client
@@ -511,12 +464,7 @@ async def stream_probes_csv(
     ])
     
     offset = 0
-    total_exported = 0
-    
-    while total_exported < limit:
-        remaining = limit - total_exported
-        batch_size = min(EXPORT_BATCH_SIZE, remaining)
-        
+    while True:
         query = supabase.table("http_probes").select(
             "url, subdomain, status_code, title, webserver, content_type, ip, created_at"
         )
@@ -527,7 +475,7 @@ async def stream_probes_csv(
             query = query.eq("status_code", status_code)
         
         query = query.order("created_at", desc=True)
-        query = query.range(offset, offset + batch_size - 1)
+        query = query.range(offset, offset + EXPORT_BATCH_SIZE - 1)
         
         result = query.execute()
         batch = result.data or []
@@ -546,17 +494,15 @@ async def stream_probes_csv(
                 row.get("ip", ""),
                 row.get("created_at", ""),
             ])
-            total_exported += 1
         
-        offset += batch_size
-        if len(batch) < batch_size:
+        offset += EXPORT_BATCH_SIZE
+        if len(batch) < EXPORT_BATCH_SIZE:
             break
 
 
 async def stream_probes_json(
     asset_id: Optional[str] = None,
     status_code: Optional[int] = None,
-    limit: int = MAX_EXPORT_LIMIT,
 ) -> AsyncGenerator[str, None]:
     """Stream HTTP probes as JSON array."""
     supabase = supabase_client.service_client
@@ -564,12 +510,8 @@ async def stream_probes_json(
     yield "["
     first = True
     offset = 0
-    total_exported = 0
     
-    while total_exported < limit:
-        remaining = limit - total_exported
-        batch_size = min(EXPORT_BATCH_SIZE, remaining)
-        
+    while True:
         query = supabase.table("http_probes").select(
             "url, subdomain, status_code, title, webserver, content_type, ip, created_at"
         )
@@ -580,7 +522,7 @@ async def stream_probes_json(
             query = query.eq("status_code", status_code)
         
         query = query.order("created_at", desc=True)
-        query = query.range(offset, offset + batch_size - 1)
+        query = query.range(offset, offset + EXPORT_BATCH_SIZE - 1)
         
         result = query.execute()
         batch = result.data or []
@@ -593,10 +535,9 @@ async def stream_probes_json(
                 yield ","
             yield json.dumps(row)
             first = False
-            total_exported += 1
         
-        offset += batch_size
-        if len(batch) < batch_size:
+        offset += EXPORT_BATCH_SIZE
+        if len(batch) < EXPORT_BATCH_SIZE:
             break
     
     yield "]"
@@ -607,7 +548,6 @@ async def export_http_probes(
     format: str = Query("csv", regex="^(csv|json)$", description="Export format"),
     asset_id: Optional[str] = Query(None, description="Filter by asset/program ID"),
     status_code: Optional[int] = Query(None, description="Filter by status code"),
-    limit: int = Query(MAX_EXPORT_LIMIT, ge=1, le=MAX_EXPORT_LIMIT, description="Maximum records to export"),
     current_user: UserResponse = Depends(get_current_user)
 ):
     """
@@ -615,17 +555,17 @@ async def export_http_probes(
     
     **Free for all users.**
     
-    Streams the dataset matching your filters (max 50,000 records).
+    Streams the full dataset matching your filters.
     """
     if format == "csv":
         return StreamingResponse(
-            stream_probes_csv(asset_id, status_code, limit),
+            stream_probes_csv(asset_id, status_code),
             media_type="text/csv",
             headers={"Content-Disposition": "attachment; filename=http-probes-export.csv"}
         )
     else:
         return StreamingResponse(
-            stream_probes_json(asset_id, status_code, limit),
+            stream_probes_json(asset_id, status_code),
             media_type="application/json",
             headers={"Content-Disposition": "attachment; filename=http-probes-export.json"}
         )

@@ -111,20 +111,8 @@ async def get_http_probes(
         )
 
 
-# NOTE: Static routes like /stats MUST be defined BEFORE dynamic routes like /{probe_id}
+# NOTE: Static routes like /stats/summary MUST be defined BEFORE dynamic routes like /{probe_id}
 # FastAPI matches routes in order of definition
-
-# Alias route for /stats (frontend compatibility)
-@router.get("/stats", response_model=HTTPProbeStatsResponse)
-async def get_http_probe_stats_alias(
-    asset_id: Optional[str] = Query(None, description="Filter stats by asset ID"),
-    scan_job_id: Optional[str] = Query(None, description="Filter stats by scan job ID"),
-    current_user: UserResponse = Depends(get_current_user)
-):
-    """Alias for /stats/summary - maintained for frontend compatibility."""
-    return await get_http_probe_stats(asset_id, scan_job_id, current_user)
-
-
 @router.get("/stats/summary", response_model=HTTPProbeStatsResponse)
 async def get_http_probe_stats(
     asset_id: Optional[str] = Query(None, description="Filter stats by asset ID"),
