@@ -18,7 +18,8 @@ CREATE SCHEMA IF NOT EXISTS "public";
 ALTER SCHEMA "public" OWNER TO "pg_database_owner";
 
 
-COMMENT ON SCHEMA "public" IS 'standard public schema';
+COMMENT ON SCHEMA "public" IS 'Standard public schema with materialized views for dashboard performance. 
+Run SELECT public.refresh_dashboard_views() periodically or after scans complete.';
 
 
 
@@ -793,25 +794,45 @@ $$;
 ALTER FUNCTION "public"."has_paid_spots_available"("max_spots" integer) OWNER TO "postgres";
 
 
-CREATE OR REPLACE FUNCTION "public"."release_expired_reservations"("expiry_hours" integer DEFAULT 24) RETURNS integer
+CREATE OR REPLACE FUNCTION "public"."refresh_dashboard_views"() RETURNS "void"
     LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO 'public'
     AS $$
-DECLARE
-    released_count INTEGER;
 BEGIN
-    UPDATE user_quotas
-    SET plan_type = 'free',
-        updated_at = NOW()
-    WHERE plan_type = 'pending_payment'
-      AND updated_at < NOW() - (expiry_hours || ' hours')::INTERVAL;
+    -- Use CONCURRENTLY to allow reads during refresh (requires unique index)
+    REFRESH MATERIALIZED VIEW CONCURRENTLY public.asset_overview;
+    REFRESH MATERIALIZED VIEW CONCURRENTLY public.asset_recon_counts;
+    REFRESH MATERIALIZED VIEW CONCURRENTLY public.scan_subdomain_counts;
     
-    GET DIAGNOSTICS released_count = ROW_COUNT;
-    RETURN released_count;
+    RAISE NOTICE 'Dashboard materialized views refreshed at %', NOW();
 END;
 $$;
 
 
-ALTER FUNCTION "public"."release_expired_reservations"("expiry_hours" integer) OWNER TO "postgres";
+ALTER FUNCTION "public"."refresh_dashboard_views"() OWNER TO "postgres";
+
+
+COMMENT ON FUNCTION "public"."refresh_dashboard_views"() IS 'Refreshes all dashboard materialized views concurrently. Safe to call during normal operations.';
+
+
+
+CREATE OR REPLACE FUNCTION "public"."refresh_views_for_asset"("p_asset_id" "uuid") RETURNS "void"
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO 'public'
+    AS $$
+BEGIN
+    -- For single asset updates, we still need to refresh the full views
+    -- But we can be selective about which ones to refresh
+    REFRESH MATERIALIZED VIEW CONCURRENTLY public.asset_overview;
+    REFRESH MATERIALIZED VIEW CONCURRENTLY public.asset_recon_counts;
+    REFRESH MATERIALIZED VIEW CONCURRENTLY public.scan_subdomain_counts;
+    
+    RAISE NOTICE 'Views refreshed for asset % at %', p_asset_id, NOW();
+END;
+$$;
+
+
+ALTER FUNCTION "public"."refresh_views_for_asset"("p_asset_id" "uuid") OWNER TO "postgres";
 
 
 CREATE OR REPLACE FUNCTION "public"."sync_subdomain_asset_id"() RETURNS "trigger"
@@ -827,57 +848,6 @@ $$;
 
 
 ALTER FUNCTION "public"."sync_subdomain_asset_id"() OWNER TO "postgres";
-
-
-CREATE OR REPLACE FUNCTION "public"."try_reserve_pro_spot"("p_user_id" "uuid", "max_spots" integer DEFAULT 50) RETURNS boolean
-    LANGUAGE "plpgsql" SECURITY DEFINER
-    AS $$
-DECLARE
-    current_count INTEGER;
-    user_current_plan TEXT;
-BEGIN
-    -- Get user's current plan (if exists)
-    SELECT plan_type INTO user_current_plan
-    FROM user_quotas
-    WHERE user_id = p_user_id;
-    
-    -- If already pro/enterprise, no need to reserve
-    IF user_current_plan IN ('pro', 'enterprise') THEN
-        RETURN TRUE;
-    END IF;
-    
-    -- If already has pending reservation, allow (same user retrying)
-    IF user_current_plan = 'pending_payment' THEN
-        UPDATE user_quotas 
-        SET updated_at = NOW()
-        WHERE user_id = p_user_id;
-        RETURN TRUE;
-    END IF;
-    
-    -- Count current pro users + pending reservations (with lock)
-    SELECT COUNT(*) INTO current_count
-    FROM user_quotas
-    WHERE plan_type IN ('pro', 'pending_payment')
-    FOR UPDATE;
-    
-    -- Check if spots available
-    IF current_count >= max_spots THEN
-        RETURN FALSE;
-    END IF;
-    
-    -- Reserve spot for this user
-    INSERT INTO user_quotas (user_id, plan_type)
-    VALUES (p_user_id, 'pending_payment')
-    ON CONFLICT (user_id) DO UPDATE
-    SET plan_type = 'pending_payment',
-        updated_at = NOW();
-    
-    RETURN TRUE;
-END;
-$$;
-
-
-ALTER FUNCTION "public"."try_reserve_pro_spot"("p_user_id" "uuid", "max_spots" integer) OWNER TO "postgres";
 
 
 CREATE OR REPLACE FUNCTION "public"."update_apex_domain_last_scanned"() RETURNS "trigger"
@@ -1258,7 +1228,7 @@ COMMENT ON COLUMN "public"."api_keys"."is_active" IS 'Whether the key is active.
 
 
 
-CREATE OR REPLACE VIEW "public"."asset_overview" AS
+CREATE MATERIALIZED VIEW "public"."asset_overview" AS
  SELECT "a"."id",
     "a"."user_id",
     "a"."name",
@@ -1280,10 +1250,15 @@ CREATE OR REPLACE VIEW "public"."asset_overview" AS
      LEFT JOIN "public"."apex_domains" "ad" ON (("a"."id" = "ad"."asset_id")))
      LEFT JOIN "public"."asset_scan_jobs" "asj" ON (("a"."id" = "asj"."asset_id")))
      LEFT JOIN "public"."subdomains" "s" ON (("asj"."id" = "s"."scan_job_id")))
-  GROUP BY "a"."id", "a"."user_id", "a"."name", "a"."description", "a"."bug_bounty_url", "a"."is_active", "a"."priority", "a"."tags", "a"."created_at", "a"."updated_at";
+  GROUP BY "a"."id", "a"."user_id", "a"."name", "a"."description", "a"."bug_bounty_url", "a"."is_active", "a"."priority", "a"."tags", "a"."created_at", "a"."updated_at"
+  WITH NO DATA;
 
 
-ALTER VIEW "public"."asset_overview" OWNER TO "postgres";
+ALTER MATERIALIZED VIEW "public"."asset_overview" OWNER TO "postgres";
+
+
+COMMENT ON MATERIALIZED VIEW "public"."asset_overview" IS 'Pre-computed asset statistics. Refresh with: REFRESH MATERIALIZED VIEW CONCURRENTLY asset_overview;';
+
 
 
 CREATE TABLE IF NOT EXISTS "public"."dns_records" (
@@ -1498,7 +1473,7 @@ COMMENT ON COLUMN "public"."urls"."file_extension" IS 'Extracted file extension 
 
 
 
-CREATE OR REPLACE VIEW "public"."asset_recon_counts" AS
+CREATE MATERIALIZED VIEW "public"."asset_recon_counts" AS
  SELECT "a"."id" AS "asset_id",
     COALESCE("hp"."probe_count", (0)::bigint) AS "probe_count",
     COALESCE("dr"."dns_count", (0)::bigint) AS "dns_count",
@@ -1515,13 +1490,14 @@ CREATE OR REPLACE VIEW "public"."asset_recon_counts" AS
      LEFT JOIN ( SELECT "urls"."asset_id",
             "count"(*) AS "url_count"
            FROM "public"."urls"
-          GROUP BY "urls"."asset_id") "u" ON (("a"."id" = "u"."asset_id")));
+          GROUP BY "urls"."asset_id") "u" ON (("a"."id" = "u"."asset_id")))
+  WITH NO DATA;
 
 
-ALTER VIEW "public"."asset_recon_counts" OWNER TO "postgres";
+ALTER MATERIALIZED VIEW "public"."asset_recon_counts" OWNER TO "postgres";
 
 
-COMMENT ON VIEW "public"."asset_recon_counts" IS 'Pre-computed reconnaissance counts per asset. Aggregates probe_count (http_probes), dns_count (dns_records), and url_count (urls) for each asset. Used for dashboard performance optimization.';
+COMMENT ON MATERIALIZED VIEW "public"."asset_recon_counts" IS 'Pre-computed reconnaissance counts per asset. Refresh with: REFRESH MATERIALIZED VIEW CONCURRENTLY asset_recon_counts;';
 
 
 
@@ -1822,15 +1798,20 @@ Used by backend to resolve execution order automatically.';
 
 
 
-CREATE OR REPLACE VIEW "public"."scan_subdomain_counts" AS
+CREATE MATERIALIZED VIEW "public"."scan_subdomain_counts" AS
  SELECT "scan_job_id",
     "count"(*) AS "subdomain_count"
    FROM "public"."subdomains"
   WHERE ("scan_job_id" IS NOT NULL)
-  GROUP BY "scan_job_id";
+  GROUP BY "scan_job_id"
+  WITH NO DATA;
 
 
-ALTER VIEW "public"."scan_subdomain_counts" OWNER TO "postgres";
+ALTER MATERIALIZED VIEW "public"."scan_subdomain_counts" OWNER TO "postgres";
+
+
+COMMENT ON MATERIALIZED VIEW "public"."scan_subdomain_counts" IS 'Pre-computed subdomain counts per scan job. Refresh with: REFRESH MATERIALIZED VIEW CONCURRENTLY scan_subdomain_counts;';
+
 
 
 CREATE TABLE IF NOT EXISTS "public"."scans" (
@@ -2260,6 +2241,10 @@ CREATE INDEX "idx_asset_scan_jobs_asset_created" ON "public"."asset_scan_jobs" U
 
 
 
+CREATE INDEX "idx_asset_scan_jobs_asset_created_desc" ON "public"."asset_scan_jobs" USING "btree" ("asset_id", "created_at" DESC);
+
+
+
 CREATE INDEX "idx_asset_scan_jobs_asset_id" ON "public"."asset_scan_jobs" USING "btree" ("asset_id");
 
 
@@ -2388,6 +2373,10 @@ CREATE INDEX "idx_crawled_endpoints_url_hash" ON "public"."crawled_endpoints" US
 
 
 
+CREATE INDEX "idx_dns_records_asset_count" ON "public"."dns_records" USING "btree" ("asset_id");
+
+
+
 CREATE INDEX "idx_dns_records_asset_id" ON "public"."dns_records" USING "btree" ("asset_id");
 
 
@@ -2460,6 +2449,10 @@ CREATE INDEX "idx_historical_urls_source" ON "public"."historical_urls" USING "b
 
 
 
+CREATE INDEX "idx_http_probes_asset_count" ON "public"."http_probes" USING "btree" ("asset_id");
+
+
+
 CREATE INDEX "idx_http_probes_asset_created" ON "public"."http_probes" USING "btree" ("asset_id", "created_at" DESC);
 
 
@@ -2501,6 +2494,26 @@ CREATE INDEX "idx_http_probes_subdomain" ON "public"."http_probes" USING "btree"
 
 
 CREATE INDEX "idx_http_probes_technologies" ON "public"."http_probes" USING "gin" ("technologies");
+
+
+
+CREATE INDEX "idx_mv_asset_overview_created_at" ON "public"."asset_overview" USING "btree" ("created_at" DESC);
+
+
+
+CREATE UNIQUE INDEX "idx_mv_asset_overview_id" ON "public"."asset_overview" USING "btree" ("id");
+
+
+
+CREATE INDEX "idx_mv_asset_overview_is_active" ON "public"."asset_overview" USING "btree" ("is_active") WHERE ("is_active" = true);
+
+
+
+CREATE UNIQUE INDEX "idx_mv_asset_recon_counts_asset_id" ON "public"."asset_recon_counts" USING "btree" ("asset_id");
+
+
+
+CREATE UNIQUE INDEX "idx_mv_scan_subdomain_counts_job_id" ON "public"."scan_subdomain_counts" USING "btree" ("scan_job_id");
 
 
 
@@ -2556,6 +2569,10 @@ CREATE INDEX "idx_subdomains_scan_job_asset_relation" ON "public"."subdomains" U
 
 
 
+CREATE INDEX "idx_subdomains_scan_job_count" ON "public"."subdomains" USING "btree" ("scan_job_id") WHERE ("scan_job_id" IS NOT NULL);
+
+
+
 CREATE INDEX "idx_subdomains_scan_job_id" ON "public"."subdomains" USING "btree" ("scan_job_id");
 
 
@@ -2573,6 +2590,10 @@ CREATE INDEX "idx_subdomains_subdomain" ON "public"."subdomains" USING "btree" (
 
 
 CREATE INDEX "idx_urls_asset_alive" ON "public"."urls" USING "btree" ("asset_id", "is_alive");
+
+
+
+CREATE INDEX "idx_urls_asset_count" ON "public"."urls" USING "btree" ("asset_id");
 
 
 
@@ -3280,21 +3301,21 @@ GRANT ALL ON FUNCTION "public"."has_paid_spots_available"("max_spots" integer) T
 
 
 
-GRANT ALL ON FUNCTION "public"."release_expired_reservations"("expiry_hours" integer) TO "anon";
-GRANT ALL ON FUNCTION "public"."release_expired_reservations"("expiry_hours" integer) TO "authenticated";
-GRANT ALL ON FUNCTION "public"."release_expired_reservations"("expiry_hours" integer) TO "service_role";
+GRANT ALL ON FUNCTION "public"."refresh_dashboard_views"() TO "anon";
+GRANT ALL ON FUNCTION "public"."refresh_dashboard_views"() TO "authenticated";
+GRANT ALL ON FUNCTION "public"."refresh_dashboard_views"() TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."refresh_views_for_asset"("p_asset_id" "uuid") TO "anon";
+GRANT ALL ON FUNCTION "public"."refresh_views_for_asset"("p_asset_id" "uuid") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."refresh_views_for_asset"("p_asset_id" "uuid") TO "service_role";
 
 
 
 GRANT ALL ON FUNCTION "public"."sync_subdomain_asset_id"() TO "anon";
 GRANT ALL ON FUNCTION "public"."sync_subdomain_asset_id"() TO "authenticated";
 GRANT ALL ON FUNCTION "public"."sync_subdomain_asset_id"() TO "service_role";
-
-
-
-GRANT ALL ON FUNCTION "public"."try_reserve_pro_spot"("p_user_id" "uuid", "max_spots" integer) TO "anon";
-GRANT ALL ON FUNCTION "public"."try_reserve_pro_spot"("p_user_id" "uuid", "max_spots" integer) TO "authenticated";
-GRANT ALL ON FUNCTION "public"."try_reserve_pro_spot"("p_user_id" "uuid", "max_spots" integer) TO "service_role";
 
 
 

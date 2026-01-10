@@ -15,7 +15,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
-import { LogOut, User, Globe, Network, Server, Building2, Code2, Link2, Zap, ChevronDown, Crown, LayoutDashboard } from 'lucide-react';
+import { LogOut, User, Globe, Network, Server, Building2, Code2, Link2, Zap, ChevronDown, Crown, LayoutDashboard, HelpCircle } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { getBillingStatus, BillingStatus } from '@/lib/api/billing';
@@ -242,11 +242,19 @@ export const Navigation: React.FC = () => {
 
                     {/* Actions */}
                     <div className="py-1">
-                      <button
-                onClick={handleLogout}
+                      <Link
+                        href="/support"
+                        onClick={() => setDropdownOpen(false)}
                         className="flex items-center gap-2 w-full px-4 py-2 text-sm text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
-              >
-                <LogOut className="h-4 w-4" />
+                      >
+                        <HelpCircle className="h-4 w-4" />
+                        Support
+                      </Link>
+                      <button
+                        onClick={handleLogout}
+                        className="flex items-center gap-2 w-full px-4 py-2 text-sm text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
+                      >
+                        <LogOut className="h-4 w-4" />
                         Sign out
                       </button>
                     </div>
