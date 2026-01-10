@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { YouFormEmbed } from '@/components/ui/youform-embed';
 import { Globe, Link2, Network, Server } from 'lucide-react';
 import { getBillingStatus, type BillingStatus } from '@/lib/api/billing';
 
@@ -66,22 +67,6 @@ export default function DashboardPage() {
       loadData();
     }
   }, [isAuthenticated]);
-
-  // Load Youform embed script
-  useEffect(() => {
-    const script = document.createElement('script');
-    script.src = 'https://app.youform.com/embed.js';
-    script.async = true;
-    document.body.appendChild(script);
-
-    return () => {
-      // Cleanup script on unmount
-      const existingScript = document.querySelector('script[src="https://app.youform.com/embed.js"]');
-      if (existingScript) {
-        existingScript.remove();
-      }
-    };
-  }, []);
 
   if (!isAuthenticated && !isLoading) {
     return null;
@@ -186,13 +171,12 @@ export default function DashboardPage() {
             </p>
           </div>
 
-          {/* Youform Embed Container */}
+          {/* YouForm Embed - Direct iframe for reliable SPA navigation */}
           <div className="rounded-lg border border-border/50 bg-card/30 overflow-hidden">
-            <div 
-              data-youform-embed 
-              data-form="w99tz8px" 
-              data-width="100%" 
-              data-height="600"
+            <YouFormEmbed 
+              formId="w99tz8px" 
+              height={600}
+              title="Request a Program Form"
             />
           </div>
         </div>
