@@ -15,17 +15,27 @@ export default function SupportPage() {
     }
   }, [isAuthenticated, isLoading, router]);
 
-  // Load Youform embed script
+  // Load Youform embed script - force re-initialization on SPA navigation
   useEffect(() => {
-    const script = document.createElement('script');
-    script.src = 'https://app.youform.com/embed.js';
-    script.async = true;
-    document.body.appendChild(script);
+    // Remove any existing youform script to force re-initialization
+    const existingScript = document.querySelector('script[src="https://app.youform.com/embed.js"]');
+    if (existingScript) {
+      existingScript.remove();
+    }
+
+    // Small delay to ensure DOM is ready after navigation
+    const timer = setTimeout(() => {
+      const script = document.createElement('script');
+      script.src = 'https://app.youform.com/embed.js';
+      script.async = true;
+      document.body.appendChild(script);
+    }, 100);
 
     return () => {
-      const existingScript = document.querySelector('script[src="https://app.youform.com/embed.js"]');
-      if (existingScript) {
-        existingScript.remove();
+      clearTimeout(timer);
+      const script = document.querySelector('script[src="https://app.youform.com/embed.js"]');
+      if (script) {
+        script.remove();
       }
     };
   }, []);
