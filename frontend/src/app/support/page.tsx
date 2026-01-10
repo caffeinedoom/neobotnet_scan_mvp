@@ -3,6 +3,7 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
+import { YouFormEmbed } from '@/components/ui/youform-embed';
 
 export default function SupportPage() {
   const router = useRouter();
@@ -14,31 +15,6 @@ export default function SupportPage() {
       router.push('/');
     }
   }, [isAuthenticated, isLoading, router]);
-
-  // Load Youform embed script - force re-initialization on SPA navigation
-  useEffect(() => {
-    // Remove any existing youform script to force re-initialization
-    const existingScript = document.querySelector('script[src="https://app.youform.com/embed.js"]');
-    if (existingScript) {
-      existingScript.remove();
-    }
-
-    // Small delay to ensure DOM is ready after navigation
-    const timer = setTimeout(() => {
-      const script = document.createElement('script');
-      script.src = 'https://app.youform.com/embed.js';
-      script.async = true;
-      document.body.appendChild(script);
-    }, 100);
-
-    return () => {
-      clearTimeout(timer);
-      const script = document.querySelector('script[src="https://app.youform.com/embed.js"]');
-      if (script) {
-        script.remove();
-      }
-    };
-  }, []);
 
   if (!isAuthenticated && !isLoading) {
     return null;
@@ -68,13 +44,12 @@ export default function SupportPage() {
           </p>
         </div>
 
-        {/* Youform Embed */}
+        {/* YouForm Embed - Direct iframe for reliable SPA navigation */}
         <div className="rounded-lg border border-border/50 bg-card/30 overflow-hidden">
-          <div 
-            data-youform-embed 
-            data-form="zdrwes6n"
-            data-width="100%" 
-            data-height="700"
+          <YouFormEmbed 
+            formId="zdrwes6n"
+            height={700}
+            title="Support Form"
           />
         </div>
 
