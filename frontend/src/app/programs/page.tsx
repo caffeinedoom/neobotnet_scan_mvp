@@ -64,6 +64,7 @@ export default function ProgramsPage() {
   
   const [programs, setPrograms] = useState<ReconAsset[]>([]);
   const [filteredPrograms, setFilteredPrograms] = useState<ReconAsset[]>([]);
+  const [totalPrograms, setTotalPrograms] = useState<number>(0);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
 
@@ -80,14 +81,16 @@ export default function ProgramsPage() {
   const loadPrograms = async () => {
     try {
       setLoading(true);
-      const { assets } = await reconDataService.getAssetsData();
+      const { assets, summary } = await reconDataService.getAssetsData();
       setPrograms(assets);
       setFilteredPrograms(assets);
+      setTotalPrograms(summary.total_assets);
     } catch (error) {
       console.error('Failed to load programs:', error);
       toast.error('Failed to load programs');
       setPrograms([]);
       setFilteredPrograms([]);
+      setTotalPrograms(0);
     } finally {
       setLoading(false);
     }
@@ -126,7 +129,12 @@ export default function ProgramsPage() {
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <h1 className="text-2xl font-bold tracking-tight font-mono text-foreground">
             programs
-            </h1>
+            {!loading && totalPrograms > 0 && (
+              <span className="text-muted-foreground ml-2 text-xl">
+                {totalPrograms.toLocaleString()}
+              </span>
+            )}
+          </h1>
           
           {/* Search */}
           <div className="relative w-full sm:w-80">
