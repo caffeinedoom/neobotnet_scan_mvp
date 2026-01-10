@@ -437,47 +437,74 @@ async def get_program_http_probes(
 # ================================================================
 
 async def _enrich_programs_with_stats(client, programs: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-    """Enrich programs with statistics."""
+    """
+    Enrich programs with statistics using BATCH queries (optimized).
     
+    PERFORMANCE FIX: Instead of N+1 queries (4 per program = 148 for 37 programs),
+    now uses just 2 batch queries regardless of program count.
+    
+    Uses the asset_overview materialized view for domain/subdomain counts.
+    """
+    if not programs:
+        return []
+    
+    program_ids = [p["id"] for p in programs]
+    
+    # ================================================================
+    # BATCH QUERY 1: Get all stats from asset_overview view (1 query)
+    # This replaces 3 queries per program
+    # ================================================================
+    try:
+        overview_result = client.table("asset_overview").select(
+            "id, domain_count, subdomain_count"
+        ).in_("id", program_ids).execute()
+        
+        # Build lookup dictionary
+        stats_by_id = {}
+        for row in (overview_result.data or []):
+            stats_by_id[row["id"]] = {
+                "domain_count": row.get("domain_count", 0),
+                "subdomain_count": row.get("subdomain_count", 0)
+            }
+    except Exception as e:
+        logger.warning(f"Could not fetch from asset_overview view: {e}. Falling back to zeros.")
+        stats_by_id = {}
+    
+    # ================================================================
+    # BATCH QUERY 2: Get last scan dates for all programs (1 query)
+    # Uses DISTINCT ON to get most recent scan per asset
+    # ================================================================
+    try:
+        # Get the most recent scan for each asset in one query
+        scans_result = client.table("asset_scan_jobs").select(
+            "asset_id, created_at"
+        ).in_("asset_id", program_ids).order(
+            "created_at", desc=True
+        ).execute()
+        
+        # Build lookup - first occurrence is most recent due to ordering
+        last_scan_by_id = {}
+        for row in (scans_result.data or []):
+            aid = row["asset_id"]
+            if aid not in last_scan_by_id:  # First one is most recent
+                last_scan_by_id[aid] = row["created_at"]
+    except Exception as e:
+        logger.warning(f"Could not fetch scan dates: {e}")
+        last_scan_by_id = {}
+    
+    # ================================================================
+    # Merge stats into programs
+    # ================================================================
     enriched = []
     for program in programs:
-        program_id = program["id"]
-        
-        # Count apex domains
-        domains_result = client.table("apex_domains").select(
-            "id", count="exact"
-        ).eq("asset_id", program_id).execute()
-        domain_count = domains_result.count or 0
-        
-        # Get scan job IDs
-        scan_jobs = client.table("asset_scan_jobs").select("id").eq("asset_id", program_id).execute()
-        scan_job_ids = [job["id"] for job in (scan_jobs.data or [])]
-        
-        # Count subdomains
-        subdomain_count = 0
-        if scan_job_ids:
-            subdomains_result = client.table("subdomains").select(
-                "id", count="exact"
-            ).in_("scan_job_id", scan_job_ids).execute()
-            subdomain_count = subdomains_result.count or 0
-        
-        # Get last scan date
-        last_scan_date = None
-        if scan_jobs.data:
-            last_scan_jobs = client.table("asset_scan_jobs").select(
-                "created_at"
-            ).eq("asset_id", program_id).order(
-                "created_at", desc=True
-            ).limit(1).execute()
-            
-            if last_scan_jobs.data:
-                last_scan_date = last_scan_jobs.data[0]["created_at"]
+        pid = program["id"]
+        stats = stats_by_id.get(pid, {"domain_count": 0, "subdomain_count": 0})
         
         enriched.append({
             **program,
-            "domain_count": domain_count,
-            "subdomain_count": subdomain_count,
-            "last_scan_date": last_scan_date
+            "domain_count": stats["domain_count"],
+            "subdomain_count": stats["subdomain_count"],
+            "last_scan_date": last_scan_by_id.get(pid)
         })
     
     return enriched

@@ -90,11 +90,12 @@ async def get_recon_data(
         total_subdomains = sum(asset_subdomain_counts.values())
         
         # ================================================================
-        # BATCH QUERY 2: Get ALL scan jobs with status
+        # BATCH QUERY 2: Get scan jobs with status (LIMIT for performance)
+        # We only need recent scans for the dashboard - limit to 500 max
         # ================================================================
         scans_result = client.table("asset_scan_jobs").select(
             "id, asset_id, status, modules, total_domains, completed_domains, created_at, started_at, completed_at, error_message"
-        ).in_("asset_id", asset_ids).order("created_at", desc=True).execute()
+        ).in_("asset_id", asset_ids).order("created_at", desc=True).limit(500).execute()
         
         scans_data = scans_result.data or []
         scan_job_ids = [s["id"] for s in scans_data]
