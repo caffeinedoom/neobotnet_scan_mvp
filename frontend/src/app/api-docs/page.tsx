@@ -1238,7 +1238,7 @@ curl -s "${baseUrl}/api/v1/programs/PROGRAM_ID/subdomains?page=1&per_page=1000" 
               <h4 className="font-medium text-sm mb-2">Get live servers (200 OK) for a program</h4>
               <CodeBlock
                 id="find-live-hosts"
-                code={`curl -s "${baseUrl}/api/v1/programs/PROGRAM_ID/probes?status_code=200&per_page=100" \\
+                code={`curl -s "${baseUrl}/api/v1/http-probes?asset_id=PROGRAM_ID&status_code=200&limit=100" \\
   -H "X-API-Key: YOUR_API_KEY" | \\
   jq -r '.probes[].url'`}
               />
