@@ -47,7 +47,7 @@ export default function SupportPage() {
         {/* YouForm Embed - Direct iframe for reliable SPA navigation */}
         <div className="rounded-lg border border-border/50 bg-card/30 overflow-hidden">
           <YouFormEmbed 
-            formId="zdrwes6n"
+            formId="usmizkqe"
             height={700}
             title="Support Form"
           />
