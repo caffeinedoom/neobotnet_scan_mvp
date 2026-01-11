@@ -99,7 +99,17 @@ export const signInWithGoogle = async () => {
 
 /**
  * Sign in with X (Twitter) SSO
- * Redirects to Twitter OAuth flow
+ * Redirects to Twitter OAuth 2.0 flow
+ * 
+ * Twitter OAuth 2.0 requires explicit scopes:
+ * - users.read: Read user profile information
+ * - tweet.read: Required by Twitter even if not using tweets
+ * 
+ * Note: Make sure your Twitter Developer app has:
+ * 1. OAuth 2.0 enabled (not just OAuth 1.0a)
+ * 2. Type of App: "Confidential client"
+ * 3. Callback URL: https://huxley.neobotnet.com/auth/v1/callback
+ * 4. Client ID and Client Secret (NOT API Key/Secret)
  */
 export const signInWithTwitter = async () => {
   const { data, error } = await supabase.auth.signInWithOAuth({
@@ -107,6 +117,10 @@ export const signInWithTwitter = async () => {
     options: {
       // Redirect back to our callback page after auth
       redirectTo: `${window.location.origin}/auth/callback`,
+      // Twitter OAuth 2.0 requires explicit scopes
+      // users.read: Get user profile info
+      // tweet.read: Required base scope for Twitter OAuth 2.0
+      scopes: 'users.read tweet.read',
     },
   });
 

@@ -208,12 +208,24 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const handleSignInWithTwitter = useCallback(async () => {
     try {
       dispatch({ type: 'SET_LOADING', payload: true });
-      await signInWithTwitter();
+      console.log('[Twitter OAuth] Initiating sign-in...');
+      console.log('[Twitter OAuth] Redirect URL will be:', `${window.location.origin}/auth/callback`);
+      
+      const result = await signInWithTwitter();
+      
+      console.log('[Twitter OAuth] signInWithOAuth result:', result);
       // Note: The actual sign-in happens via redirect
       // The onAuthStateChange listener will handle the session update
-    } catch (error) {
-      console.error('Twitter sign-in failed:', error);
-      toast.error('Failed to sign in with X');
+    } catch (error: unknown) {
+      console.error('[Twitter OAuth] Sign-in failed:', error);
+      
+      // Extract more detailed error information
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorDetails = (error as { status?: number; code?: string })?.status || (error as { code?: string })?.code;
+      
+      console.error('[Twitter OAuth] Error details:', { message: errorMessage, details: errorDetails });
+      
+      toast.error(`Failed to sign in with X: ${errorMessage}`);
       dispatch({ type: 'SET_LOADING', payload: false });
     }
   }, []);
