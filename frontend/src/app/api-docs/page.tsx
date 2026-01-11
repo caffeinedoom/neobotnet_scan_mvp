@@ -384,29 +384,79 @@ X-API-Key: nb_live_your_key_here`}
                     <Badge variant="secondary">GET</Badge>
                     <code className="text-sm">/api/v1/programs</code>
                   </div>
-                  <CardDescription>List all bug bounty programs</CardDescription>
+                  <CardDescription>List all bug bounty programs with pagination</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <CodeBlock
                     id="list-programs"
-                    code={`curl -X GET "${baseUrl}/api/v1/programs" \\
+                    code={`curl -X GET "${baseUrl}/api/v1/programs?page=1&per_page=25" \\
   -H "X-API-Key: YOUR_API_KEY"`}
                   />
+                  
+                  <div className="mt-4 space-y-2">
+                    <h4 className="font-medium text-sm">Query Parameters</h4>
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b">
+                          <th className="text-left py-2">Parameter</th>
+                          <th className="text-left py-2">Type</th>
+                          <th className="text-left py-2">Description</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr className="border-b">
+                          <td className="py-2"><code>page</code></td>
+                          <td className="py-2">integer</td>
+                          <td className="py-2">Page number, 1-indexed (default: 1)</td>
+                        </tr>
+                        <tr className="border-b">
+                          <td className="py-2"><code>per_page</code></td>
+                          <td className="py-2">integer</td>
+                          <td className="py-2">Results per page (default: 25, max: 100)</td>
+                        </tr>
+                        <tr className="border-b">
+                          <td className="py-2"><code>search</code></td>
+                          <td className="py-2">string</td>
+                          <td className="py-2">Filter by program name</td>
+                        </tr>
+                        <tr className="border-b">
+                          <td className="py-2"><code>include_stats</code></td>
+                          <td className="py-2">boolean</td>
+                          <td className="py-2">Include domain/subdomain counts (default: true)</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
                   
                   <details className="mt-4">
                     <summary className="cursor-pointer text-sm font-medium text-muted-foreground hover:text-foreground">
                       Example Response
                     </summary>
                     <pre className="mt-2 bg-zinc-950 text-zinc-100 rounded-lg p-4 text-xs overflow-x-auto">
-{`[
-  {
-    "id": "uuid",
-    "name": "Example Program",
-    "domains_count": 15,
-    "subdomains_count": 2340,
-    "created_at": "2025-12-14T10:00:00Z"
+{`{
+  "programs": [
+    {
+      "id": "uuid",
+      "name": "Example Program",
+      "description": "https://hackerone.com/example",
+      "is_active": true,
+      "priority": 3,
+      "tags": ["vdp"],
+      "domain_count": 15,
+      "subdomain_count": 2340,
+      "last_scan_date": "2026-01-10T10:00:00Z",
+      "created_at": "2025-12-14T10:00:00Z"
+    }
+  ],
+  "pagination": {
+    "total": 59,
+    "page": 1,
+    "per_page": 25,
+    "total_pages": 3,
+    "has_next": true,
+    "has_prev": false
   }
-]`}
+}`}
                     </pre>
                   </details>
                 </CardContent>
@@ -418,7 +468,7 @@ X-API-Key: nb_live_your_key_here`}
                     <Badge variant="secondary">GET</Badge>
                     <code className="text-sm">/api/v1/programs/:id</code>
                   </div>
-                  <CardDescription>Get program details</CardDescription>
+                  <CardDescription>Get program details with statistics</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <CodeBlock
@@ -426,6 +476,27 @@ X-API-Key: nb_live_your_key_here`}
                     code={`curl -X GET "${baseUrl}/api/v1/programs/PROGRAM_ID" \\
   -H "X-API-Key: YOUR_API_KEY"`}
                   />
+                  
+                  <details className="mt-4">
+                    <summary className="cursor-pointer text-sm font-medium text-muted-foreground hover:text-foreground">
+                      Example Response
+                    </summary>
+                    <pre className="mt-2 bg-zinc-950 text-zinc-100 rounded-lg p-4 text-xs overflow-x-auto">
+{`{
+  "id": "ad9a8a21-6611-4846-bc39-ae803d4053a5",
+  "name": "Verisign",
+  "description": "https://bugcrowd.com/engagements/verisign",
+  "is_active": true,
+  "priority": 3,
+  "tags": ["cli-created"],
+  "domain_count": 4,
+  "subdomain_count": 1147,
+  "last_scan_date": "2026-01-10T16:20:00Z",
+  "created_at": "2026-01-09T22:00:00Z",
+  "updated_at": "2026-01-09T22:00:00Z"
+}`}
+                    </pre>
+                  </details>
                 </CardContent>
               </Card>
             </TabsContent>
@@ -740,15 +811,24 @@ X-API-Key: nb_live_your_key_here`}
                     </summary>
                     <pre className="mt-2 bg-zinc-950 text-zinc-100 rounded-lg p-4 text-xs overflow-x-auto">
 {`{
-  "total_urls": 15420,
-  "alive_urls": 12380,
-  "dead_urls": 2540,
-  "pending_urls": 500,
-  "urls_with_params": 4230,
-  "unique_domains": 156,
+  "total_urls": 359168,
+  "alive_urls": 331137,
+  "dead_urls": 28031,
+  "pending_urls": 0,
+  "urls_with_params": 120470,
+  "unique_domains": 48767,
   "top_status_codes": [
-    {"status_code": 200, "count": 10500},
-    {"status_code": 404, "count": 1200}
+    {"status_code": 200, "count": 215709},
+    {"status_code": 403, "count": 85463},
+    {"status_code": 404, "count": 15051}
+  ],
+  "top_technologies": [
+    {"name": "Amazon Web Services", "count": 227},
+    {"name": "Cloudflare", "count": 158}
+  ],
+  "top_file_extensions": [
+    {"extension": ".html", "count": 5693},
+    {"extension": ".js", "count": 1739}
   ]
 }`}
                     </pre>
@@ -789,66 +869,110 @@ X-API-Key: nb_live_your_key_here`}
           </CardContent>
         </Card>
 
-        {/* CLI Usage */}
+        {/* Pagination Best Practices */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Terminal className="h-5 w-5" />
-              Quick Examples
+              Pagination &amp; Best Practices
             </CardTitle>
             <CardDescription>
-              Common use cases for researchers
+              How to efficiently work with large datasets
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="space-y-6">
+            <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg p-4">
+              <p className="text-sm text-amber-600 dark:text-amber-400">
+                <strong>Important:</strong> Always use pagination when fetching data. 
+                Large datasets (like URLs with 350k+ records) will timeout without filters.
+              </p>
+            </div>
+
             <div>
-              <h4 className="font-medium text-sm mb-2">Export all subdomains to a file</h4>
+              <h4 className="font-medium text-sm mb-2">Paginate through all programs</h4>
+              <CodeBlock
+                id="paginate-programs"
+                code={`# Fetch page 1
+curl -s "${baseUrl}/api/v1/programs?page=1&per_page=25" \\
+  -H "X-API-Key: YOUR_API_KEY" | jq '.programs[].name, .pagination'
+
+# Check has_next and increment page until false`}
+              />
+            </div>
+
+            <div>
+              <h4 className="font-medium text-sm mb-2">Export subdomains for a specific program</h4>
               <CodeBlock
                 id="export-subdomains"
-                code={`curl -s "${baseUrl}/api/v1/programs/all/subdomains?per_page=10000" \\
+                code={`# Get subdomains with pagination (max 1000 per page)
+curl -s "${baseUrl}/api/v1/programs/PROGRAM_ID/subdomains?page=1&per_page=1000" \\
   -H "X-API-Key: YOUR_API_KEY" | \\
   jq -r '.subdomains[].subdomain' > subdomains.txt`}
               />
             </div>
 
             <div>
-              <h4 className="font-medium text-sm mb-2">Find live hosts with specific status</h4>
+              <h4 className="font-medium text-sm mb-2">Get live servers (200 OK) for a program</h4>
               <CodeBlock
                 id="find-live-hosts"
-                code={`curl -s "${baseUrl}/api/v1/http-probes?status_code=200&limit=1000" \\
+                code={`curl -s "${baseUrl}/api/v1/programs/PROGRAM_ID/probes?status_code=200&per_page=100" \\
   -H "X-API-Key: YOUR_API_KEY" | \\
-  jq -r '.[].url'`}
+  jq -r '.probes[].url'`}
               />
             </div>
 
             <div>
-              <h4 className="font-medium text-sm mb-2">Get CNAME records for a program</h4>
-              <CodeBlock
-                id="get-program-dns"
-                code={`curl -s "${baseUrl}/api/v1/programs/PROGRAM_ID/dns?record_type=CNAME" \\
-  -H "X-API-Key: YOUR_API_KEY" | \\
-  jq '.records[] | {subdomain, value}'`}
-              />
-            </div>
-
-            <div>
-              <h4 className="font-medium text-sm mb-2">Pipe to other tools (httpx, nuclei)</h4>
+              <h4 className="font-medium text-sm mb-2">Get all HTTP probes and pipe to nuclei</h4>
               <CodeBlock
                 id="pipe-example"
-                code={`# Get live URLs and pipe to nuclei
-curl -s "${baseUrl}/api/v1/http-probes?status_code=200" \\
+                code={`# Get live servers and pipe to nuclei
+curl -s "${baseUrl}/api/v1/http-probes?status_code=200&limit=500" \\
   -H "X-API-Key: YOUR_API_KEY" | \\
-  jq -r '.[].url' | nuclei -t cves/`}
+  jq -r '.probes[].url' | nuclei -t cves/`}
               />
             </div>
 
             <div>
-              <h4 className="font-medium text-sm mb-2">Export discovered URLs with params for parameter fuzzing</h4>
+              <h4 className="font-medium text-sm mb-2">Get DNS CNAME records for takeover analysis</h4>
+              <CodeBlock
+                id="get-program-dns"
+                code={`curl -s "${baseUrl}/api/v1/programs/PROGRAM_ID/dns?record_type=CNAME&per_page=500" \\
+  -H "X-API-Key: YOUR_API_KEY" | \\
+  jq -r '.dns_records[] | "\\(.subdomain) -> \\(.record_value)"'`}
+              />
+            </div>
+
+            <div>
+              <h4 className="font-medium text-sm mb-2">Export URLs with parameters (always filter by asset)</h4>
               <CodeBlock
                 id="export-urls-params"
-                code={`curl -s "${baseUrl}/api/v1/urls?has_params=true&is_alive=true&limit=1000" \\
+                code={`# Filter by asset_id to avoid timeout on large datasets
+curl -s "${baseUrl}/api/v1/urls?asset_id=PROGRAM_ID&has_params=true&is_alive=true&limit=500" \\
   -H "X-API-Key: YOUR_API_KEY" | \\
-  jq -r '.[].url' > urls_with_params.txt`}
+  jq -r '.urls[].url' > urls_with_params.txt`}
+              />
+            </div>
+
+            <div>
+              <h4 className="font-medium text-sm mb-2">Bash loop to paginate through all subdomains</h4>
+              <CodeBlock
+                id="bash-pagination"
+                code={`#!/bin/bash
+API_KEY="YOUR_API_KEY"
+PROGRAM_ID="YOUR_PROGRAM_ID"
+PAGE=1
+
+while true; do
+  RESPONSE=$(curl -s "${baseUrl}/api/v1/programs/$PROGRAM_ID/subdomains?page=$PAGE&per_page=1000" \\
+    -H "X-API-Key: $API_KEY")
+  
+  echo "$RESPONSE" | jq -r '.subdomains[].subdomain' >> all_subdomains.txt
+  
+  HAS_NEXT=$(echo "$RESPONSE" | jq -r '.pagination.has_next')
+  [ "$HAS_NEXT" != "true" ] && break
+  
+  PAGE=$((PAGE + 1))
+done`}
               />
             </div>
           </CardContent>

@@ -26,12 +26,12 @@ logger = logging.getLogger(__name__)
 # Programs (Bug Bounty Assets) - Public Read Access
 # ================================================================
 
-@router.get("", response_model=List[Dict[str, Any]])
+@router.get("", response_model=Dict[str, Any])
 async def list_programs(
     include_stats: bool = Query(True, description="Include statistics"),
     search: Optional[str] = Query(None, description="Search by program name"),
-    limit: int = Query(100, ge=1, le=500, description="Maximum programs to return"),
-    offset: int = Query(0, ge=0, description="Pagination offset"),
+    page: int = Query(1, ge=1, description="Page number (1-indexed)"),
+    per_page: int = Query(25, ge=1, le=100, description="Items per page"),
     current_user: UserResponse = Depends(get_current_user)
 ):
     """
@@ -41,38 +41,53 @@ async def list_programs(
     This is the LEAN public data model.
     
     Returns:
-        List of programs with statistics including:
-        - Program name, description, URL
-        - Domain count
-        - Subdomain count
-        - Last scan date
+        Paginated response with:
+        - programs: Array of program objects
+        - pagination: Pagination metadata (total, page, per_page, etc.)
     """
     try:
         # Use service client for public data access
         client = supabase_client.service_client
         
-        # Build query
+        # Build query with count for pagination
         query = client.table("assets").select(
-            "id, name, description, bug_bounty_url, is_active, priority, tags, created_at, updated_at"
+            "id, name, description, is_active, priority, tags, created_at, updated_at",
+            count="exact"
         )
         
         # Apply search filter
         if search:
             query = query.ilike("name", f"%{search}%")
         
-        # Apply pagination
-        query = query.range(offset, offset + limit - 1)
+        # Apply pagination (convert page/per_page to offset)
+        offset = (page - 1) * per_page
+        query = query.range(offset, offset + per_page - 1)
         query = query.order("created_at", desc=True)
         
         result = query.execute()
         programs = result.data or []
+        total = result.count or 0
         
         # Enrich with statistics if requested
         if include_stats and programs:
             programs = await _enrich_programs_with_stats(client, programs)
         
-        logger.info(f"Returning {len(programs)} programs for user {current_user.id}")
-        return programs
+        # Calculate pagination metadata
+        total_pages = (total + per_page - 1) // per_page if total > 0 else 0
+        
+        logger.info(f"Returning {len(programs)} programs (page {page}/{total_pages}) for user {current_user.id}")
+        
+        return {
+            "programs": programs,
+            "pagination": {
+                "total": total,
+                "page": page,
+                "per_page": per_page,
+                "total_pages": total_pages,
+                "has_next": page < total_pages,
+                "has_prev": page > 1
+            }
+        }
         
     except Exception as e:
         logger.error(f"Error listing programs: {str(e)}")
@@ -163,7 +178,7 @@ async def get_program(
         client = supabase_client.service_client
         
         result = client.table("assets").select(
-            "id, name, description, bug_bounty_url, is_active, priority, tags, created_at, updated_at"
+            "id, name, description, is_active, priority, tags, created_at, updated_at"
         ).eq("id", program_id).single().execute()
         
         if not result.data:
