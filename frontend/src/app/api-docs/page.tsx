@@ -541,16 +541,71 @@ X-API-Key: nb_live_your_key_here`}
                         <tr className="border-b">
                           <td className="py-2"><code>per_page</code></td>
                           <td className="py-2">integer</td>
-                          <td className="py-2">Results per page (max: 100)</td>
+                          <td className="py-2">Results per page (max: 1000)</td>
                         </tr>
                         <tr className="border-b">
                           <td className="py-2"><code>search</code></td>
                           <td className="py-2">string</td>
-                          <td className="py-2">Filter by subdomain name</td>
+                          <td className="py-2">Filter by subdomain name (case-insensitive)</td>
                         </tr>
                       </tbody>
                     </table>
                   </div>
+
+                  <details className="mt-4">
+                    <summary className="cursor-pointer text-sm font-medium text-muted-foreground hover:text-foreground">
+                      Example Response
+                    </summary>
+                    <pre className="mt-2 bg-zinc-950 text-zinc-100 rounded-lg p-4 text-xs overflow-x-auto">
+{`{
+  "subdomains": [
+    {
+      "id": "f5d49f43-dbbc-495c-87ba-ffaf99182a77",
+      "subdomain": "api.example.com",
+      "parent_domain": "example.com",
+      "discovered_at": "2026-01-09T03:49:41+00:00",
+      "scan_job_id": "3e1626cf-0258-4279-8fca-4b45c7a91ea1"
+    }
+  ],
+  "pagination": {
+    "total": 1147,
+    "page": 1,
+    "per_page": 100,
+    "total_pages": 12,
+    "has_next": true,
+    "has_prev": false
+  }
+}`}
+                    </pre>
+                    
+                    <div className="mt-3 space-y-2">
+                      <h4 className="font-medium text-sm">Response Fields</h4>
+                      <table className="w-full text-sm">
+                        <tbody>
+                          <tr className="border-b">
+                            <td className="py-2"><code>id</code></td>
+                            <td className="py-2">Unique subdomain identifier</td>
+                          </tr>
+                          <tr className="border-b">
+                            <td className="py-2"><code>subdomain</code></td>
+                            <td className="py-2">Full subdomain name</td>
+                          </tr>
+                          <tr className="border-b">
+                            <td className="py-2"><code>parent_domain</code></td>
+                            <td className="py-2">Root domain the subdomain belongs to</td>
+                          </tr>
+                          <tr className="border-b">
+                            <td className="py-2"><code>discovered_at</code></td>
+                            <td className="py-2">ISO 8601 timestamp of discovery</td>
+                          </tr>
+                          <tr className="border-b">
+                            <td className="py-2"><code>scan_job_id</code></td>
+                            <td className="py-2">ID of the scan that discovered this subdomain</td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  </details>
                 </CardContent>
               </Card>
 
@@ -571,6 +626,9 @@ X-API-Key: nb_live_your_key_here`}
   -d "page=1" \\
   -d "per_page=100"`}
                   />
+                  <p className="mt-3 text-sm text-muted-foreground">
+                    Returns the same response structure as the program-specific endpoint above.
+                  </p>
                 </CardContent>
               </Card>
             </TabsContent>
@@ -591,6 +649,8 @@ X-API-Key: nb_live_your_key_here`}
                     code={`curl -X GET "${baseUrl}/api/v1/programs/PROGRAM_ID/dns" \\
   -H "X-API-Key: YOUR_API_KEY" \\
   -G \\
+  -d "page=1" \\
+  -d "per_page=100" \\
   -d "record_type=A"`}
                   />
                   
@@ -606,6 +666,16 @@ X-API-Key: nb_live_your_key_here`}
                       </thead>
                       <tbody>
                         <tr className="border-b">
+                          <td className="py-2"><code>page</code></td>
+                          <td className="py-2">integer</td>
+                          <td className="py-2">Page number (default: 1)</td>
+                        </tr>
+                        <tr className="border-b">
+                          <td className="py-2"><code>per_page</code></td>
+                          <td className="py-2">integer</td>
+                          <td className="py-2">Results per page (max: 1000)</td>
+                        </tr>
+                        <tr className="border-b">
                           <td className="py-2"><code>record_type</code></td>
                           <td className="py-2">string</td>
                           <td className="py-2">Filter by type: A, AAAA, CNAME, MX, TXT</td>
@@ -613,11 +683,86 @@ X-API-Key: nb_live_your_key_here`}
                         <tr className="border-b">
                           <td className="py-2"><code>subdomain</code></td>
                           <td className="py-2">string</td>
-                          <td className="py-2">Filter by subdomain</td>
+                          <td className="py-2">Filter by subdomain (exact match)</td>
                         </tr>
                       </tbody>
                     </table>
                   </div>
+
+                  <details className="mt-4">
+                    <summary className="cursor-pointer text-sm font-medium text-muted-foreground hover:text-foreground">
+                      Example Response
+                    </summary>
+                    <pre className="mt-2 bg-zinc-950 text-zinc-100 rounded-lg p-4 text-xs overflow-x-auto">
+{`{
+  "dns_records": [
+    {
+      "id": "53e78102-409e-4d82-8d22-5283e0d6c301",
+      "subdomain": "api.example.com",
+      "parent_domain": "example.com",
+      "record_type": "A",
+      "record_value": "72.13.50.38",
+      "ttl": 900,
+      "resolved_at": "2026-01-11T02:36:26+00:00",
+      "cloud_provider": null,
+      "cdn_provider": null
+    }
+  ],
+  "pagination": {
+    "total": 1653,
+    "page": 1,
+    "per_page": 100,
+    "total_pages": 17,
+    "has_next": true,
+    "has_prev": false
+  }
+}`}
+                    </pre>
+                    
+                    <div className="mt-3 space-y-2">
+                      <h4 className="font-medium text-sm">Response Fields</h4>
+                      <table className="w-full text-sm">
+                        <tbody>
+                          <tr className="border-b">
+                            <td className="py-2"><code>id</code></td>
+                            <td className="py-2">Unique DNS record identifier</td>
+                          </tr>
+                          <tr className="border-b">
+                            <td className="py-2"><code>subdomain</code></td>
+                            <td className="py-2">Full subdomain name</td>
+                          </tr>
+                          <tr className="border-b">
+                            <td className="py-2"><code>parent_domain</code></td>
+                            <td className="py-2">Root domain</td>
+                          </tr>
+                          <tr className="border-b">
+                            <td className="py-2"><code>record_type</code></td>
+                            <td className="py-2">DNS record type (A, AAAA, CNAME, MX, TXT)</td>
+                          </tr>
+                          <tr className="border-b">
+                            <td className="py-2"><code>record_value</code></td>
+                            <td className="py-2">Resolved value (IP address, hostname, etc.)</td>
+                          </tr>
+                          <tr className="border-b">
+                            <td className="py-2"><code>ttl</code></td>
+                            <td className="py-2">Time-to-live in seconds</td>
+                          </tr>
+                          <tr className="border-b">
+                            <td className="py-2"><code>resolved_at</code></td>
+                            <td className="py-2">ISO 8601 timestamp of resolution</td>
+                          </tr>
+                          <tr className="border-b">
+                            <td className="py-2"><code>cloud_provider</code></td>
+                            <td className="py-2">Detected cloud provider (AWS, GCP, Azure) or null</td>
+                          </tr>
+                          <tr className="border-b">
+                            <td className="py-2"><code>cdn_provider</code></td>
+                            <td className="py-2">Detected CDN provider (Cloudflare, Akamai) or null</td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  </details>
                 </CardContent>
               </Card>
             </TabsContent>
@@ -630,7 +775,7 @@ X-API-Key: nb_live_your_key_here`}
                     <Badge variant="secondary">GET</Badge>
                     <code className="text-sm">/api/v1/http-probes</code>
                   </div>
-                  <CardDescription>Get HTTP probe results</CardDescription>
+                  <CardDescription>Get HTTP probe results with filtering and pagination</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <CodeBlock
@@ -638,6 +783,7 @@ X-API-Key: nb_live_your_key_here`}
                     code={`curl -X GET "${baseUrl}/api/v1/http-probes" \\
   -H "X-API-Key: YOUR_API_KEY" \\
   -G \\
+  -d "asset_id=PROGRAM_ID" \\
   -d "status_code=200" \\
   -d "limit=100"`}
                   />
@@ -654,14 +800,34 @@ X-API-Key: nb_live_your_key_here`}
                       </thead>
                       <tbody>
                         <tr className="border-b">
+                          <td className="py-2"><code>asset_id</code></td>
+                          <td className="py-2">uuid</td>
+                          <td className="py-2">Filter by program ID</td>
+                        </tr>
+                        <tr className="border-b">
+                          <td className="py-2"><code>scan_job_id</code></td>
+                          <td className="py-2">uuid</td>
+                          <td className="py-2">Filter by scan job ID</td>
+                        </tr>
+                        <tr className="border-b">
+                          <td className="py-2"><code>parent_domain</code></td>
+                          <td className="py-2">string</td>
+                          <td className="py-2">Filter by apex domain (exact match)</td>
+                        </tr>
+                        <tr className="border-b">
                           <td className="py-2"><code>status_code</code></td>
                           <td className="py-2">integer</td>
                           <td className="py-2">Filter by HTTP status code</td>
                         </tr>
                         <tr className="border-b">
+                          <td className="py-2"><code>subdomain</code></td>
+                          <td className="py-2">string</td>
+                          <td className="py-2">Filter by subdomain (partial match)</td>
+                        </tr>
+                        <tr className="border-b">
                           <td className="py-2"><code>technology</code></td>
                           <td className="py-2">string</td>
-                          <td className="py-2">Filter by detected technology</td>
+                          <td className="py-2">Filter by detected technology (e.g., &quot;IIS:10.0&quot;)</td>
                         </tr>
                         <tr className="border-b">
                           <td className="py-2"><code>limit</code></td>
@@ -676,6 +842,85 @@ X-API-Key: nb_live_your_key_here`}
                       </tbody>
                     </table>
                   </div>
+
+                  <details className="mt-4">
+                    <summary className="cursor-pointer text-sm font-medium text-muted-foreground hover:text-foreground">
+                      Example Response
+                    </summary>
+                    <pre className="mt-2 bg-zinc-950 text-zinc-100 rounded-lg p-4 text-xs overflow-x-auto">
+{`{
+  "probes": [
+    {
+      "id": "028eee74-0969-43e3-9e5e-e690c3358888",
+      "scan_job_id": "ed37f1ae-47f8-4b2a-b1ca-697497634c03",
+      "asset_id": "eb195902-ef52-4dae-8d0d-875ee6ef9661",
+      "status_code": 200,
+      "url": "https://api.example.com",
+      "title": "Example API",
+      "webserver": "nginx",
+      "content_length": 1234,
+      "final_url": null,
+      "ip": "104.18.6.107",
+      "technologies": ["Cloudflare", "HSTS", "nginx"],
+      "cdn_name": "cloudflare",
+      "content_type": "application/json",
+      "asn": null,
+      "chain_status_codes": [],
+      "location": null,
+      "favicon_md5": null,
+      "subdomain": "api.example.com",
+      "parent_domain": "example.com",
+      "scheme": "https",
+      "port": 443,
+      "created_at": "2026-01-11T03:18:53+00:00"
+    }
+  ],
+  "total": 53225,
+  "limit": 100,
+  "offset": 0
+}`}
+                    </pre>
+                    
+                    <div className="mt-3 space-y-2">
+                      <h4 className="font-medium text-sm">Key Response Fields</h4>
+                      <table className="w-full text-sm">
+                        <tbody>
+                          <tr className="border-b">
+                            <td className="py-2"><code>status_code</code></td>
+                            <td className="py-2">HTTP response status code</td>
+                          </tr>
+                          <tr className="border-b">
+                            <td className="py-2"><code>url</code></td>
+                            <td className="py-2">Full URL that was probed</td>
+                          </tr>
+                          <tr className="border-b">
+                            <td className="py-2"><code>title</code></td>
+                            <td className="py-2">HTML page title (if extracted)</td>
+                          </tr>
+                          <tr className="border-b">
+                            <td className="py-2"><code>webserver</code></td>
+                            <td className="py-2">Detected web server (nginx, Apache, IIS)</td>
+                          </tr>
+                          <tr className="border-b">
+                            <td className="py-2"><code>technologies</code></td>
+                            <td className="py-2">Array of detected technologies</td>
+                          </tr>
+                          <tr className="border-b">
+                            <td className="py-2"><code>cdn_name</code></td>
+                            <td className="py-2">CDN provider if detected</td>
+                          </tr>
+                          <tr className="border-b">
+                            <td className="py-2"><code>final_url</code></td>
+                            <td className="py-2">Final URL after redirects (if any)</td>
+                          </tr>
+                          <tr className="border-b">
+                            <td className="py-2"><code>chain_status_codes</code></td>
+                            <td className="py-2">Status codes in redirect chain</td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  </details>
                 </CardContent>
               </Card>
 
@@ -683,16 +928,21 @@ X-API-Key: nb_live_your_key_here`}
                 <CardHeader>
                   <div className="flex items-center gap-2">
                     <Badge variant="secondary">GET</Badge>
-                    <code className="text-sm">/api/v1/programs/:id/probes</code>
+                    <code className="text-sm">/api/v1/http-probes/stats/summary</code>
                   </div>
-                  <CardDescription>Get HTTP probes for a specific program</CardDescription>
+                  <CardDescription>Get aggregate statistics for HTTP probes</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <CodeBlock
-                    id="get-program-probes"
-                    code={`curl -X GET "${baseUrl}/api/v1/programs/PROGRAM_ID/probes" \\
-  -H "X-API-Key: YOUR_API_KEY"`}
+                    id="get-probes-stats"
+                    code={`curl -X GET "${baseUrl}/api/v1/http-probes/stats/summary" \\
+  -H "X-API-Key: YOUR_API_KEY" \\
+  -G \\
+  -d "asset_id=PROGRAM_ID"`}
                   />
+                  <p className="mt-3 text-sm text-muted-foreground">
+                    Returns pre-computed aggregates: total count, status code distribution, top technologies, web servers, and CDN usage.
+                  </p>
                 </CardContent>
               </Card>
             </TabsContent>
@@ -713,10 +963,18 @@ X-API-Key: nb_live_your_key_here`}
                     code={`curl -X GET "${baseUrl}/api/v1/urls" \\
   -H "X-API-Key: YOUR_API_KEY" \\
   -G \\
+  -d "asset_id=PROGRAM_ID" \\
   -d "is_alive=true" \\
   -d "status_code=200" \\
   -d "limit=100"`}
                   />
+
+                  <div className="mt-4 p-3 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">
+                    <p className="text-sm text-yellow-600 dark:text-yellow-400">
+                      <strong>⚠️ Important:</strong> Always filter by <code>asset_id</code> to avoid timeouts. 
+                      The URLs dataset is very large and unfiltered queries may fail.
+                    </p>
+                  </div>
                   
                   <div className="mt-4 space-y-2">
                     <h4 className="font-medium text-sm">Query Parameters</h4>
@@ -731,8 +989,8 @@ X-API-Key: nb_live_your_key_here`}
                       <tbody>
                         <tr className="border-b">
                           <td className="py-2"><code>asset_id</code></td>
-                          <td className="py-2">string</td>
-                          <td className="py-2">Filter by program/asset ID</td>
+                          <td className="py-2">uuid</td>
+                          <td className="py-2">Filter by program/asset ID <strong>(recommended)</strong></td>
                         </tr>
                         <tr className="border-b">
                           <td className="py-2"><code>is_alive</code></td>
@@ -773,19 +1031,79 @@ X-API-Key: nb_live_your_key_here`}
                       Example Response
                     </summary>
                     <pre className="mt-2 bg-zinc-950 text-zinc-100 rounded-lg p-4 text-xs overflow-x-auto">
-{`[
-  {
-    "id": "uuid",
-    "url": "https://example.com/api/v1/users",
-    "domain": "example.com",
-    "is_alive": true,
-    "status_code": 200,
-    "technologies": ["React", "nginx"],
-    "has_params": false,
-    "first_discovered_at": "2025-12-28T10:00:00Z"
+{`{
+  "urls": [
+    {
+      "id": "02905c83-52ee-4441-963f-e7408f8a86f8",
+      "asset_id": "ad9a8a21-6611-4846-bc39-ae803d4053a5",
+      "url": "https://example.com/api/users",
+      "domain": "example.com",
+      "path": "/api/users",
+      "query_params": {},
+      "is_alive": true,
+      "status_code": 200,
+      "content_type": "application/json",
+      "content_length": 1234,
+      "response_time_ms": 156,
+      "title": "API Response",
+      "final_url": null,
+      "redirect_chain": [],
+      "webserver": "nginx",
+      "technologies": ["nginx", "HSTS"],
+      "has_params": false,
+      "file_extension": null,
+      "first_discovered_at": "2026-01-09T05:34:57+00:00",
+      "created_at": "2026-01-09T05:34:57+00:00"
+    }
+  ],
+  "total": 4829,
+  "limit": 100,
+  "offset": 0,
+  "quota": {
+    "plan_type": "pro",
+    "urls_limit": null,
+    "urls_viewed": 0,
+    "urls_remaining": null,
+    "is_limited": false
   }
-]`}
+}`}
                     </pre>
+                    
+                    <div className="mt-3 space-y-2">
+                      <h4 className="font-medium text-sm">Key Response Fields</h4>
+                      <table className="w-full text-sm">
+                        <tbody>
+                          <tr className="border-b">
+                            <td className="py-2"><code>url</code></td>
+                            <td className="py-2">Full discovered URL</td>
+                          </tr>
+                          <tr className="border-b">
+                            <td className="py-2"><code>is_alive</code></td>
+                            <td className="py-2">Whether URL responds successfully</td>
+                          </tr>
+                          <tr className="border-b">
+                            <td className="py-2"><code>status_code</code></td>
+                            <td className="py-2">HTTP response status code</td>
+                          </tr>
+                          <tr className="border-b">
+                            <td className="py-2"><code>technologies</code></td>
+                            <td className="py-2">Detected technologies array</td>
+                          </tr>
+                          <tr className="border-b">
+                            <td className="py-2"><code>has_params</code></td>
+                            <td className="py-2">Whether URL has query parameters</td>
+                          </tr>
+                          <tr className="border-b">
+                            <td className="py-2"><code>file_extension</code></td>
+                            <td className="py-2">Detected file extension (e.g., .html, .js)</td>
+                          </tr>
+                          <tr className="border-b">
+                            <td className="py-2"><code>quota</code></td>
+                            <td className="py-2">Your plan&apos;s URL viewing quota info</td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
                   </details>
                 </CardContent>
               </Card>
@@ -802,8 +1120,13 @@ X-API-Key: nb_live_your_key_here`}
                   <CodeBlock
                     id="get-url-stats"
                     code={`curl -X GET "${baseUrl}/api/v1/urls/stats" \\
-  -H "X-API-Key: YOUR_API_KEY"`}
+  -H "X-API-Key: YOUR_API_KEY" \\
+  -G \\
+  -d "asset_id=PROGRAM_ID"`}
                   />
+                  <p className="mt-3 text-sm text-muted-foreground">
+                    Filter by <code>asset_id</code> to get stats for a specific program.
+                  </p>
                   
                   <details className="mt-4">
                     <summary className="cursor-pointer text-sm font-medium text-muted-foreground hover:text-foreground">
