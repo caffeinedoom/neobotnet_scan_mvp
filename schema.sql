@@ -803,7 +803,14 @@ BEGIN
     REFRESH MATERIALIZED VIEW CONCURRENTLY public.asset_overview;
     REFRESH MATERIALIZED VIEW CONCURRENTLY public.asset_recon_counts;
     REFRESH MATERIALIZED VIEW CONCURRENTLY public.scan_subdomain_counts;
+    REFRESH MATERIALIZED VIEW CONCURRENTLY public.subdomain_current_dns;
     
+    -- URL stats views
+    REFRESH MATERIALIZED VIEW CONCURRENTLY public.url_stats;
+    REFRESH MATERIALIZED VIEW CONCURRENTLY public.url_top_extensions;
+    REFRESH MATERIALIZED VIEW CONCURRENTLY public.url_top_status_codes;
+    REFRESH MATERIALIZED VIEW CONCURRENTLY public.url_top_sources;
+
     RAISE NOTICE 'Dashboard materialized views refreshed at %', NOW();
 END;
 $$;
@@ -826,7 +833,14 @@ BEGIN
     REFRESH MATERIALIZED VIEW CONCURRENTLY public.asset_overview;
     REFRESH MATERIALIZED VIEW CONCURRENTLY public.asset_recon_counts;
     REFRESH MATERIALIZED VIEW CONCURRENTLY public.scan_subdomain_counts;
+    REFRESH MATERIALIZED VIEW CONCURRENTLY public.subdomain_current_dns;
     
+    -- URL stats views
+    REFRESH MATERIALIZED VIEW CONCURRENTLY public.url_stats;
+    REFRESH MATERIALIZED VIEW CONCURRENTLY public.url_top_extensions;
+    REFRESH MATERIALIZED VIEW CONCURRENTLY public.url_top_status_codes;
+    REFRESH MATERIALIZED VIEW CONCURRENTLY public.url_top_sources;
+
     RAISE NOTICE 'Views refreshed for asset % at %', p_asset_id, NOW();
 END;
 $$;
@@ -1914,7 +1928,7 @@ COMMENT ON VIEW "public"."scans_with_assets" IS 'Enhanced scan view with calcula
 
 
 
-CREATE OR REPLACE VIEW "public"."subdomain_current_dns" AS
+CREATE MATERIALIZED VIEW "public"."subdomain_current_dns" AS
  SELECT "subdomain",
     "parent_domain",
     "array_agg"(DISTINCT "record_value" ORDER BY "record_value") FILTER (WHERE ("record_type" = 'A'::"text")) AS "ipv4_addresses",
@@ -1929,14 +1943,80 @@ CREATE OR REPLACE VIEW "public"."subdomain_current_dns" AS
     ("array_agg"("asset_id" ORDER BY "resolved_at" DESC))[1] AS "asset_id",
     "count"(*) AS "total_records"
    FROM "public"."dns_records"
-  GROUP BY "subdomain", "parent_domain";
+  GROUP BY "subdomain", "parent_domain"
+  WITH NO DATA;
 
 
-ALTER VIEW "public"."subdomain_current_dns" OWNER TO "postgres";
+ALTER MATERIALIZED VIEW "public"."subdomain_current_dns" OWNER TO "postgres";
 
 
-COMMENT ON VIEW "public"."subdomain_current_dns" IS 'Aggregated view of current DNS records per subdomain. Shows latest IPs (IPv4/IPv6), CNAMEs, MX records (with priority), and TXT records. Use this for dashboard queries and frontend display.';
+COMMENT ON MATERIALIZED VIEW "public"."subdomain_current_dns" IS 'Pre-computed DNS records grouped by subdomain. Refresh with: REFRESH MATERIALIZED VIEW CONCURRENTLY subdomain_current_dns;';
 
+
+
+CREATE MATERIALIZED VIEW "public"."url_stats" AS
+ SELECT "count"(*) AS "total_urls",
+    "count"(*) FILTER (WHERE ("is_alive" = true)) AS "alive_urls",
+    "count"(*) FILTER (WHERE ("is_alive" = false)) AS "dead_urls",
+    "count"(*) FILTER (WHERE ("resolved_at" IS NULL)) AS "pending_urls",
+    "count"(*) FILTER (WHERE ("has_params" = true)) AS "urls_with_params",
+    "count"(DISTINCT "domain") AS "unique_domains",
+    "count"(DISTINCT "asset_id") AS "unique_assets",
+    "count"(*) FILTER (WHERE (("status_code" >= 200) AND ("status_code" < 300))) AS "status_2xx",
+    "count"(*) FILTER (WHERE (("status_code" >= 300) AND ("status_code" < 400))) AS "status_3xx",
+    "count"(*) FILTER (WHERE (("status_code" >= 400) AND ("status_code" < 500))) AS "status_4xx",
+    "count"(*) FILTER (WHERE (("status_code" >= 500) AND ("status_code" < 600))) AS "status_5xx"
+   FROM "public"."urls"
+  WITH NO DATA;
+
+
+ALTER MATERIALIZED VIEW "public"."url_stats" OWNER TO "postgres";
+
+
+COMMENT ON MATERIALIZED VIEW "public"."url_stats" IS 'Pre-computed URL statistics. Refresh with: REFRESH MATERIALIZED VIEW CONCURRENTLY url_stats;';
+
+
+
+CREATE MATERIALIZED VIEW "public"."url_top_extensions" AS
+ SELECT "file_extension",
+    "count"(*) AS "count"
+   FROM "public"."urls"
+  WHERE ("file_extension" IS NOT NULL)
+  GROUP BY "file_extension"
+  ORDER BY ("count"(*)) DESC
+ LIMIT 50
+  WITH NO DATA;
+
+
+ALTER MATERIALIZED VIEW "public"."url_top_extensions" OWNER TO "postgres";
+
+
+CREATE MATERIALIZED VIEW "public"."url_top_sources" AS
+ SELECT "source"."value" AS "source",
+    "count"(*) AS "count"
+   FROM "public"."urls",
+    LATERAL "jsonb_array_elements_text"("urls"."sources") "source"("value")
+  GROUP BY "source"."value"
+  ORDER BY ("count"(*)) DESC
+ LIMIT 20
+  WITH NO DATA;
+
+
+ALTER MATERIALIZED VIEW "public"."url_top_sources" OWNER TO "postgres";
+
+
+CREATE MATERIALIZED VIEW "public"."url_top_status_codes" AS
+ SELECT "status_code",
+    "count"(*) AS "count"
+   FROM "public"."urls"
+  WHERE ("status_code" IS NOT NULL)
+  GROUP BY "status_code"
+  ORDER BY ("count"(*)) DESC
+ LIMIT 20
+  WITH NO DATA;
+
+
+ALTER MATERIALIZED VIEW "public"."url_top_status_codes" OWNER TO "postgres";
 
 
 CREATE TABLE IF NOT EXISTS "public"."user_quotas" (
@@ -2514,6 +2594,46 @@ CREATE UNIQUE INDEX "idx_mv_asset_recon_counts_asset_id" ON "public"."asset_reco
 
 
 CREATE UNIQUE INDEX "idx_mv_scan_subdomain_counts_job_id" ON "public"."scan_subdomain_counts" USING "btree" ("scan_job_id");
+
+
+
+CREATE INDEX "idx_mv_subdomain_dns_asset_id" ON "public"."subdomain_current_dns" USING "btree" ("asset_id");
+
+
+
+CREATE INDEX "idx_mv_subdomain_dns_asset_resolved" ON "public"."subdomain_current_dns" USING "btree" ("asset_id", "last_resolved_at" DESC);
+
+
+
+CREATE INDEX "idx_mv_subdomain_dns_last_resolved" ON "public"."subdomain_current_dns" USING "btree" ("last_resolved_at" DESC);
+
+
+
+CREATE INDEX "idx_mv_subdomain_dns_parent_domain" ON "public"."subdomain_current_dns" USING "btree" ("parent_domain");
+
+
+
+CREATE INDEX "idx_mv_subdomain_dns_subdomain_btree" ON "public"."subdomain_current_dns" USING "btree" ("subdomain");
+
+
+
+CREATE UNIQUE INDEX "idx_mv_subdomain_dns_unique" ON "public"."subdomain_current_dns" USING "btree" ("subdomain", "parent_domain");
+
+
+
+CREATE UNIQUE INDEX "idx_mv_url_stats_unique" ON "public"."url_stats" USING "btree" ((1));
+
+
+
+CREATE UNIQUE INDEX "idx_mv_url_top_extensions_unique" ON "public"."url_top_extensions" USING "btree" ("file_extension");
+
+
+
+CREATE UNIQUE INDEX "idx_mv_url_top_sources_unique" ON "public"."url_top_sources" USING "btree" ("source");
+
+
+
+CREATE UNIQUE INDEX "idx_mv_url_top_status_codes_unique" ON "public"."url_top_status_codes" USING "btree" ("status_code");
 
 
 
@@ -3508,6 +3628,30 @@ GRANT ALL ON TABLE "public"."scans_with_assets" TO "service_role";
 GRANT ALL ON TABLE "public"."subdomain_current_dns" TO "anon";
 GRANT ALL ON TABLE "public"."subdomain_current_dns" TO "authenticated";
 GRANT ALL ON TABLE "public"."subdomain_current_dns" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."url_stats" TO "anon";
+GRANT ALL ON TABLE "public"."url_stats" TO "authenticated";
+GRANT ALL ON TABLE "public"."url_stats" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."url_top_extensions" TO "anon";
+GRANT ALL ON TABLE "public"."url_top_extensions" TO "authenticated";
+GRANT ALL ON TABLE "public"."url_top_extensions" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."url_top_sources" TO "anon";
+GRANT ALL ON TABLE "public"."url_top_sources" TO "authenticated";
+GRANT ALL ON TABLE "public"."url_top_sources" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."url_top_status_codes" TO "anon";
+GRANT ALL ON TABLE "public"."url_top_status_codes" TO "authenticated";
+GRANT ALL ON TABLE "public"."url_top_status_codes" TO "service_role";
 
 
 
