@@ -103,16 +103,29 @@ async def get_urls(
         # Use service_client to bypass RLS - LEAN architecture allows all authenticated users
         supabase = supabase_client.service_client
         
-        # Start building the query with count (sources excluded from API response)
-        # Using count="exact" in select to get count in same query - more efficient
-        query = supabase.table("urls").select(
+        # Check if any filters are applied
+        # If no filters, we can use the url_stats MV for total count (fast!)
+        # If filters, we need count="exact" but filtered queries are usually fast
+        has_filters = any([
+            asset_id, scan_job_id, parent_domain, is_alive is not None,
+            status_code, has_params is not None, file_extension, domain, search
+        ])
+        
+        # Build the select fields (sources excluded from API response)
+        select_fields = (
             "id, asset_id, scan_job_id, url, url_hash, domain, path, query_params, "
             "first_discovered_at, "
             "resolved_at, is_alive, status_code, content_type, content_length, response_time_ms, "
             "title, final_url, redirect_chain, webserver, technologies, "
-            "has_params, file_extension, created_at, updated_at",
-            count="exact"
+            "has_params, file_extension, created_at, updated_at"
         )
+        
+        # For unfiltered queries: skip count="exact" (causes 8+ second timeouts on 362K rows)
+        # For filtered queries: use count="exact" (filtered queries are faster)
+        if has_filters:
+            query = supabase.table("urls").select(select_fields, count="exact")
+        else:
+            query = supabase.table("urls").select(select_fields)
         
         # Apply filters
         if asset_id:
@@ -181,14 +194,28 @@ async def get_urls(
         # Apply pagination
         query = query.range(effective_offset, effective_offset + effective_limit - 1)
         
-        # Execute query (count is included via count="exact" in select)
+        # Execute query
         result = query.execute()
         
         urls_data = result.data or []
         urls_count = len(urls_data)
         
-        # Total count from the same query (more efficient than separate query)
-        total_count = result.count if result.count is not None else len(urls_data)
+        # Get total count:
+        # - Filtered queries: use count from query (count="exact" was used)
+        # - Unfiltered queries: use url_stats MV (pre-computed, instant)
+        if has_filters:
+            total_count = result.count if result.count is not None else len(urls_data)
+        else:
+            # Use the url_stats materialized view for fast total count
+            try:
+                stats_result = supabase.table("url_stats").select("total_urls").execute()
+                if stats_result.data and len(stats_result.data) > 0:
+                    total_count = stats_result.data[0].get("total_urls", len(urls_data))
+                else:
+                    total_count = len(urls_data)
+            except Exception:
+                # Fallback if MV doesn't exist
+                total_count = len(urls_data)
         
         # For free tier: track URLs viewed
         if is_limited and urls_count > 0:
