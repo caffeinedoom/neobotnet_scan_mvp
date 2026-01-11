@@ -798,20 +798,22 @@ CREATE OR REPLACE FUNCTION "public"."refresh_dashboard_views"() RETURNS "void"
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'public'
     AS $$
+DECLARE
+    start_time TIMESTAMP;
+    end_time TIMESTAMP;
 BEGIN
-    -- Use CONCURRENTLY to allow reads during refresh (requires unique index)
-    REFRESH MATERIALIZED VIEW CONCURRENTLY public.asset_overview;
-    REFRESH MATERIALIZED VIEW CONCURRENTLY public.asset_recon_counts;
-    REFRESH MATERIALIZED VIEW CONCURRENTLY public.scan_subdomain_counts;
-    REFRESH MATERIALIZED VIEW CONCURRENTLY public.subdomain_current_dns;
+    start_time := clock_timestamp();
     
-    -- URL stats views
-    REFRESH MATERIALIZED VIEW CONCURRENTLY public.url_stats;
-    REFRESH MATERIALIZED VIEW CONCURRENTLY public.url_top_extensions;
-    REFRESH MATERIALIZED VIEW CONCURRENTLY public.url_top_status_codes;
-    REFRESH MATERIALIZED VIEW CONCURRENTLY public.url_top_sources;
-
-    RAISE NOTICE 'Dashboard materialized views refreshed at %', NOW();
+    -- Refresh all MVs using modular functions
+    PERFORM public.refresh_lightweight_views();
+    PERFORM public.refresh_dns_views();
+    PERFORM public.refresh_url_views();
+    
+    end_time := clock_timestamp();
+    
+    RAISE NOTICE 'All materialized views refreshed at % (duration: %)', 
+        NOW(), 
+        end_time - start_time;
 END;
 $$;
 
@@ -819,7 +821,69 @@ $$;
 ALTER FUNCTION "public"."refresh_dashboard_views"() OWNER TO "postgres";
 
 
-COMMENT ON FUNCTION "public"."refresh_dashboard_views"() IS 'Refreshes all dashboard materialized views concurrently. Safe to call during normal operations.';
+COMMENT ON FUNCTION "public"."refresh_dashboard_views"() IS 'Refreshes ALL materialized views. Called by pg_cron every 15 minutes. Total duration: ~12-15 seconds.';
+
+
+
+CREATE OR REPLACE FUNCTION "public"."refresh_dns_views"() RETURNS "void"
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO 'public'
+    AS $$
+BEGIN
+    REFRESH MATERIALIZED VIEW CONCURRENTLY public.subdomain_current_dns;
+    
+    RAISE NOTICE 'DNS materialized view refreshed at %', NOW();
+END;
+$$;
+
+
+ALTER FUNCTION "public"."refresh_dns_views"() OWNER TO "postgres";
+
+
+COMMENT ON FUNCTION "public"."refresh_dns_views"() IS 'Refreshes DNS MV (~2-3s): subdomain_current_dns';
+
+
+
+CREATE OR REPLACE FUNCTION "public"."refresh_lightweight_views"() RETURNS "void"
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO 'public'
+    AS $$
+BEGIN
+    REFRESH MATERIALIZED VIEW CONCURRENTLY public.asset_overview;
+    REFRESH MATERIALIZED VIEW CONCURRENTLY public.asset_recon_counts;
+    REFRESH MATERIALIZED VIEW CONCURRENTLY public.scan_subdomain_counts;
+    
+    RAISE NOTICE 'Lightweight materialized views refreshed at %', NOW();
+END;
+$$;
+
+
+ALTER FUNCTION "public"."refresh_lightweight_views"() OWNER TO "postgres";
+
+
+COMMENT ON FUNCTION "public"."refresh_lightweight_views"() IS 'Refreshes fast MVs (~1-2s): asset_overview, asset_recon_counts, scan_subdomain_counts';
+
+
+
+CREATE OR REPLACE FUNCTION "public"."refresh_url_views"() RETURNS "void"
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO 'public'
+    AS $$
+BEGIN
+    REFRESH MATERIALIZED VIEW CONCURRENTLY public.url_stats;
+    REFRESH MATERIALIZED VIEW CONCURRENTLY public.url_top_extensions;
+    REFRESH MATERIALIZED VIEW CONCURRENTLY public.url_top_status_codes;
+    REFRESH MATERIALIZED VIEW CONCURRENTLY public.url_top_sources;
+    
+    RAISE NOTICE 'URL materialized views refreshed at %', NOW();
+END;
+$$;
+
+
+ALTER FUNCTION "public"."refresh_url_views"() OWNER TO "postgres";
+
+
+COMMENT ON FUNCTION "public"."refresh_url_views"() IS 'Refreshes URL MVs (~8-10s): url_stats, url_top_extensions, url_top_status_codes, url_top_sources';
 
 
 
@@ -3424,6 +3488,24 @@ GRANT ALL ON FUNCTION "public"."has_paid_spots_available"("max_spots" integer) T
 GRANT ALL ON FUNCTION "public"."refresh_dashboard_views"() TO "anon";
 GRANT ALL ON FUNCTION "public"."refresh_dashboard_views"() TO "authenticated";
 GRANT ALL ON FUNCTION "public"."refresh_dashboard_views"() TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."refresh_dns_views"() TO "anon";
+GRANT ALL ON FUNCTION "public"."refresh_dns_views"() TO "authenticated";
+GRANT ALL ON FUNCTION "public"."refresh_dns_views"() TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."refresh_lightweight_views"() TO "anon";
+GRANT ALL ON FUNCTION "public"."refresh_lightweight_views"() TO "authenticated";
+GRANT ALL ON FUNCTION "public"."refresh_lightweight_views"() TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."refresh_url_views"() TO "anon";
+GRANT ALL ON FUNCTION "public"."refresh_url_views"() TO "authenticated";
+GRANT ALL ON FUNCTION "public"."refresh_url_views"() TO "service_role";
 
 
 
