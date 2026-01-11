@@ -163,7 +163,7 @@ export default function ProgramDetailPage() {
       subtitle: 'apex',
     },
     {
-      href: `/subdomains?asset_id=${program.id}`,
+      href: `/subdomains?asset=${program.id}`,
       icon: Globe,
       label: 'subdomains',
       count: program.total_subdomains || 0,
