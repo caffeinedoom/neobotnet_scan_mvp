@@ -190,10 +190,11 @@ async def get_program(
             "id, name, description, is_active, priority, tags, created_at, updated_at"
         ).eq("id", program_id).maybe_single().execute()
         
-        if not result.data:
+        # maybe_single() returns None when no record found
+        if result is None or not result.data:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Program not found"
+                detail="Program not found"
             )
         
         program = result.data
