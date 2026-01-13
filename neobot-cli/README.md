@@ -31,9 +31,19 @@ chmod +x ~/.local/bin/neobot
 export PATH="$HOME/.local/bin:$PATH"
 ```
 
+## Getting Your API Key
+
+1. **Sign in** to [neobotnet.com](https://neobotnet.com) using Google or X (Twitter)
+2. Navigate to **API Docs** in the sidebar (or go directly to [neobotnet.com/api-docs](https://neobotnet.com/api-docs))
+3. Click **"Generate API Key"** button
+4. Click the **eye icon** to reveal your key
+5. **Copy** your API key (it starts with `nb_live_`)
+
+> ⚠️ **Keep your API key secret!** Don't share it or commit it to public repositories.
+
 ## Configuration
 
-Get your API key from [neobotnet.com/api-docs](https://neobotnet.com/api-docs), then:
+Once you have your API key, configure the CLI:
 
 ```bash
 # Configure your API key
