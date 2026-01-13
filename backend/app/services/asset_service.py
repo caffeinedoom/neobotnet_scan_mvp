@@ -1094,30 +1094,24 @@ class AssetService:
                     }
                 }
             
-            # Get unique parent_domain values for the target asset(s)
-            # Using apex_domains table is more efficient than scanning all subdomains
+            # Get unique domain values from apex_domains table
+            # apex_domains is much smaller (~243 rows) than subdomains (~66K rows)
+            # and already contains all unique domains
             if asset_id:
                 # Get domains from apex_domains table for specific asset
                 domains_response = self.supabase.table("apex_domains").select(
                     "domain"
                 ).eq("asset_id", asset_id).order("domain").execute()
-                
-                all_domains = set()
-                for item in (domains_response.data or []):
-                    if item.get("domain"):
-                        all_domains.add(item["domain"])
             else:
-                # Get all unique parent_domains from subdomains table
-                filter_query = self.supabase.table("subdomains").select(
-                    "parent_domain"
-                ).in_("asset_id", query_asset_ids)
-                
-                filter_response = filter_query.execute()
-                
-                all_domains = set()
-                for item in (filter_response.data or []):
-                    if item.get("parent_domain"):
-                        all_domains.add(item["parent_domain"])
+                # Get all domains from apex_domains table (no limit needed, only ~243 rows)
+                domains_response = self.supabase.table("apex_domains").select(
+                    "domain"
+                ).order("domain").execute()
+            
+            all_domains = set()
+            for item in (domains_response.data or []):
+                if item.get("domain"):
+                    all_domains.add(item["domain"])
             
             # Build response with filter options
             domains_list = sorted(list(all_domains))
