@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 #
-# neobot - NeoBot-Net CLI Tool
+# neobotnet - NeoBot-Net CLI Tool
 # 
 # A command-line interface for the NeoBot-Net reconnaissance API.
 # Designed for bug bounty hunters and security researchers.
 #
-# Usage: neobot <command> [options]
+# Usage: neobotnet <command> [options]
 #
 # Author: NeoBot-Net Team
 # License: MIT
@@ -109,7 +109,7 @@ api_request() {
     local method="${2:-GET}"
     
     if [[ -z "${API_KEY:-}" ]]; then
-        die "No API key configured. Run: neobot config --key YOUR_API_KEY"
+        die "No API key configured. Run: neobotnet config --key YOUR_API_KEY"
     fi
     
     local response
@@ -311,10 +311,10 @@ paginate_offset() {
 
 cmd_help() {
     cat << 'EOF'
-neobot - NeoBot-Net CLI Tool
+neobotnet - NeoBot-Net CLI Tool
 
 USAGE:
-    neobot <command> [options]
+    neobotnet <command> [options]
 
 COMMANDS:
     config              Configure API key
@@ -329,21 +329,21 @@ COMMANDS:
 
 EXAMPLES:
     # Configure your API key
-    neobot config --key nb_live_xxxxx
+    neobotnet config --key nb_live_xxxxx
 
     # List all programs
-    neobot programs
+    neobotnet programs
 
     # Get subdomains for a program (by name or ID)
-    neobot subdomains verisign
-    neobot subdomains verisign --json
+    neobotnet subdomains verisign
+    neobotnet subdomains verisign --json
 
     # Pipe to other tools
-    neobot subdomains verisign | httpx -silent
-    neobot urls verisign --alive | nuclei -t cves/
+    neobotnet subdomains verisign | httpx -silent
+    neobotnet urls verisign --alive | nuclei -t cves/
 
     # Get CNAME records for subdomain takeover analysis
-    neobot dns verisign --type CNAME
+    neobotnet dns verisign --type CNAME
 
 ENVIRONMENT:
     NEOBOT_API_KEY      API key (alternative to config file)
@@ -354,7 +354,7 @@ EOF
 }
 
 cmd_version() {
-    echo "neobot version $VERSION"
+    echo "neobotnet version $VERSION"
 }
 
 cmd_config() {
@@ -433,12 +433,12 @@ cmd_programs() {
                 shift
                 ;;
             *)
-                die "Unknown option: $1. Use 'neobot help' for usage."
+                die "Unknown option: $1. Use 'neobotnet help' for usage."
                 ;;
         esac
     done
     
-    load_api_key || die "No API key configured. Run: neobot config --key YOUR_API_KEY"
+    load_api_key || die "No API key configured. Run: neobotnet config --key YOUR_API_KEY"
     
     if [[ "$show_ids" == true ]]; then
         paginate "/api/v1/programs" "programs" "plain" '.[] | .id' "$PER_PAGE_PROGRAMS"
@@ -471,7 +471,7 @@ cmd_subdomains() {
                 shift 2
                 ;;
             -*)
-                die "Unknown option: $1. Use 'neobot help' for usage."
+                die "Unknown option: $1. Use 'neobotnet help' for usage."
                 ;;
             *)
                 program="$1"
@@ -481,10 +481,10 @@ cmd_subdomains() {
     done
     
     if [[ -z "$program" ]]; then
-        die "Program name or ID required. Usage: neobot subdomains <program>"
+        die "Program name or ID required. Usage: neobotnet subdomains <program>"
     fi
     
-    load_api_key || die "No API key configured. Run: neobot config --key YOUR_API_KEY"
+    load_api_key || die "No API key configured. Run: neobotnet config --key YOUR_API_KEY"
     
     local program_id
     program_id=$(resolve_program_id "$program")
@@ -521,7 +521,7 @@ cmd_dns() {
                 shift 2
                 ;;
             -*)
-                die "Unknown option: $1. Use 'neobot help' for usage."
+                die "Unknown option: $1. Use 'neobotnet help' for usage."
                 ;;
             *)
                 program="$1"
@@ -531,10 +531,10 @@ cmd_dns() {
     done
     
     if [[ -z "$program" ]]; then
-        die "Program name or ID required. Usage: neobot dns <program>"
+        die "Program name or ID required. Usage: neobotnet dns <program>"
     fi
     
-    load_api_key || die "No API key configured. Run: neobot config --key YOUR_API_KEY"
+    load_api_key || die "No API key configured. Run: neobotnet config --key YOUR_API_KEY"
     
     local program_id
     program_id=$(resolve_program_id "$program")
@@ -577,7 +577,7 @@ cmd_probes() {
                 shift
                 ;;
             -*)
-                die "Unknown option: $1. Use 'neobot help' for usage."
+                die "Unknown option: $1. Use 'neobotnet help' for usage."
                 ;;
             *)
                 program="$1"
@@ -587,10 +587,10 @@ cmd_probes() {
     done
     
     if [[ -z "$program" ]]; then
-        die "Program name or ID required. Usage: neobot probes <program>"
+        die "Program name or ID required. Usage: neobotnet probes <program>"
     fi
     
-    load_api_key || die "No API key configured. Run: neobot config --key YOUR_API_KEY"
+    load_api_key || die "No API key configured. Run: neobotnet config --key YOUR_API_KEY"
     
     local program_id
     program_id=$(resolve_program_id "$program")
@@ -643,7 +643,7 @@ cmd_urls() {
                 shift 2
                 ;;
             -*)
-                die "Unknown option: $1. Use 'neobot help' for usage."
+                die "Unknown option: $1. Use 'neobotnet help' for usage."
                 ;;
             *)
                 program="$1"
@@ -653,10 +653,10 @@ cmd_urls() {
     done
     
     if [[ -z "$program" ]]; then
-        die "Program name or ID required. Usage: neobot urls <program>"
+        die "Program name or ID required. Usage: neobotnet urls <program>"
     fi
     
-    load_api_key || die "No API key configured. Run: neobot config --key YOUR_API_KEY"
+    load_api_key || die "No API key configured. Run: neobotnet config --key YOUR_API_KEY"
     
     local program_id
     program_id=$(resolve_program_id "$program")
@@ -682,7 +682,7 @@ cmd_stats() {
     while [[ $# -gt 0 ]]; do
         case "$1" in
             -*)
-                die "Unknown option: $1. Use 'neobot help' for usage."
+                die "Unknown option: $1. Use 'neobotnet help' for usage."
                 ;;
             *)
                 program="$1"
@@ -692,10 +692,10 @@ cmd_stats() {
     done
     
     if [[ -z "$program" ]]; then
-        die "Program name or ID required. Usage: neobot stats <program>"
+        die "Program name or ID required. Usage: neobotnet stats <program>"
     fi
     
-    load_api_key || die "No API key configured. Run: neobot config --key YOUR_API_KEY"
+    load_api_key || die "No API key configured. Run: neobotnet config --key YOUR_API_KEY"
     
     local program_id
     program_id=$(resolve_program_id "$program")
@@ -776,7 +776,7 @@ main() {
             cmd_stats "$@"
             ;;
         *)
-            die "Unknown command: $command. Use 'neobot help' for usage."
+            die "Unknown command: $command. Use 'neobotnet help' for usage."
             ;;
     esac
 }

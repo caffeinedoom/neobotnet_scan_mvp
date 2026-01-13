@@ -1,4 +1,4 @@
-# NeoBot-Net CLI
+# neobotnet CLI
 
 A command-line interface for the NeoBot-Net reconnaissance API. Designed for bug bounty hunters and security researchers who prefer terminal workflows.
 
@@ -22,10 +22,10 @@ curl -sSL https://raw.githubusercontent.com/caffeinedoom/neobotnet_scan_mvp/main
 
 ```bash
 # Download the script
-curl -sSL https://raw.githubusercontent.com/caffeinedoom/neobotnet_scan_mvp/main/neobot-cli/neobot -o ~/.local/bin/neobot
+curl -sSL https://raw.githubusercontent.com/caffeinedoom/neobotnet_scan_mvp/main/neobot-cli/neobotnet -o ~/.local/bin/neobotnet
 
 # Make it executable
-chmod +x ~/.local/bin/neobot
+chmod +x ~/.local/bin/neobotnet
 
 # Ensure ~/.local/bin is in your PATH
 export PATH="$HOME/.local/bin:$PATH"
@@ -47,7 +47,7 @@ Once you have your API key, configure the CLI:
 
 ```bash
 # Configure your API key
-neobot config --key nb_live_xxxxxxxxxxxxx
+neobotnet config --key nb_live_xxxxxxxxxxxxx
 
 # Or use environment variable
 export NEOBOT_API_KEY=nb_live_xxxxxxxxxxxxx
@@ -59,100 +59,100 @@ export NEOBOT_API_KEY=nb_live_xxxxxxxxxxxxx
 
 ```bash
 # List all programs (name + ID)
-neobot programs
+neobotnet programs
 
 # Just program names
-neobot programs | cut -f1
+neobotnet programs | cut -f1
 
 # Get program IDs only
-neobot programs --id
+neobotnet programs --id
 
 # JSON output
-neobot programs --json
+neobotnet programs --json
 
 # Count programs
-neobot programs --count
+neobotnet programs --count
 ```
 
 ### Get Subdomains
 
 ```bash
 # Get all subdomains for a program (by name)
-neobot subdomains verisign
+neobotnet subdomains verisign
 
 # Or by UUID
-neobot subdomains ad9a8a21-6611-4846-bc39-ae803d4053a5
+neobotnet subdomains ad9a8a21-6611-4846-bc39-ae803d4053a5
 
 # Search for specific subdomains
-neobot subdomains verisign --search api
+neobotnet subdomains verisign --search api
 
 # JSON output with full metadata
-neobot subdomains verisign --json
+neobotnet subdomains verisign --json
 
 # Count subdomains
-neobot subdomains verisign --count
+neobotnet subdomains verisign --count
 ```
 
 ### Get DNS Records
 
 ```bash
 # Get all DNS records
-neobot dns verisign
+neobotnet dns verisign
 
 # Filter by record type
-neobot dns verisign --type CNAME
-neobot dns verisign --type A
+neobotnet dns verisign --type CNAME
+neobotnet dns verisign --type A
 
 # JSON output
-neobot dns verisign --json
+neobotnet dns verisign --json
 ```
 
 ### Get HTTP Probes (Servers)
 
 ```bash
 # Get all probed URLs
-neobot probes verisign
+neobotnet probes verisign
 
 # Only live servers (200 OK)
-neobot probes verisign --live
+neobotnet probes verisign --live
 
 # Filter by status code
-neobot probes verisign --status 403
+neobotnet probes verisign --status 403
 
 # JSON output
-neobot probes verisign --json
+neobotnet probes verisign --json
 ```
 
 ### Get URLs
 
 ```bash
 # Get all URLs
-neobot urls verisign
+neobotnet urls verisign
 
 # Only alive URLs
-neobot urls verisign --alive
+neobotnet urls verisign --alive
 
 # Only URLs with parameters
-neobot urls verisign --params
+neobotnet urls verisign --params
 
 # Filter by status code
-neobot urls verisign --status 200
+neobotnet urls verisign --status 200
 
 # Search URLs
-neobot urls verisign --search api
+neobotnet urls verisign --search api
 
 # Combine filters
-neobot urls verisign --alive --params
+neobotnet urls verisign --alive --params
 
 # JSON output
-neobot urls verisign --json
+neobotnet urls verisign --json
 ```
 
 ### Get Statistics
 
 ```bash
 # Show program statistics
-neobot stats verisign
+neobotnet stats verisign
 ```
 
 ## Integration Examples
@@ -161,49 +161,49 @@ neobot stats verisign
 
 ```bash
 # Find CNAME records pointing to potentially vulnerable services
-neobot dns verisign --type CNAME | grep -E "(s3|cloudfront|herokuapp|azure)"
+neobotnet dns verisign --type CNAME | grep -E "(s3|cloudfront|herokuapp|azure)"
 ```
 
 ### Live Server Discovery
 
 ```bash
 # Get subdomains and probe with httpx
-neobot subdomains verisign | httpx -silent -status-code
+neobotnet subdomains verisign | httpx -silent -status-code
 
 # Or use pre-probed results
-neobot probes verisign --live
+neobotnet probes verisign --live
 ```
 
 ### Vulnerability Scanning with Nuclei
 
 ```bash
 # Scan live URLs
-neobot urls verisign --alive | nuclei -t cves/
+neobotnet urls verisign --alive | nuclei -t cves/
 
 # Scan servers with specific status codes
-neobot probes verisign --status 200 | nuclei -t technologies/
+neobotnet probes verisign --status 200 | nuclei -t technologies/
 ```
 
 ### Parameter Discovery for Fuzzing
 
 ```bash
 # Get URLs with parameters for parameter fuzzing
-neobot urls verisign --params | gf xss
-neobot urls verisign --params | gf sqli
+neobotnet urls verisign --params | gf xss
+neobotnet urls verisign --params | gf sqli
 ```
 
 ### Export Data
 
 ```bash
 # Export subdomains to file
-neobot subdomains verisign > verisign_subdomains.txt
+neobotnet subdomains verisign > verisign_subdomains.txt
 
 # Export as JSON
-neobot subdomains verisign --json > verisign_subdomains.json
+neobotnet subdomains verisign --json > verisign_subdomains.json
 
 # Export multiple programs
 for prog in verisign tesla cloudflare; do
-    neobot subdomains "$prog" > "${prog}_subdomains.txt"
+    neobotnet subdomains "$prog" > "${prog}_subdomains.txt"
 done
 ```
 
@@ -211,13 +211,13 @@ done
 
 ```bash
 # Check for subdomain takeover with subjack
-neobot subdomains verisign | subjack -w - -t 100
+neobotnet subdomains verisign | subjack -w - -t 100
 
 # Fuzzing with ffuf
-neobot urls verisign --alive | ffuf -w - -u FUZZ -mc 200,403
+neobotnet urls verisign --alive | ffuf -w - -u FUZZ -mc 200,403
 
 # Screenshot with gowitness
-neobot probes verisign --live | gowitness file -f -
+neobotnet probes verisign --live | gowitness file -f -
 ```
 
 ## Output Formats
@@ -242,7 +242,7 @@ The API key is stored in `~/.neobot/config`:
 
 ```bash
 # View current config
-neobot config --show
+neobotnet config --show
 
 # The config file format
 api_key=nb_live_xxxxxxxxxxxxx
@@ -250,7 +250,7 @@ api_key=nb_live_xxxxxxxxxxxxx
 
 ## Troubleshooting
 
-### "Command not found: neobot"
+### "Command not found: neobotnet"
 
 Add `~/.local/bin` to your PATH:
 
@@ -264,7 +264,7 @@ source ~/.bashrc
 Configure your API key:
 
 ```bash
-neobot config --key YOUR_API_KEY
+neobotnet config --key YOUR_API_KEY
 ```
 
 ### "Authentication failed"
@@ -276,7 +276,7 @@ neobot config --key YOUR_API_KEY
 ### "Program not found"
 
 - Check the program name spelling
-- Use `neobot programs` to list available programs
+- Use `neobotnet programs` to list available programs
 - Try using the program UUID instead of name
 
 ## License

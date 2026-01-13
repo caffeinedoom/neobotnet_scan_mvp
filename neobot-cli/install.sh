@@ -60,13 +60,13 @@ echo -e "${CYAN}→${NC} Creating install directory: $INSTALL_DIR"
 mkdir -p "$INSTALL_DIR"
 
 # Download the script
-echo -e "${CYAN}→${NC} Downloading neobot CLI..."
-curl -sSL "${REPO_URL}/neobot" -o "${INSTALL_DIR}/neobot"
+echo -e "${CYAN}→${NC} Downloading neobotnet CLI..."
+curl -sSL "${REPO_URL}/neobotnet" -o "${INSTALL_DIR}/neobotnet"
 
 # Make executable
-chmod +x "${INSTALL_DIR}/neobot"
+chmod +x "${INSTALL_DIR}/neobotnet"
 
-echo -e "${GREEN}✓${NC} Installed to ${INSTALL_DIR}/neobot"
+echo -e "${GREEN}✓${NC} Installed to ${INSTALL_DIR}/neobotnet"
 
 # Check if in PATH
 if [[ ":$PATH:" != *":$INSTALL_DIR:"* ]]; then
@@ -89,13 +89,13 @@ echo -e "${GREEN}${BOLD}Installation complete!${NC}"
 echo ""
 echo "Next steps:"
 echo "  1. Configure your API key:"
-echo "     neobot config --key YOUR_API_KEY"
+echo "     neobotnet config --key YOUR_API_KEY"
 echo ""
 echo "  2. List your programs:"
-echo "     neobot programs"
+echo "     neobotnet programs"
 echo ""
 echo "  3. Get subdomains:"
-echo "     neobot subdomains <program-name>"
+echo "     neobotnet subdomains <program-name>"
 echo ""
-echo "For help: neobot help"
+echo "For help: neobotnet help"
 echo "Documentation: https://neobotnet.com/api-docs"
