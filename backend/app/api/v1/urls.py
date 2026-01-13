@@ -104,12 +104,16 @@ async def get_urls(
         supabase = supabase_client.service_client
         
         # Check if any filters are applied
-        # If no filters, we can use the url_stats MV for total count (fast!)
-        # If filters, we need count="exact" but filtered queries are usually fast
         has_filters = any([
             asset_id, scan_job_id, parent_domain, is_alive is not None,
             status_code, has_params is not None, file_extension, domain, search
         ])
+        
+        # Check if expensive ILIKE filters are used (these can't use indexes efficiently)
+        # parent_domain uses: domain.ilike.%.{parent_domain} (leading wildcard = full scan)
+        # domain uses: domain.ilike.%{domain}% (leading wildcard = full scan)
+        # search uses: multiple ilike patterns across fields
+        has_expensive_filters = any([parent_domain, domain, search])
         
         # Build the select fields (sources excluded from API response)
         select_fields = (
@@ -120,11 +124,18 @@ async def get_urls(
             "has_params, file_extension, created_at, updated_at"
         )
         
-        # For unfiltered queries: skip count="exact" (causes 8+ second timeouts on 362K rows)
-        # For filtered queries: use count="exact" (filtered queries are faster)
-        if has_filters:
+        # Count strategy:
+        # - No filters: use MV (fast)
+        # - Simple filters (asset_id, status_code, etc.): use count="exact" (indexes make it fast)
+        # - Expensive ILIKE filters: skip count to avoid timeout
+        if has_expensive_filters:
+            # ILIKE with leading wildcards causes full table scans - skip count
+            query = supabase.table("urls").select(select_fields)
+        elif has_filters:
+            # Simple indexed filters - count is fast
             query = supabase.table("urls").select(select_fields, count="exact")
         else:
+            # No filters - will use MV for count
             query = supabase.table("urls").select(select_fields)
         
         # Apply filters
@@ -200,13 +211,25 @@ async def get_urls(
         urls_data = result.data or []
         urls_count = len(urls_data)
         
-        # Get total count:
-        # - Filtered queries: use count from query (count="exact" was used)
-        # - Unfiltered queries: use url_stats MV (pre-computed, instant)
-        if has_filters:
+        # Get total count based on query strategy:
+        # - Expensive ILIKE filters: count not available, estimate from results
+        # - Simple indexed filters: use count from query
+        # - No filters: use url_stats MV
+        if has_expensive_filters:
+            # For ILIKE queries, we don't have exact count
+            # Return result count + offset as minimum estimate
+            # If we got a full page, there's likely more
+            if len(urls_data) == effective_limit:
+                # Got full page - estimate there are more (at least current position + results)
+                total_count = offset + len(urls_data) + 1  # +1 indicates "more available"
+            else:
+                # Got partial page - this is the actual total
+                total_count = offset + len(urls_data)
+        elif has_filters:
+            # Simple indexed filters - use count from query
             total_count = result.count if result.count is not None else len(urls_data)
         else:
-            # Use the url_stats materialized view for fast total count
+            # No filters - use url_stats MV for fast total count
             try:
                 stats_result = supabase.table("url_stats").select("total_urls").execute()
                 if stats_result.data and len(stats_result.data) > 0:
