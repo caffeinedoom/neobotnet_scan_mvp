@@ -1,14 +1,14 @@
-# neobotnet CLI
+# neobotnet simple CLI
 
-A command-line interface for the NeoBot-Net reconnaissance API. Designed for bug bounty hunters and security researchers who prefer terminal workflows.
+A command-line interface for the [neobotnet](www.neobotnet.com) reconnaissance API. Designed for bug bounty hunters and security researchers who prefer terminal workflows.
 
 ## Features
 
-- 🚀 **Zero dependencies** - Just `curl` and `jq` (pre-installed on most systems)
-- 📦 **Single file** - Easy to install and distribute
-- 🔗 **Pipe-friendly** - Works seamlessly with your existing toolchain
-- 🔐 **Secure** - API key stored with proper file permissions
-- ⚡ **Auto-pagination** - Automatically fetches all pages of results
+- **Zero dependencies** - Just `curl` and `jq` (pre-installed on most systems)
+-  **Single file** - Easy to install and distribute
+-  **Pipe-friendly** - Works seamlessly with your existing toolchain
+-  **Secure** - API key stored with proper file permissions
+-  **Auto-pagination** - Automatically fetches all pages of results
 
 ## Installation
 
@@ -247,44 +247,3 @@ neobotnet config --show
 # The config file format
 api_key=nb_live_xxxxxxxxxxxxx
 ```
-
-## Troubleshooting
-
-### "Command not found: neobotnet"
-
-Add `~/.local/bin` to your PATH:
-
-```bash
-echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc
-source ~/.bashrc
-```
-
-### "No API key configured"
-
-Configure your API key:
-
-```bash
-neobotnet config --key YOUR_API_KEY
-```
-
-### "Authentication failed"
-
-1. Check your API key is correct
-2. Ensure it starts with `nb_live_`
-3. Regenerate a new key at [neobotnet.com/api-docs](https://neobotnet.com/api-docs)
-
-### "Program not found"
-
-- Check the program name spelling
-- Use `neobotnet programs` to list available programs
-- Try using the program UUID instead of name
-
-## License
-
-MIT License - see [LICENSE](../LICENSE) for details.
-
-## Support
-
-- Documentation: [neobotnet.com/api-docs](https://neobotnet.com/api-docs)
-- Issues: [GitHub Issues](https://github.com/caffeinedoom/neobotnet_scan_mvp/issues)
-- Support: [neobotnet.com/support](https://neobotnet.com/support)
