@@ -1,0 +1,784 @@
+#!/usr/bin/env bash
+#
+# neobot - NeoBot-Net CLI Tool
+# 
+# A command-line interface for the NeoBot-Net reconnaissance API.
+# Designed for bug bounty hunters and security researchers.
+#
+# Usage: neobot <command> [options]
+#
+# Author: NeoBot-Net Team
+# License: MIT
+
+set -euo pipefail
+
+# ============================================================================
+# Configuration
+# ============================================================================
+
+VERSION="1.0.0"
+API_BASE_URL="${NEOBOT_API_URL:-https://aldous-api.neobotnet.com}"
+CONFIG_DIR="${HOME}/.neobot"
+CONFIG_FILE="${CONFIG_DIR}/config"
+
+# Different endpoints have different max per_page limits
+PER_PAGE_PROGRAMS=100
+PER_PAGE_SUBDOMAINS=1000
+PER_PAGE_DNS=1000
+PER_PAGE_PROBES=1000
+PER_PAGE_URLS=1000
+
+# Colors for terminal output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[0;33m'
+BLUE='\033[0;34m'
+CYAN='\033[0;36m'
+NC='\033[0m' # No Color
+BOLD='\033[1m'
+
+# ============================================================================
+# Helper Functions
+# ============================================================================
+
+# Print to stderr (for progress/errors, doesn't interfere with piping)
+err() {
+    echo -e "$@" >&2
+}
+
+# Print error and exit
+die() {
+    err "${RED}Error:${NC} $1"
+    exit 1
+}
+
+# Print warning
+warn() {
+    err "${YELLOW}Warning:${NC} $1"
+}
+
+# Print info (only if not piping)
+info() {
+    if [[ -t 1 ]]; then
+        err "${CYAN}→${NC} $1"
+    fi
+}
+
+# Print success
+success() {
+    err "${GREEN}✓${NC} $1"
+}
+
+# Check if required commands exist
+check_dependencies() {
+    local missing=()
+    
+    for cmd in curl jq; do
+        if ! command -v "$cmd" &> /dev/null; then
+            missing+=("$cmd")
+        fi
+    done
+    
+    if [[ ${#missing[@]} -gt 0 ]]; then
+        die "Missing required dependencies: ${missing[*]}\nInstall them with: sudo apt install ${missing[*]} (Debian/Ubuntu) or brew install ${missing[*]} (macOS)"
+    fi
+}
+
+# Load API key from config or environment
+load_api_key() {
+    # Priority 1: Environment variable
+    if [[ -n "${NEOBOT_API_KEY:-}" ]]; then
+        API_KEY="$NEOBOT_API_KEY"
+        return 0
+    fi
+    
+    # Priority 2: Config file
+    if [[ -f "$CONFIG_FILE" ]]; then
+        API_KEY=$(grep -E "^api_key=" "$CONFIG_FILE" 2>/dev/null | cut -d'=' -f2- | tr -d '"' || true)
+        if [[ -n "$API_KEY" ]]; then
+            return 0
+        fi
+    fi
+    
+    return 1
+}
+
+# Make authenticated API request
+api_request() {
+    local endpoint="$1"
+    local method="${2:-GET}"
+    
+    if [[ -z "${API_KEY:-}" ]]; then
+        die "No API key configured. Run: neobot config --key YOUR_API_KEY"
+    fi
+    
+    local response
+    local http_code
+    
+    # Make request and capture both body and status code
+    response=$(curl -s -w "\n%{http_code}" \
+        -X "$method" \
+        -H "X-API-Key: $API_KEY" \
+        -H "Content-Type: application/json" \
+        "${API_BASE_URL}${endpoint}")
+    
+    http_code=$(echo "$response" | tail -n1)
+    body=$(echo "$response" | sed '$d')
+    
+    # Handle HTTP errors
+    case "$http_code" in
+        200|201)
+            echo "$body"
+            ;;
+        400)
+            local detail=$(echo "$body" | jq -r '.detail // "Bad request"' 2>/dev/null || echo "Bad request")
+            die "Bad request: $detail"
+            ;;
+        401)
+            local detail=$(echo "$body" | jq -r '.detail // "Authentication failed"' 2>/dev/null || echo "Authentication failed")
+            die "Authentication failed: $detail"
+            ;;
+        403)
+            local detail=$(echo "$body" | jq -r '.detail // "Access denied"' 2>/dev/null || echo "Access denied")
+            die "Access denied: $detail"
+            ;;
+        404)
+            local detail=$(echo "$body" | jq -r '.detail // "Not found"' 2>/dev/null || echo "Not found")
+            die "Not found: $detail"
+            ;;
+        500)
+            die "Server error. Please try again later."
+            ;;
+        *)
+            die "Unexpected HTTP status: $http_code"
+            ;;
+    esac
+}
+
+# Resolve program name to ID
+resolve_program_id() {
+    local input="$1"
+    
+    # If it looks like a UUID, return as-is
+    if [[ "$input" =~ ^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$ ]]; then
+        echo "$input"
+        return 0
+    fi
+    
+    # Otherwise, search by name
+    info "Resolving program name: $input"
+    
+    local result
+    result=$(api_request "/api/v1/programs?search=$(urlencode "$input")&per_page=1")
+    
+    local id
+    id=$(echo "$result" | jq -r '.programs[0].id // empty')
+    
+    if [[ -z "$id" ]]; then
+        die "Program not found: $input"
+    fi
+    
+    echo "$id"
+}
+
+# URL encode a string
+urlencode() {
+    local string="$1"
+    python3 -c "import urllib.parse; print(urllib.parse.quote('$string', safe=''))"
+}
+
+# Paginate through all results
+paginate() {
+    local endpoint="$1"
+    local data_key="$2"
+    local output_format="${3:-plain}"
+    local jq_filter="${4:-.}"
+    local per_page="${5:-100}"
+    
+    local page=1
+    local total_pages=1
+    local all_items="[]"
+    
+    while [[ $page -le $total_pages ]]; do
+        # Add pagination params
+        local sep="?"
+        [[ "$endpoint" == *"?"* ]] && sep="&"
+        
+        local url="${endpoint}${sep}page=${page}&per_page=${per_page}"
+        
+        info "Fetching page $page/$total_pages..."
+        
+        local response
+        response=$(api_request "$url")
+        
+        # Get pagination info
+        total_pages=$(echo "$response" | jq -r '.pagination.total_pages // 1')
+        
+        # Extract items
+        local items
+        items=$(echo "$response" | jq -c ".${data_key} // []")
+        
+        # Merge with existing items
+        all_items=$(echo "$all_items $items" | jq -s 'add')
+        
+        ((page++))
+    done
+    
+    # Output based on format
+    case "$output_format" in
+        json)
+            echo "$all_items" | jq '.'
+            ;;
+        plain)
+            echo "$all_items" | jq -r "$jq_filter"
+            ;;
+        count)
+            echo "$all_items" | jq 'length'
+            ;;
+    esac
+}
+
+# Paginate with limit/offset style (for probes/urls)
+paginate_offset() {
+    local endpoint="$1"
+    local data_key="$2"
+    local output_format="${3:-plain}"
+    local jq_filter="${4:-.}"
+    local max_results="${5:-0}"  # 0 = unlimited
+    
+    local offset=0
+    local limit=1000
+    local total=0
+    local fetched=0
+    local all_items="[]"
+    
+    while true; do
+        # Add pagination params
+        local sep="?"
+        [[ "$endpoint" == *"?"* ]] && sep="&"
+        
+        local url="${endpoint}${sep}limit=${limit}&offset=${offset}"
+        
+        info "Fetching offset $offset..."
+        
+        local response
+        response=$(api_request "$url")
+        
+        # Get total count
+        total=$(echo "$response" | jq -r '.total // 0')
+        
+        # Extract items
+        local items
+        items=$(echo "$response" | jq -c ".${data_key} // []")
+        local count=$(echo "$items" | jq 'length')
+        
+        # Merge with existing items
+        all_items=$(echo "$all_items $items" | jq -s 'add')
+        
+        fetched=$((fetched + count))
+        
+        # Check if we should stop
+        if [[ $count -lt $limit ]] || [[ $fetched -ge $total ]]; then
+            break
+        fi
+        
+        # Check max results limit
+        if [[ $max_results -gt 0 ]] && [[ $fetched -ge $max_results ]]; then
+            warn "Stopped at $max_results results (use --all for unlimited)"
+            break
+        fi
+        
+        offset=$((offset + limit))
+    done
+    
+    # Output based on format
+    case "$output_format" in
+        json)
+            echo "$all_items" | jq '.'
+            ;;
+        plain)
+            echo "$all_items" | jq -r "$jq_filter"
+            ;;
+        count)
+            echo "$all_items" | jq 'length'
+            ;;
+    esac
+}
+
+# ============================================================================
+# Commands
+# ============================================================================
+
+cmd_help() {
+    cat << 'EOF'
+neobot - NeoBot-Net CLI Tool
+
+USAGE:
+    neobot <command> [options]
+
+COMMANDS:
+    config              Configure API key
+    programs            List all programs
+    subdomains          Get subdomains for a program
+    dns                 Get DNS records for a program
+    probes              Get HTTP probes
+    urls                Get discovered URLs
+    stats               Get statistics for a program
+    version             Show version
+    help                Show this help
+
+EXAMPLES:
+    # Configure your API key
+    neobot config --key nb_live_xxxxx
+
+    # List all programs
+    neobot programs
+
+    # Get subdomains for a program (by name or ID)
+    neobot subdomains verisign
+    neobot subdomains verisign --json
+
+    # Pipe to other tools
+    neobot subdomains verisign | httpx -silent
+    neobot urls verisign --alive | nuclei -t cves/
+
+    # Get CNAME records for subdomain takeover analysis
+    neobot dns verisign --type CNAME
+
+ENVIRONMENT:
+    NEOBOT_API_KEY      API key (alternative to config file)
+    NEOBOT_API_URL      Custom API URL (default: https://aldous-api.neobotnet.com)
+
+For more information, visit: https://neobotnet.com/api-docs
+EOF
+}
+
+cmd_version() {
+    echo "neobot version $VERSION"
+}
+
+cmd_config() {
+    local api_key=""
+    local show=false
+    
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --key|-k)
+                api_key="$2"
+                shift 2
+                ;;
+            --show|-s)
+                show=true
+                shift
+                ;;
+            *)
+                die "Unknown option: $1"
+                ;;
+        esac
+    done
+    
+    # Show current config
+    if [[ "$show" == true ]]; then
+        if [[ -f "$CONFIG_FILE" ]]; then
+            echo "Config file: $CONFIG_FILE"
+            cat "$CONFIG_FILE"
+        else
+            echo "No config file found."
+        fi
+        return 0
+    fi
+    
+    # Set API key
+    if [[ -n "$api_key" ]]; then
+        mkdir -p "$CONFIG_DIR"
+        chmod 700 "$CONFIG_DIR"
+        echo "api_key=$api_key" > "$CONFIG_FILE"
+        chmod 600 "$CONFIG_FILE"
+        success "API key saved to $CONFIG_FILE"
+        return 0
+    fi
+    
+    # Interactive mode
+    err "${BOLD}NeoBot-Net Configuration${NC}"
+    err ""
+    read -rp "Enter your API key: " api_key
+    
+    if [[ -z "$api_key" ]]; then
+        die "API key cannot be empty"
+    fi
+    
+    mkdir -p "$CONFIG_DIR"
+    chmod 700 "$CONFIG_DIR"
+    echo "api_key=$api_key" > "$CONFIG_FILE"
+    chmod 600 "$CONFIG_FILE"
+    success "API key saved to $CONFIG_FILE"
+}
+
+cmd_programs() {
+    local output_format="plain"
+    local show_ids=false
+    
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --json|-j)
+                output_format="json"
+                shift
+                ;;
+            --id|-i)
+                show_ids=true
+                shift
+                ;;
+            --count|-c)
+                output_format="count"
+                shift
+                ;;
+            *)
+                die "Unknown option: $1. Use 'neobot help' for usage."
+                ;;
+        esac
+    done
+    
+    load_api_key || die "No API key configured. Run: neobot config --key YOUR_API_KEY"
+    
+    if [[ "$show_ids" == true ]]; then
+        paginate "/api/v1/programs" "programs" "plain" '.[] | .id' "$PER_PAGE_PROGRAMS"
+    elif [[ "$output_format" == "json" ]]; then
+        paginate "/api/v1/programs" "programs" "json" "." "$PER_PAGE_PROGRAMS"
+    elif [[ "$output_format" == "count" ]]; then
+        paginate "/api/v1/programs" "programs" "count" "." "$PER_PAGE_PROGRAMS"
+    else
+        paginate "/api/v1/programs" "programs" "plain" '.[] | "\(.name)\t\(.id)"' "$PER_PAGE_PROGRAMS"
+    fi
+}
+
+cmd_subdomains() {
+    local program=""
+    local output_format="plain"
+    local search=""
+    
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --json|-j)
+                output_format="json"
+                shift
+                ;;
+            --count|-c)
+                output_format="count"
+                shift
+                ;;
+            --search|-s)
+                search="$2"
+                shift 2
+                ;;
+            -*)
+                die "Unknown option: $1. Use 'neobot help' for usage."
+                ;;
+            *)
+                program="$1"
+                shift
+                ;;
+        esac
+    done
+    
+    if [[ -z "$program" ]]; then
+        die "Program name or ID required. Usage: neobot subdomains <program>"
+    fi
+    
+    load_api_key || die "No API key configured. Run: neobot config --key YOUR_API_KEY"
+    
+    local program_id
+    program_id=$(resolve_program_id "$program")
+    
+    local endpoint="/api/v1/programs/${program_id}/subdomains"
+    [[ -n "$search" ]] && endpoint="${endpoint}?search=$(urlencode "$search")"
+    
+    if [[ "$output_format" == "json" ]]; then
+        paginate "$endpoint" "subdomains" "json" "." "$PER_PAGE_SUBDOMAINS"
+    elif [[ "$output_format" == "count" ]]; then
+        paginate "$endpoint" "subdomains" "count" "." "$PER_PAGE_SUBDOMAINS"
+    else
+        paginate "$endpoint" "subdomains" "plain" '.[] | .subdomain' "$PER_PAGE_SUBDOMAINS"
+    fi
+}
+
+cmd_dns() {
+    local program=""
+    local output_format="plain"
+    local record_type=""
+    
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --json|-j)
+                output_format="json"
+                shift
+                ;;
+            --count|-c)
+                output_format="count"
+                shift
+                ;;
+            --type|-t)
+                record_type="$2"
+                shift 2
+                ;;
+            -*)
+                die "Unknown option: $1. Use 'neobot help' for usage."
+                ;;
+            *)
+                program="$1"
+                shift
+                ;;
+        esac
+    done
+    
+    if [[ -z "$program" ]]; then
+        die "Program name or ID required. Usage: neobot dns <program>"
+    fi
+    
+    load_api_key || die "No API key configured. Run: neobot config --key YOUR_API_KEY"
+    
+    local program_id
+    program_id=$(resolve_program_id "$program")
+    
+    local endpoint="/api/v1/programs/${program_id}/dns"
+    [[ -n "$record_type" ]] && endpoint="${endpoint}?record_type=${record_type}"
+    
+    if [[ "$output_format" == "json" ]]; then
+        paginate "$endpoint" "dns_records" "json" "." "$PER_PAGE_DNS"
+    elif [[ "$output_format" == "count" ]]; then
+        paginate "$endpoint" "dns_records" "count" "." "$PER_PAGE_DNS"
+    else
+        # Output: subdomain -> record_value (TYPE)
+        paginate "$endpoint" "dns_records" "plain" '.[] | "\(.subdomain)\t\(.record_type)\t\(.record_value)"' "$PER_PAGE_DNS"
+    fi
+}
+
+cmd_probes() {
+    local program=""
+    local output_format="plain"
+    local status_code=""
+    local live_only=false
+    
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --json|-j)
+                output_format="json"
+                shift
+                ;;
+            --count|-c)
+                output_format="count"
+                shift
+                ;;
+            --status|-s)
+                status_code="$2"
+                shift 2
+                ;;
+            --live|-l)
+                live_only=true
+                shift
+                ;;
+            -*)
+                die "Unknown option: $1. Use 'neobot help' for usage."
+                ;;
+            *)
+                program="$1"
+                shift
+                ;;
+        esac
+    done
+    
+    if [[ -z "$program" ]]; then
+        die "Program name or ID required. Usage: neobot probes <program>"
+    fi
+    
+    load_api_key || die "No API key configured. Run: neobot config --key YOUR_API_KEY"
+    
+    local program_id
+    program_id=$(resolve_program_id "$program")
+    
+    local endpoint="/api/v1/http-probes?asset_id=${program_id}"
+    [[ -n "$status_code" ]] && endpoint="${endpoint}&status_code=${status_code}"
+    [[ "$live_only" == true ]] && endpoint="${endpoint}&status_code=200"
+    
+    if [[ "$output_format" == "json" ]]; then
+        paginate_offset "$endpoint" "probes" "json"
+    elif [[ "$output_format" == "count" ]]; then
+        paginate_offset "$endpoint" "probes" "count"
+    else
+        paginate_offset "$endpoint" "probes" "plain" '.[] | .url'
+    fi
+}
+
+cmd_urls() {
+    local program=""
+    local output_format="plain"
+    local alive_only=false
+    local with_params=false
+    local status_code=""
+    local search=""
+    
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --json|-j)
+                output_format="json"
+                shift
+                ;;
+            --count|-c)
+                output_format="count"
+                shift
+                ;;
+            --alive|-a)
+                alive_only=true
+                shift
+                ;;
+            --params|-p)
+                with_params=true
+                shift
+                ;;
+            --status|-s)
+                status_code="$2"
+                shift 2
+                ;;
+            --search)
+                search="$2"
+                shift 2
+                ;;
+            -*)
+                die "Unknown option: $1. Use 'neobot help' for usage."
+                ;;
+            *)
+                program="$1"
+                shift
+                ;;
+        esac
+    done
+    
+    if [[ -z "$program" ]]; then
+        die "Program name or ID required. Usage: neobot urls <program>"
+    fi
+    
+    load_api_key || die "No API key configured. Run: neobot config --key YOUR_API_KEY"
+    
+    local program_id
+    program_id=$(resolve_program_id "$program")
+    
+    local endpoint="/api/v1/urls?asset_id=${program_id}"
+    [[ "$alive_only" == true ]] && endpoint="${endpoint}&is_alive=true"
+    [[ "$with_params" == true ]] && endpoint="${endpoint}&has_params=true"
+    [[ -n "$status_code" ]] && endpoint="${endpoint}&status_code=${status_code}"
+    [[ -n "$search" ]] && endpoint="${endpoint}&search=$(urlencode "$search")"
+    
+    if [[ "$output_format" == "json" ]]; then
+        paginate_offset "$endpoint" "urls" "json"
+    elif [[ "$output_format" == "count" ]]; then
+        paginate_offset "$endpoint" "urls" "count"
+    else
+        paginate_offset "$endpoint" "urls" "plain" '.[] | .url'
+    fi
+}
+
+cmd_stats() {
+    local program=""
+    
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            -*)
+                die "Unknown option: $1. Use 'neobot help' for usage."
+                ;;
+            *)
+                program="$1"
+                shift
+                ;;
+        esac
+    done
+    
+    if [[ -z "$program" ]]; then
+        die "Program name or ID required. Usage: neobot stats <program>"
+    fi
+    
+    load_api_key || die "No API key configured. Run: neobot config --key YOUR_API_KEY"
+    
+    local program_id
+    program_id=$(resolve_program_id "$program")
+    
+    # Get program info
+    info "Fetching program info..."
+    local program_info
+    program_info=$(api_request "/api/v1/programs/${program_id}")
+    
+    # Get URL stats
+    info "Fetching URL stats..."
+    local url_stats
+    url_stats=$(api_request "/api/v1/urls/stats?asset_id=${program_id}")
+    
+    # Display stats
+    echo ""
+    echo -e "${BOLD}Program:${NC} $(echo "$program_info" | jq -r '.name')"
+    echo -e "${BOLD}Description:${NC} $(echo "$program_info" | jq -r '.description // "N/A"')"
+    echo ""
+    echo -e "${BOLD}Reconnaissance Data:${NC}"
+    echo "  Domains:      $(echo "$program_info" | jq -r '.domain_count // 0')"
+    echo "  Subdomains:   $(echo "$program_info" | jq -r '.subdomain_count // 0')"
+    echo ""
+    echo -e "${BOLD}URL Statistics:${NC}"
+    echo "  Total URLs:   $(echo "$url_stats" | jq -r '.total_urls // 0')"
+    echo "  Alive:        $(echo "$url_stats" | jq -r '.alive_urls // 0')"
+    echo "  Dead:         $(echo "$url_stats" | jq -r '.dead_urls // 0')"
+    echo "  With Params:  $(echo "$url_stats" | jq -r '.urls_with_params // 0')"
+    echo ""
+    echo -e "${BOLD}Top Status Codes:${NC}"
+    echo "$url_stats" | jq -r '.top_status_codes[:5][] | "  \(.status_code): \(.count)"'
+    echo ""
+    echo -e "${BOLD}Top Technologies:${NC}"
+    echo "$url_stats" | jq -r '.top_technologies[:5][] | "  \(.name): \(.count)"'
+}
+
+# ============================================================================
+# Main Entry Point
+# ============================================================================
+
+main() {
+    check_dependencies
+    
+    if [[ $# -eq 0 ]]; then
+        cmd_help
+        exit 0
+    fi
+    
+    local command="$1"
+    shift
+    
+    case "$command" in
+        help|--help|-h)
+            cmd_help
+            ;;
+        version|--version|-v)
+            cmd_version
+            ;;
+        config)
+            cmd_config "$@"
+            ;;
+        programs|program|progs|p)
+            cmd_programs "$@"
+            ;;
+        subdomains|subdomain|subs|s)
+            cmd_subdomains "$@"
+            ;;
+        dns|d)
+            cmd_dns "$@"
+            ;;
+        probes|probe|servers)
+            cmd_probes "$@"
+            ;;
+        urls|url|u)
+            cmd_urls "$@"
+            ;;
+        stats|stat)
+            cmd_stats "$@"
+            ;;
+        *)
+            die "Unknown command: $command. Use 'neobot help' for usage."
+            ;;
+    esac
+}
+
+main "$@"
