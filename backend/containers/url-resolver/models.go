@@ -14,11 +14,12 @@ type URLRecord struct {
 	ScanJobID *string `json:"scan_job_id,omitempty"`
 
 	// Core URL data
-	URL         string                 `json:"url"`
-	URLHash     string                 `json:"url_hash"`
-	Domain      string                 `json:"domain"`
-	Path        *string                `json:"path,omitempty"`
-	QueryParams map[string]interface{} `json:"query_params"`
+	URL          string                 `json:"url"`
+	URLHash      string                 `json:"url_hash"`
+	Domain       string                 `json:"domain"`
+	ParentDomain *string                `json:"parent_domain,omitempty"` // Apex domain (auto-set by DB trigger if not provided)
+	Path         *string                `json:"path,omitempty"`
+	QueryParams  map[string]interface{} `json:"query_params"`
 
 	// Discovery tracking
 	Sources           []string  `json:"sources"`

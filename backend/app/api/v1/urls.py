@@ -111,10 +111,10 @@ async def get_urls(
         ])
         
         # Check if expensive ILIKE filters are used (these can't use indexes efficiently)
-        # parent_domain uses: domain.ilike.%.{parent_domain} (leading wildcard = full scan)
         # domain uses: domain.ilike.%{domain}% (leading wildcard = full scan)
         # search uses: multiple ilike patterns across fields
-        has_expensive_filters = any([parent_domain, domain, search])
+        # NOTE: parent_domain now uses indexed column, not ILIKE
+        has_expensive_filters = any([domain, search])
         
         # Build the select fields (sources excluded from API response)
         select_fields = (
@@ -147,12 +147,9 @@ async def get_urls(
             query = query.eq("scan_job_id", scan_job_id)
         
         if parent_domain:
-            # Match domains that end with the apex domain (e.g., parent_domain=atlassian.com 
-            # matches: atlassian.com, api.atlassian.com, jira.atlassian.com, etc.)
-            # Use ilike with pattern to match apex domain and all subdomains
-            query = query.or_(
-                f"domain.eq.{parent_domain},domain.ilike.%.{parent_domain}"
-            )
+            # Use the indexed parent_domain column for fast exact match
+            # This replaces the slow ILIKE pattern that caused timeouts
+            query = query.eq("parent_domain", parent_domain)
         
         if is_alive is not None:
             query = query.eq("is_alive", is_alive)
