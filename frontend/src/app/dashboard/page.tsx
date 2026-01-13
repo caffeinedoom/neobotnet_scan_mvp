@@ -174,7 +174,7 @@ export default function DashboardPage() {
           {/* YouForm Embed - Direct iframe for reliable SPA navigation */}
           <div className="rounded-lg border border-border/50 bg-card/30 overflow-hidden">
             <YouFormEmbed 
-              formId="w99tz8px" 
+              formId="xbq6qpyg" 
               height={600}
               title="Request a Program Form"
             />
