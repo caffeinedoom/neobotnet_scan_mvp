@@ -45,8 +45,16 @@ async def get_current_user(
     """
     
     # Priority 1: Check for API key in X-API-Key header
-    if x_api_key and x_api_key.startswith("nb_live_"):
-        return await _authenticate_with_api_key(x_api_key)
+    if x_api_key:
+        if x_api_key.startswith("nb_live_"):
+            return await _authenticate_with_api_key(x_api_key)
+        else:
+            # API key provided but wrong format
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid API key format. Keys must start with 'nb_live_'.",
+                headers={"WWW-Authenticate": "ApiKey"},
+            )
     
     # Priority 2: Check for API key in Authorization header (Bearer nb_live_...)
     if credentials and credentials.credentials.startswith("nb_live_"):

@@ -10,6 +10,8 @@ Phase: HTTPx Frontend Implementation - Phase 1
 """
 
 from typing import List, Optional, Dict, Any
+from uuid import UUID
+import logging
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from ...schemas.http_probes import HTTPProbeResponse, HTTPProbeStatsResponse
 from ...schemas.auth import UserResponse
@@ -105,9 +107,10 @@ async def get_http_probes(
         }
         
     except Exception as e:
+        logging.error(f"Failed to fetch HTTP probes: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to fetch HTTP probes: {str(e)}"
+            detail="Failed to fetch HTTP probes. Please try again later."
         )
 
 
@@ -280,7 +283,7 @@ async def get_http_probe_stats(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to calculate HTTP probe statistics: {str(e)}"
+            detail="Failed to calculate HTTP probe statistics. Please try again later."
         )
 
 
@@ -292,18 +295,27 @@ async def get_http_probe_by_id(
 ):
     """
     Get a specific HTTP probe by ID.
-    
+
     Returns detailed information for a single HTTP probe record.
-    
+
     Args:
         probe_id: UUID of the HTTP probe
-        
+
     Returns:
         HTTPProbeResponse: Full probe details
-        
+
     Raises:
         404: If probe not found
     """
+    # Validate UUID format
+    try:
+        UUID(probe_id)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid probe ID format. Must be a valid UUID."
+        )
+    
     try:
         # Use service_client to bypass RLS - LEAN architecture allows all authenticated users
         supabase = supabase_client.service_client
@@ -325,7 +337,8 @@ async def get_http_probe_by_id(
     except HTTPException:
         raise
     except Exception as e:
+        logging.error(f"Failed to fetch HTTP probe: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to fetch HTTP probe: {str(e)}"
+            detail="Failed to fetch HTTP probe. Please try again later."
         )

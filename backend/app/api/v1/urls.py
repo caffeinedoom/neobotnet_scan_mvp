@@ -10,6 +10,7 @@ Date: December 2025
 """
 
 from typing import List, Optional, Any, Dict
+from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query, status, Response
 from ...schemas.urls import URLResponse, URLStatsResponse, PaginatedURLResponse
 from ...schemas.auth import UserResponse
@@ -263,9 +264,12 @@ async def get_urls(
         }
         
     except Exception as e:
+        # Log the full error but don't expose internal details to the client
+        import logging
+        logging.error(f"Failed to fetch URLs: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to fetch URLs: {str(e)}"
+            detail="Failed to fetch URLs. Please try again later."
         )
 
 
@@ -479,9 +483,12 @@ async def get_url_stats(
         )
         
     except Exception as e:
+        # Log the full error but don't expose internal details to the client
+        import logging
+        logging.error(f"Failed to calculate URL statistics: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to calculate URL statistics: {str(e)}"
+            detail="Failed to calculate URL statistics. Please try again later."
         )
 
 
@@ -507,6 +514,15 @@ async def get_url_by_id(
     Raises:
         404: If URL not found
     """
+    # Validate UUID format
+    try:
+        UUID(url_id)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid URL ID format. Must be a valid UUID."
+        )
+    
     try:
         # Get user ID
         user_id = current_user.id if hasattr(current_user, 'id') else current_user.get("id") or current_user.get("sub")
@@ -559,8 +575,11 @@ async def get_url_by_id(
     except HTTPException:
         raise
     except Exception as e:
+        # Log the full error but don't expose internal details to the client
+        import logging
+        logging.error(f"Failed to fetch URL {url_id}: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to fetch URL: {str(e)}"
+            detail="Failed to fetch URL. Please try again later."
         )
 
